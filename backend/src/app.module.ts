@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-store';
 import { BullModule } from '@nestjs/bull';
+import { AuthModule } from './auth/auth.module';  // ← SHTONI KËTË!
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { BullModule } from '@nestjs/bull';
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_NAME'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: configService.get('NODE_ENV') === 'development',
+        synchronize: false,
         logging: configService.get('NODE_ENV') === 'development',
       }),
       inject: [ConfigService],
@@ -47,6 +48,7 @@ import { BullModule } from '@nestjs/bull';
       }),
       inject: [ConfigService],
     }),
+    AuthModule,  // ← SHTONI KËTË!
   ],
 })
 export class AppModule {}
