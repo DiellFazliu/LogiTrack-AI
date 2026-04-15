@@ -1,0 +1,20 @@
+{
+  "dependencies": {
+    "@nestjs/bull": "^11.0.4",
+    "@nestjs/cache-manager": "^3.1.0",
+    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/passport": "^11.0.5",
+    "@nestjs/typeorm": "^11.0.1",
+    "axios": "^1.15.0",
+    "bcrypt": "^6.0.0",
+    "bull": "^4.16.5",
+    "cache-manager": "^7.2.8",
+    "ioredis": "^5.10.1",
+    "openai": "^6.34.0",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "pdfkit": "^0.18.0",
+    "pg": "^8.20.0",
+    "typeorm": "^0.3.28"
+  }
+}
