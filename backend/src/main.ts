@@ -10,10 +10,12 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
-  app.enableCors({
-    origin: configService.get('CLIENT_URL'),
-    credentials: true,
-  });
+ app.enableCors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+});
 
   const config = new DocumentBuilder()
     .setTitle('LogiTrack AI API')
