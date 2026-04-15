@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
 export const RegisterPage: React.FC = () => {
@@ -9,7 +8,6 @@ export const RegisterPage: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,7 +28,7 @@ export const RegisterPage: React.FC = () => {
     try {
       const response = await fetch('http://localhost:5000/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, name, role: 'customer' })
       });
 
@@ -43,6 +41,7 @@ export const RegisterPage: React.FC = () => {
         toast.error(data.message || 'Registration failed');
       }
     } catch (error: any) {
+      console.error('Registration error:', error);
       toast.error('Registration failed: ' + error.message);
     } finally {
       setLoading(false);
