@@ -28,7 +28,8 @@ const DashboardPage = () => {
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-2xl font-bold mb-4">Dashboard</h2>
           <p className="text-gray-600">Welcome to LogiTrack AI Dashboard!</p>
-          <p className="text-gray-600 mt-2">Your role: {user?.role}</p>
+          <p className="text-gray-600 mt-2">Role: {user?.role}</p>
+          <p className="text-gray-600 mt-2">Email: {user?.email}</p>
         </div>
       </div>
     </div>

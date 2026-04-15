@@ -1,24 +1,25 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
 export const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin@logitrack.com');
+  const [password, setPassword] = useState('admin123');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
     try {
-      await login(email, password);
+      const user = await login(email, password);
+      console.log('Login successful:', user);
       toast.success('Login successful!');
-      navigate('/dashboard');
+      // Ridrejtim i thjeshtë
+      window.location.href = 'http://localhost:5173/dashboard';
     } catch (error: any) {
+      console.error('Login error:', error);
       toast.error(error.response?.data?.message || 'Login failed');
     } finally {
       setLoading(false);
@@ -62,6 +63,10 @@ export const LoginPage: React.FC = () => {
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
+        
+        <p className="text-center text-gray-500 text-sm mt-4">
+          Demo: admin@logitrack.com / admin123
+        </p>
       </div>
     </div>
   );
