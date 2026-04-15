@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { CacheModule } from '@nestjs/cache-manager';
-import { redisStore } from 'cache-manager-redis-store';
 import { BullModule } from '@nestjs/bull';
-import { AuthModule } from './auth/auth.module';  // ← SHTONI KËTË!
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { OrganizationsModule } from './modules/organizations/organizations.module';
 
 @Module({
   imports: [
@@ -27,17 +27,6 @@ import { AuthModule } from './auth/auth.module';  // ← SHTONI KËTË!
       }),
       inject: [ConfigService],
     }),
-    CacheModule.registerAsync({
-      isGlobal: true,
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        store: redisStore,
-        host: configService.get('REDIS_HOST'),
-        port: configService.get('REDIS_PORT'),
-        ttl: 60,
-      }),
-      inject: [ConfigService],
-    }),
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -48,7 +37,9 @@ import { AuthModule } from './auth/auth.module';  // ← SHTONI KËTË!
       }),
       inject: [ConfigService],
     }),
-    AuthModule,  // ← SHTONI KËTË!
+    AuthModule,
+    UsersModule,
+    OrganizationsModule,
   ],
 })
 export class AppModule {}
