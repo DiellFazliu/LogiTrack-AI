@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
+import Logo from './components/Logo';
 import './index.css';
 
 const DashboardPage = () => {
@@ -13,7 +14,7 @@ const DashboardPage = () => {
     <div className="min-h-screen bg-gray-100">
       <div className="bg-white shadow">
         <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-blue-600">LogiTrack AI</h1>
+          <Logo className="w-36 h-auto" variant="full" />
           <div className="flex items-center gap-4">
             <span className="text-gray-600">Welcome, {user?.name}</span>
             <button 
