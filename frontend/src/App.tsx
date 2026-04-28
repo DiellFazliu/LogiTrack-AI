@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
+import Logo from './components/Logo';
 import './index.css';
 
 const DashboardPage = () => {
@@ -12,16 +13,18 @@ const DashboardPage = () => {
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="bg-white shadow">
-        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-blue-600">LogiTrack AI</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-600">Welcome, {user?.name}</span>
-            <button 
-              onClick={logout}
-              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-            >
-              Logout
-            </button>
+        <div className="container mx-auto px-4 py-2">
+          <div className="flex items-center justify-between">
+            <Logo className="w-30 h-auto" variant="full" />
+            <div className="flex items-center gap-4">
+              <span className="text-gray-600 whitespace-nowrap">Welcome, {user?.name}</span>
+              <button 
+                onClick={logout}
+                className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 whitespace-nowrap"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -36,7 +39,6 @@ const DashboardPage = () => {
     </div>
   );
 };
-
 function AppRoutes() {
   return (
     <Routes>
