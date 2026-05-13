@@ -18,47 +18,47 @@ export enum SubscriptionStatus {
 @Entity('organizations')
 export class Organization {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column()
-  name: string;
+  name!: string;
 
   @Column()
-  email: string;
+  email!: string;
 
   @Column({ nullable: true })
-  phone: string;
+  phone!: string;
 
   @Column({ type: 'text', nullable: true })
-  address: string;
+  address!: string;
 
   @Column({ type: 'enum', enum: PlanType, default: PlanType.FREE, name: 'plan_type' })
-  planType: PlanType;
+  planType!: PlanType;
 
   @Column({ type: 'enum', enum: SubscriptionStatus, default: SubscriptionStatus.TRIAL, name: 'subscription_status' })
-  subscriptionStatus: SubscriptionStatus;
+  subscriptionStatus!: SubscriptionStatus;
 
   @Column({ name: 'subscription_ends_at', nullable: true })
-  subscriptionEndsAt: Date;
+  subscriptionEndsAt!: Date;
 
   @Column({ name: 'max_users', default: 5 })
-  maxUsers: number;
+  maxUsers!: number;
 
   @Column({ name: 'max_shipments_per_month', default: 100 })
-  maxShipmentsPerMonth: number;
+  maxShipmentsPerMonth!: number;
 
   @Column({ name: 'logo_url', nullable: true })
-  logoUrl: string;
+  logoUrl!: string;
 
   @Column({ name: 'is_active', default: true })
-  isActive: boolean;
+  isActive!: boolean;
 
   @OneToMany(() => User, (user) => user.organization)
-  users: User[];
+  users!: User[];
 
   @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+  updatedAt!: Date;
 }

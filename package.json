@@ -2,6 +2,7 @@
   "dependencies": {
     "@nestjs/bull": "^11.0.4",
     "@nestjs/cache-manager": "^3.1.0",
+    "@nestjs/common": "^11.1.20",
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/typeorm": "^11.0.1",
