@@ -12,7 +12,9 @@ export class AuthMiddleware implements NestMiddleware {
   ) {}
 
   use(req: Request, _res: Response, next: NextFunction) {
-    console.log('AuthMiddleware - URL:', req.url);
+    
+    const url = req.originalUrl;
+    console.log('AuthMiddleware - URL:', url);
 
     // Lista e rrugëve publike që nuk kërkojnë autentikim
     const publicPaths = [
