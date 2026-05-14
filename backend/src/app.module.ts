@@ -13,12 +13,22 @@ import { LoggerMiddleware } from './common/middleware/logger.middleware';
 
 import { ShipmentsModule } from './modules/shipments/shipments.module';
 
+import { JwtModule } from '@nestjs/jwt';
+import { AuthMiddleware } from './common/middleware/auth.middleware';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+    }),
+    JwtModule.registerAsync({  // Shto këtë module
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get('JWT_SECRET'),
+        signOptions: { expiresIn: configService.get('JWT_EXPIRES_IN') },
+      }),
+      inject: [ConfigService],
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -65,7 +75,7 @@ import { ShipmentsModule } from './modules/shipments/shipments.module';
 export class AppModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
-      .apply(LoggerMiddleware)
+      .apply(LoggerMiddleware, AuthMiddleware)
       .forRoutes('*');
   }
 }
