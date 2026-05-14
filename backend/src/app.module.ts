@@ -74,8 +74,19 @@ import { AuthMiddleware } from './common/middleware/auth.middleware';
 })
 export class AppModule {
   configure(consumer: MiddlewareConsumer) {
+    // LoggerMiddleware për të gjitha rrugët
+    consumer.apply(LoggerMiddleware).forRoutes('*');
+    
+    // AuthMiddleware - zbatohet për të gjitha rrugët PËRVEÇ atyre publike
     consumer
-      .apply(LoggerMiddleware, AuthMiddleware)
+      .apply(AuthMiddleware)
+      .exclude(
+        { path: 'auth/register', method: RequestMethod.POST },
+        { path: 'auth/login', method: RequestMethod.POST },
+        { path: 'api-docs', method: RequestMethod.GET },
+        { path: 'api-docs-json', method: RequestMethod.GET },
+        { path: 'shipments/track/:trackingNumber', method: RequestMethod.GET },
+      )
       .forRoutes('*');
   }
 }
