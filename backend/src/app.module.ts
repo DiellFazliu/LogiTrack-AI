@@ -11,6 +11,9 @@ import { OrganizationsModule } from './modules/organizations/organizations.modul
 import { Module, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 
+import { ShipmentsModule } from './modules/shipments/shipments.module';
+
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -56,6 +59,7 @@ import { LoggerMiddleware } from './common/middleware/logger.middleware';
     AuthModule,
     UsersModule,
     OrganizationsModule,
+    ShipmentsModule
   ],
 })
 export class AppModule {
