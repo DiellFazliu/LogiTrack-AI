@@ -26,7 +26,7 @@ export class AuthMiddleware implements NestMiddleware {
     ];
 
     // Kontrollo nëse rruga aktuale është publike
-    const isPublic = publicPaths.some(path => req.url.startsWith(path));
+    const isPublic = publicPaths.some(path => req.url.includes(path));
     
        // Debug: shiko a është publike
     console.log('Is public?', isPublic);
