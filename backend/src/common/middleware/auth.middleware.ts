@@ -11,7 +11,9 @@ export class AuthMiddleware implements NestMiddleware {
     private configService: ConfigService,
   ) {}
 
-  use(req: Request, res: Response, next: NextFunction) {
+  use(req: Request, _res: Response, next: NextFunction) {
+    console.log('AuthMiddleware - URL:', req.url);
+
     // Lista e rrugëve publike që nuk kërkojnë autentikim
     const publicPaths = [
       '/auth/register',
@@ -24,7 +26,11 @@ export class AuthMiddleware implements NestMiddleware {
     // Kontrollo nëse rruga aktuale është publike
     const isPublic = publicPaths.some(path => req.url.startsWith(path));
     
+       // Debug: shiko a është publike
+    console.log('Is public?', isPublic);
+
     if (isPublic) {
+      console.log('Skipping auth for:', req.url);
       return next();
     }
 
