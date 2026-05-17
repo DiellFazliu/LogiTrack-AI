@@ -1,11 +1,13 @@
 import { Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { OrganizationsService } from './organizations.service';
 import { Organization, PlanType } from './organization.entity';
+import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/roles.enum';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+
 
 @ApiTags('Organizations')
 @ApiBearerAuth()
@@ -17,7 +19,10 @@ export class OrganizationsController {
   @Post()
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create a new organization' })
-  create(@Body() createDto: Partial<Organization>) {
+  @ApiResponse({ status: 201, description: 'Organization created successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiBody({ type: CreateOrganizationDto })
+  create(@Body() createDto: CreateOrganizationDto) {
     return this.orgService.create(createDto);
   }
 
