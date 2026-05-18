@@ -1,18 +1,13 @@
 import { MigrationInterface, QueryRunner, Table, TableForeignKey } from 'typeorm';
 
-export class InitialMigration1776208570916 implements MigrationInterface {
+export class InitialMigration1779110224457 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // 1. Krijo ENUM types
     await queryRunner.query(`
       CREATE TYPE "public"."organizations_plan_type_enum" AS ENUM('free', 'basic', 'pro', 'enterprise')
     `);
     
     await queryRunner.query(`
       CREATE TYPE "public"."organizations_subscription_status_enum" AS ENUM('active', 'inactive', 'trial', 'expired')
-    `);
-    
-    await queryRunner.query(`
-      CREATE TYPE "public"."users_role_enum" AS ENUM('super_admin', 'company_admin', 'dispatcher', 'driver', 'customer')
     `);
 
     // 2. Krijo tabelën organizations
@@ -36,7 +31,7 @@ export class InitialMigration1776208570916 implements MigrationInterface {
       ],
     }), true);
 
-    // 3. Krijo tabelën users
+    // 3. Krijo tabelën users (PA kolonën role)
     await queryRunner.createTable(new Table({
       name: 'users',
       columns: [
@@ -44,7 +39,6 @@ export class InitialMigration1776208570916 implements MigrationInterface {
         { name: 'email', type: 'varchar', isNullable: false, isUnique: true },
         { name: 'password', type: 'varchar', isNullable: false },
         { name: 'name', type: 'varchar', isNullable: false },
-        { name: 'role', type: 'enum', enum: ['super_admin', 'company_admin', 'dispatcher', 'driver', 'customer'], default: "'customer'" },
         { name: 'organization_id', type: 'uuid', isNullable: true },
         { name: 'is_active', type: 'boolean', default: true },
         { name: 'phone', type: 'varchar', isNullable: true },
@@ -64,11 +58,9 @@ export class InitialMigration1776208570916 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Anulo ndryshimet (rollback)
     await queryRunner.dropForeignKey('users', 'FK_organization_id');
     await queryRunner.dropTable('users');
     await queryRunner.dropTable('organizations');
-    await queryRunner.query(`DROP TYPE "public"."users_role_enum"`);
     await queryRunner.query(`DROP TYPE "public"."organizations_subscription_status_enum"`);
     await queryRunner.query(`DROP TYPE "public"."organizations_plan_type_enum"`);
   }
