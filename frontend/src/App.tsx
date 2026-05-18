@@ -9,7 +9,7 @@ import './index.css';
 
 const DashboardPage = () => {
   const { user, logout } = useAuth();
-  
+  ///////////////////////
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="bg-white shadow">
