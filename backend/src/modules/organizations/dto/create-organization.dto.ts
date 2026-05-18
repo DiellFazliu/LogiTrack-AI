@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsEmail, IsOptional } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsEnum, IsUUID } from 'class-validator';
+
+export enum PlanType {
+  FREE = 'free',
+  BASIC = 'basic',
+  PRO = 'pro',
+  ENTERPRISE = 'enterprise',
+}
 
 export class CreateOrganizationDto {
   @ApiProperty({ example: 'Kompania Alfa', description: 'Name of the organization' })
@@ -19,4 +26,29 @@ export class CreateOrganizationDto {
   @IsOptional()
   @IsString()
   address?: string;
+
+  @ApiProperty({ required: false, enum: PlanType, default: PlanType.FREE, description: 'Subscription plan' })
+  @IsOptional()
+  @IsEnum(PlanType)
+  planType?: PlanType;
+
+  @ApiProperty({ required: false, description: 'Parent organization ID (for hierarchical organizations)' })
+  @IsOptional()
+  @IsUUID()
+  parentOrganizationId?: string;
+
+  @ApiProperty({ required: false, description: 'Organization logo URL' })
+  @IsOptional()
+  @IsString()
+  logoUrl?: string;
+
+  @ApiProperty({ required: false, description: 'Tax/VAT number' })
+  @IsOptional()
+  @IsString()
+  taxNumber?: string;
+
+  @ApiProperty({ required: false, description: 'Website URL' })
+  @IsOptional()
+  @IsString()
+  website?: string;
 }

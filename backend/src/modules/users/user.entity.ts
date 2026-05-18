@@ -1,13 +1,6 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, ManyToMany, JoinTable } from 'typeorm';
 import { Organization } from '../organizations/organization.entity';
-
-export enum UserRole {
-  SUPER_ADMIN = 'super_admin',
-  COMPANY_ADMIN = 'company_admin',
-  DISPATCHER = 'dispatcher',
-  DRIVER = 'driver',
-  CUSTOMER = 'customer',
-}
+import { Role } from '../roles/role.entity';
 
 @Entity('users')
 export class User {
@@ -23,24 +16,29 @@ export class User {
   @Column()
   name!: string;
 
-  @Column({ type: 'enum', enum: UserRole, default: UserRole.CUSTOMER })
-  role!: UserRole;
-
   @Column({ name: 'organization_id', nullable: true })
-  organizationId!: string;
+  organizationId?: string;
 
   @ManyToOne(() => Organization, (org) => org.users)
   @JoinColumn({ name: 'organization_id' })
-  organization!: Organization;
+  organization?: Organization;
+
+  @ManyToMany(() => Role)
+  @JoinTable({
+    name: 'user_roles',
+    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
+  })
+  roles!: Role[];
 
   @Column({ name: 'is_active', default: true })
   isActive!: boolean;
 
   @Column({ nullable: true })
-  phone!: string;
+  phone?: string;
 
   @Column({ name: 'last_login', nullable: true })
-  lastLogin!: Date;
+  lastLogin?: Date;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

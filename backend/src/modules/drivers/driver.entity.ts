@@ -17,17 +17,17 @@ export class Driver {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ name: 'user_id', nullable: true })
-  userId!: string;
+  @Column({ name: 'user_id', nullable: true, type: 'uuid' })
+  userId?: string;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'user_id' })
-  user!: User;
+  user?: User;
 
-  @Column({ name: 'organization_id' })
+  @Column({ name: 'organization_id', type: 'uuid' })
   organizationId!: string;
 
-  @ManyToOne(() => Organization)
+  @ManyToOne(() => Organization, (organization) => organization.drivers)
   @JoinColumn({ name: 'organization_id' })
   organization!: Organization;
 
@@ -38,7 +38,7 @@ export class Driver {
   phone!: string;
 
   @Column({ type: 'text', nullable: true })
-  address!: string;
+  address?: string;
 
   @Column({ type: 'enum', enum: DriverStatus, default: DriverStatus.AVAILABLE })
   status!: DriverStatus;
@@ -53,10 +53,10 @@ export class Driver {
   hireDate!: Date;
 
   @Column({ name: 'emergency_contact', nullable: true })
-  emergencyContact!: string;
+  emergencyContact?: string;
 
   @Column({ name: 'emergency_phone', nullable: true })
-  emergencyPhone!: string;
+  emergencyPhone?: string;
 
   @Column({ name: 'is_active', default: true })
   isActive!: boolean;
