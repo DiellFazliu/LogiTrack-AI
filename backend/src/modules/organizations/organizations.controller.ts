@@ -3,10 +3,10 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiBody, ApiResponse } from '@nes
 import { OrganizationsService } from './organizations.service';
 import { Organization, PlanType } from './organization.entity';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/roles.enum';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 
 
 @ApiTags('Organizations')

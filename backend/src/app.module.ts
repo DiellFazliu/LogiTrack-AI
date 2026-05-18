@@ -5,13 +5,16 @@ import { BullModule } from '@nestjs/bull';
 import * as redisStore from 'cache-manager-ioredis';
 import { Module, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { APP_GUARD } from '@nestjs/core';
 
-import { AuthModule } from './auth/auth.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { ShipmentsModule } from './modules/shipments/shipments.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { AuthMiddleware } from './common/middleware/auth.middleware';
+import { RolesGuard } from './modules/auth/guards/roles.guard';
+import { RolesModule } from './modules/roles/roles.module';
 
 @Module({
   imports: [
@@ -67,6 +70,13 @@ import { AuthMiddleware } from './common/middleware/auth.middleware';
     UsersModule,
     OrganizationsModule,
     ShipmentsModule,
+    RolesModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
   ],
 })
 export class AppModule {
@@ -80,8 +90,11 @@ export class AppModule {
       .exclude(
         { path: 'auth/register', method: RequestMethod.POST },
         { path: 'auth/login', method: RequestMethod.POST },
+        { path: 'auth/refresh', method: RequestMethod.POST },
+        { path: 'auth/forgot-password', method: RequestMethod.POST },
         { path: 'api-docs', method: RequestMethod.GET },
         { path: 'api-docs-json', method: RequestMethod.GET },
+        { path: 'health', method: RequestMethod.GET },
         { path: 'shipments/track/:trackingNumber', method: RequestMethod.GET },
       )
       .forRoutes('*');

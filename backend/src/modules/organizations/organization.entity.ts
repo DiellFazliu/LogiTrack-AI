@@ -1,5 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { User } from '../users/user.entity';
+import { Driver } from '../drivers/driver.entity';
 
 export enum PlanType {
   FREE = 'free',
@@ -27,10 +28,10 @@ export class Organization {
   email!: string;
 
   @Column({ nullable: true })
-  phone!: string;
+  phone?: string;
 
   @Column({ type: 'text', nullable: true })
-  address!: string;
+  address?: string;
 
   @Column({ type: 'enum', enum: PlanType, default: PlanType.FREE, name: 'plan_type' })
   planType!: PlanType;
@@ -39,7 +40,7 @@ export class Organization {
   subscriptionStatus!: SubscriptionStatus;
 
   @Column({ name: 'subscription_ends_at', nullable: true })
-  subscriptionEndsAt!: Date;
+  subscriptionEndsAt?: Date;
 
   @Column({ name: 'max_users', default: 5 })
   maxUsers!: number;
@@ -48,13 +49,17 @@ export class Organization {
   maxShipmentsPerMonth!: number;
 
   @Column({ name: 'logo_url', nullable: true })
-  logoUrl!: string;
+  logoUrl?: string;
 
   @Column({ name: 'is_active', default: true })
   isActive!: boolean;
 
   @OneToMany(() => User, (user) => user.organization)
   users!: User[];
+
+  
+  @OneToMany(() => Driver, (driver) => driver.organization)
+  drivers!: Driver[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
