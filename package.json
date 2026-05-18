@@ -1,5 +1,6 @@
 {
   "dependencies": {
+<<<<<<< HEAD
     "@nestjs/bull": "^11.0.4",
     "@nestjs/cache-manager": "^3.1.0",
     "@nestjs/common": "^11.1.20",
@@ -15,6 +16,11 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pdfkit": "^0.18.0",
+=======
+    "axios": "^1.15.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+>>>>>>> backend/setup
     "pg": "^8.20.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

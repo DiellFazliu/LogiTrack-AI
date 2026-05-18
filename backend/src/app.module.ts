@@ -1,19 +1,16 @@
-
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
 import { BullModule } from '@nestjs/bull';
 import * as redisStore from 'cache-manager-ioredis';
+import { Module, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
-
-import { Module, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
-import { LoggerMiddleware } from './common/middleware/logger.middleware';
-
 import { ShipmentsModule } from './modules/shipments/shipments.module';
-
-import { JwtModule } from '@nestjs/jwt';
+import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { AuthMiddleware } from './common/middleware/auth.middleware';
 
 @Module({
@@ -22,7 +19,7 @@ import { AuthMiddleware } from './common/middleware/auth.middleware';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    JwtModule.registerAsync({  // Shto këtë module
+    JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         secret: configService.get('JWT_SECRET'),
@@ -69,7 +66,7 @@ import { AuthMiddleware } from './common/middleware/auth.middleware';
     AuthModule,
     UsersModule,
     OrganizationsModule,
-    ShipmentsModule
+    ShipmentsModule,
   ],
 })
 export class AppModule {
