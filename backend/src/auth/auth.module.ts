@@ -5,11 +5,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { User } from '../users/user.entity';
-import { Organization } from '../organizations/organization.entity';
+import { User } from '../modules/users/user.entity';
+import { Organization } from '../modules/organizations/organization.entity';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { RolesModule } from '../../modules/roles/roles.module';
+import { RolesModule } from '../modules/roles/roles.module';
 
 @Module({
   imports: [

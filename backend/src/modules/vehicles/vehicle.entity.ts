@@ -2,14 +2,6 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateCol
 import { Organization } from '../organizations/organization.entity';
 import { Shipment } from '../shipments/shipment.entity';
 
-export enum VehicleStatus {
-  AVAILABLE = 'available',
-  IN_USE = 'in_use',
-  MAINTENANCE = 'maintenance',
-  REPAIR = 'repair',
-  OUT_OF_SERVICE = 'out_of_service'
-}
-
 export enum VehicleType {
   TRUCK = 'truck',
   VAN = 'van',
@@ -18,15 +10,23 @@ export enum VehicleType {
   TRAILER = 'trailer'
 }
 
+export enum VehicleStatus {
+  AVAILABLE = 'available',
+  IN_USE = 'in_use',
+  MAINTENANCE = 'maintenance',
+  REPAIR = 'repair',
+  OUT_OF_SERVICE = 'out_of_service'
+}
+
 @Entity('vehicles')
 export class Vehicle {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ name: 'organization_id' })
+  @Column({ name: 'organization_id', type: 'uuid' })
   organizationId!: string;
 
-  @ManyToOne(() => Organization)
+  @ManyToOne(() => Organization, (organization) => organization.vehicles)
   @JoinColumn({ name: 'organization_id' })
   organization!: Organization;
 
@@ -46,7 +46,7 @@ export class Vehicle {
   year!: number;
 
   @Column({ nullable: true })
-  color!: string;
+  color?: string;
 
   @Column({ name: 'capacity_kg', default: 1000 })
   capacityKg!: number;
@@ -58,25 +58,25 @@ export class Vehicle {
   fuelType!: string;
 
   @Column({ name: 'fuel_consumption', type: 'decimal', precision: 5, scale: 2, nullable: true })
-  fuelConsumption!: number;
+  fuelConsumption?: number;
 
   @Column({ type: 'enum', enum: VehicleStatus, default: VehicleStatus.AVAILABLE })
   status!: VehicleStatus;
 
   @Column({ name: 'last_maintenance', type: 'date', nullable: true })
-  lastMaintenance!: Date;
+  lastMaintenance?: Date;
 
   @Column({ name: 'next_maintenance', type: 'date', nullable: true })
-  nextMaintenance!: Date;
+  nextMaintenance?: Date;
 
   @Column({ name: 'mileage_km', default: 0 })
   mileageKm!: number;
 
   @Column({ name: 'insurance_expiry', type: 'date', nullable: true })
-  insuranceExpiry!: Date;
+  insuranceExpiry?: Date;
 
   @Column({ name: 'registration_expiry', type: 'date', nullable: true })
-  registrationExpiry!: Date;
+  registrationExpiry?: Date;
 
   @Column({ name: 'is_active', default: true })
   isActive!: boolean;

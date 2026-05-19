@@ -5,9 +5,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config'; 
 import * as bcrypt from 'bcrypt';
-import { User } from '../users/user.entity';
-import { Organization, PlanType, SubscriptionStatus } from '../../modules/organizations/organization.entity';
-import { Role } from '../roles/role.entity';  
+import { User } from '../modules/users/user.entity';
+import { Organization, PlanType, SubscriptionStatus } from '../modules/organizations/organization.entity';
+import { Role } from '../modules/roles/role.entity';  
 import { RegisterDto } from './dto/register.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';  // <-- Shto këtë

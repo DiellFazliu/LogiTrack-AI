@@ -28,39 +28,51 @@ export class Shipment {
   @Column({ name: 'tracking_number', unique: true })
   trackingNumber!: string;
 
-  @Column({ name: 'organization_id' })
+  @Column({ name: 'organization_id', type: 'uuid' })
   organizationId!: string;
 
   @ManyToOne(() => Organization)
   @JoinColumn({ name: 'organization_id' })
   organization!: Organization;
 
-  @Column({ name: 'customer_id' })
+  @Column({ name: 'customer_id', type: 'uuid' })
   customerId!: string;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'customer_id' })
   customer!: User;
 
-  @Column({ name: 'driver_id', nullable: true })
-  driverId!: string;
+  @Column({ name: 'driver_id', nullable: true, type: 'uuid' })
+  driverId?: string;
 
   @ManyToOne(() => Driver)
   @JoinColumn({ name: 'driver_id' })
-  driver!: Driver;
+  driver?: Driver;
 
-  @Column({ name: 'vehicle_id', nullable: true })
-  vehicleId!: string;
+  @Column({ name: 'vehicle_id', nullable: true, type: 'uuid' })
+  vehicleId?: string;
 
   @ManyToOne(() => Vehicle)
   @JoinColumn({ name: 'vehicle_id' })
-  vehicle!: Vehicle;
+  vehicle?: Vehicle;
 
   @Column({ name: 'pickup_address', type: 'text' })
   pickupAddress!: string;
 
+  @Column({ name: 'pickup_latitude', type: 'decimal', precision: 10, scale: 8, nullable: true })
+  pickupLatitude?: number;
+
+  @Column({ name: 'pickup_longitude', type: 'decimal', precision: 11, scale: 8, nullable: true })
+  pickupLongitude?: number;
+
   @Column({ name: 'delivery_address', type: 'text' })
   deliveryAddress!: string;
+
+  @Column({ name: 'delivery_latitude', type: 'decimal', precision: 10, scale: 8, nullable: true })
+  deliveryLatitude?: number;
+
+  @Column({ name: 'delivery_longitude', type: 'decimal', precision: 11, scale: 8, nullable: true })
+  deliveryLongitude?: number;
 
   @Column({ type: 'enum', enum: ShipmentStatus, default: ShipmentStatus.PENDING })
   status!: ShipmentStatus;
@@ -69,27 +81,39 @@ export class Shipment {
   priority!: ShipmentPriority;
 
   @Column({ name: 'weight_kg', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  weightKg!: number;
+  weightKg?: number;
 
   @Column({ name: 'volume_m3', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  volumeM3!: number;
+  volumeM3?: number;
+
+  @Column({ name: 'estimated_distance_km', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  estimatedDistanceKm?: number;
+
+  @Column({ name: 'estimated_duration_min', nullable: true })
+  estimatedDurationMin?: number;
 
   @Column({ name: 'estimated_delivery', type: 'timestamp', nullable: true })
-  estimatedDelivery!: Date;
+  estimatedDelivery?: Date;
 
   @Column({ name: 'actual_delivery', type: 'timestamp', nullable: true })
-  actualDelivery!: Date;
+  actualDelivery?: Date;
 
   @Column({ name: 'picked_up_at', type: 'timestamp', nullable: true })
-  pickedUpAt!: Date;
+  pickedUpAt?: Date;
+
+  @Column({ name: 'delivery_photo', nullable: true })
+  deliveryPhoto?: string;
+
+  @Column({ name: 'delivery_signature', type: 'text', nullable: true })
+  deliverySignature?: string;
 
   @Column({ type: 'text', nullable: true })
-  notes!: string;
+  notes?: string;
 
   @Column({ name: 'is_express', default: false })
   isExpress!: boolean;
 
-  @Column({ name: 'created_by' })
+  @Column({ name: 'created_by', type: 'uuid' })
   createdBy!: string;
 
   @CreateDateColumn({ name: 'created_at' })

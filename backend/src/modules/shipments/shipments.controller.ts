@@ -1,13 +1,13 @@
-import { Controller, Get, Post, Put,Patch, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ShipmentsService } from './shipments.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { ShipmentQueryDto } from './dto/shipment-query.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/roles.enum';
 
 @ApiTags('Shipments')
@@ -20,7 +20,6 @@ export class ShipmentsController {
   @Post()
   @Roles(UserRole.CUSTOMER, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Create a new shipment' })
-  @ApiResponse({ status: 201, description: 'Shipment created successfully' })
   create(@Body() createDto: CreateShipmentDto, @Request() req) {
     return this.shipmentsService.create(createDto, req.user.id, req.user.organizationId);
   }
@@ -28,7 +27,6 @@ export class ShipmentsController {
   @Get()
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get all shipments with filters' })
-  @ApiResponse({ status: 200, description: 'Shipments retrieved successfully' })
   findAll(@Query() query: ShipmentQueryDto, @Request() req) {
     return this.shipmentsService.findAll(query, req.user.organizationId, req.user.role, req.user.id);
   }
@@ -42,7 +40,6 @@ export class ShipmentsController {
 
   @Get('track/:trackingNumber')
   @ApiOperation({ summary: 'Track shipment by tracking number (public)' })
-  @ApiResponse({ status: 200, description: 'Shipment tracking info retrieved' })
   async trackShipment(@Param('trackingNumber') trackingNumber: string) {
     return this.shipmentsService.getTracking(trackingNumber);
   }
@@ -50,8 +47,6 @@ export class ShipmentsController {
   @Get(':id')
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.CUSTOMER)
   @ApiOperation({ summary: 'Get shipment by ID' })
-  @ApiResponse({ status: 200, description: 'Shipment retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Shipment not found' })
   findOne(@Param('id') id: string, @Request() req) {
     return this.shipmentsService.findOne(id, req.user.organizationId, req.user.role, req.user.id);
   }
@@ -87,7 +82,6 @@ export class ShipmentsController {
   @Delete(':id')
   @Roles(UserRole.COMPANY_ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Delete shipment' })
-  @ApiResponse({ status: 200, description: 'Shipment deleted successfully' })
   remove(@Param('id') id: string, @Request() req) {
     return this.shipmentsService.remove(id, req.user.organizationId);
   }

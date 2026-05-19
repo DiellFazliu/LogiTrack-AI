@@ -7,13 +7,18 @@ import { Module, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { APP_GUARD } from '@nestjs/core';
 
-import { AuthModule } from './modules/auth/auth.module';
+import { DriversModule } from './modules/drivers/drivers.module';
+import { VehiclesModule } from './modules/vehicles/vehicles.module';
+import { WarehousesModule } from './modules/warehouses/warehouses.module';
+import { ProductsModule } from './modules/products/products.module';
+import { ShipmentsModule } from './modules/shipments/shipments.module';
+
+import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
-import { ShipmentsModule } from './modules/shipments/shipments.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { AuthMiddleware } from './common/middleware/auth.middleware';
-import { RolesGuard } from './modules/auth/guards/roles.guard';
+import { RolesGuard } from './auth/guards/roles.guard';
 import { RolesModule } from './modules/roles/roles.module';
 
 @Module({
@@ -70,6 +75,10 @@ import { RolesModule } from './modules/roles/roles.module';
     UsersModule,
     OrganizationsModule,
     ShipmentsModule,
+    DriversModule,
+    VehiclesModule,
+    WarehousesModule,
+    ProductsModule,
     RolesModule,
   ],
   providers: [

@@ -12,27 +12,24 @@ export class AuthMiddleware implements NestMiddleware {
   ) {}
 
   use(req: Request, _res: Response, next: NextFunction) {
-    
     const url = req.originalUrl;
-    console.log('AuthMiddleware - URL:', url);
-
+    
     // Lista e rrugëve publike që nuk kërkojnë autentikim
     const publicPaths = [
       '/auth/register',
       '/auth/login',
+      '/auth/refresh',
+      '/auth/forgot-password',
       '/api-docs',
       '/api-docs-json',
+      '/health',
       '/shipments/track',
     ];
 
     // Kontrollo nëse rruga aktuale është publike
     const isPublic = publicPaths.some(path => req.originalUrl.includes(path));
-    
-       // Debug: shiko a është publike
-    console.log('Is public?', isPublic);
 
     if (isPublic) {
-      console.log('Skipping auth for:', req.url);
       return next();
     }
 
@@ -60,15 +57,12 @@ export class AuthMiddleware implements NestMiddleware {
       req['user'] = decoded;
       next();
     } catch (error) {
-      // Kontrollo nëse error është instance e TokenExpiredError
       if (error instanceof TokenExpiredError) {
         throw new UnauthorizedException('Token has expired');
       }
-      // Kontrollo nëse error është instance e JsonWebTokenError
       if (error instanceof JsonWebTokenError) {
         throw new UnauthorizedException('Invalid token');
       }
-      // Për çdo gabim tjetër
       throw new UnauthorizedException('Authentication failed');
     }
   }
