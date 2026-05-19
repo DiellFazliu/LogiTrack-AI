@@ -3,12 +3,14 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config'; 
 import * as bcrypt from 'bcrypt';
 import { User } from '../users/user.entity';
 import { Organization, PlanType, SubscriptionStatus } from '../../modules/organizations/organization.entity';
 import { Role } from '../roles/role.entity';  
 import { RegisterDto } from './dto/register.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';  // <-- Shto këtë
 
 @Injectable()
 export class AuthService {
@@ -22,6 +24,7 @@ export class AuthService {
     @InjectRepository(Role)  
     private roleRepository: Repository<Role>,
     private jwtService: JwtService,
+    private configService: ConfigService,
   ) {}
 
   async validateUser(email: string, password: string): Promise<any> {
@@ -60,7 +63,6 @@ export class AuthService {
     let finalOrganizationId = organizationId;
     let targetRole = 'customer'; 
 
-  
     if (organizationName && !organizationId) {
       const newOrganization = this.organizationRepository.create({
         name: organizationName,
@@ -74,7 +76,6 @@ export class AuthService {
       targetRole = 'company_admin';  
     }
 
-  
     let userRole = await this.roleRepository.findOne({ where: { name: targetRole } });
     if (!userRole) {
       userRole = this.roleRepository.create({ 
@@ -160,6 +161,26 @@ export class AuthService {
   async forgotPassword(email: string): Promise<void> {
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) return;
+  }
+
+  async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
+    try {
+      const decoded = this.jwtService.verify(resetPasswordDto.token, {
+        secret: this.configService.get('JWT_SECRET'),
+      });
+      
+      const user = await this.userRepository.findOne({ where: { id: decoded.id } });
+      if (!user) {
+        throw new UnauthorizedException('Invalid token');
+      }
+      
+      const hashedPassword = await bcrypt.hash(resetPasswordDto.newPassword, 10);
+      await this.userRepository.update(user.id, { password: hashedPassword });
+      
+      return { message: 'Password reset successfully' };
+    } catch (error) {
+      throw new UnauthorizedException('Invalid or expired token');
+    }
   }
 
   isTokenBlacklisted(token: string): boolean {
