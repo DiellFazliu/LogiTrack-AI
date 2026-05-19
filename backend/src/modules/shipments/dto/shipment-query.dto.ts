@@ -1,7 +1,7 @@
 import { IsOptional, IsEnum, IsString, IsUUID, IsInt, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-import { ShipmentStatus } from './create-shipment.dto';
+import { ShipmentStatus } from '../shipment.entity';
 
 export class ShipmentQueryDto {
   @ApiProperty({ required: false, enum: ShipmentStatus })

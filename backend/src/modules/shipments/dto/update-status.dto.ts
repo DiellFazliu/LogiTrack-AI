@@ -1,6 +1,6 @@
-import { IsEnum, IsOptional, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { ShipmentStatus } from './create-shipment.dto';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { ShipmentStatus } from '../shipment.entity';
 
 export class UpdateStatusDto {
   @ApiProperty({ enum: ShipmentStatus })

@@ -1,20 +1,12 @@
-import { IsString, IsOptional, IsUUID, IsEnum, IsNumber, IsBoolean, IsDateString, Min, Max } from 'class-validator';
+// src/modules/shipments/dto/create-shipment.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsOptional, IsUUID, IsEnum, IsNumber, IsBoolean, IsDateString, Min } from 'class-validator';
 
 export enum ShipmentPriority {
   LOW = 'low',
   NORMAL = 'normal',
   HIGH = 'high',
-  URGENT = 'urgent'
-}
-
-export enum ShipmentStatus {
-  PENDING = 'pending',
-  PICKED_UP = 'picked_up',
-  IN_TRANSIT = 'in_transit',
-  DELIVERED = 'delivered',
-  FAILED = 'failed',
-  CANCELLED = 'cancelled'
+  URGENT = 'urgent',
 }
 
 export class CreateShipmentDto {
@@ -40,7 +32,7 @@ export class CreateShipmentDto {
   @IsUUID()
   vehicleId?: string;
 
-  @ApiProperty({ required: false, enum: ShipmentPriority, default: ShipmentPriority.NORMAL })
+  @ApiProperty({ enum: ShipmentPriority, default: ShipmentPriority.NORMAL, required: false })
   @IsOptional()
   @IsEnum(ShipmentPriority)
   priority?: ShipmentPriority;

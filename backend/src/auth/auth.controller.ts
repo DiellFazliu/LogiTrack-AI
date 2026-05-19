@@ -8,6 +8,8 @@ import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from './decorators/public.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiOkResponse, ApiCreatedResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -82,4 +84,14 @@ export class AuthController {
     await this.authService.forgotPassword(forgotPasswordDto.email);
     return { message: 'If the email exists, a reset link has been sent' };
   }
+  @Public()
+@Post('reset-password')
+@HttpCode(HttpStatus.OK)
+@ApiOperation({ summary: 'Reset password with token' })
+@ApiOkResponse({ description: 'Password reset successfully' })
+@ApiUnauthorizedResponse({ description: 'Invalid or expired token' })
+@ApiBody({ type: ResetPasswordDto })
+async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+  return this.authService.resetPassword(resetPasswordDto);
+}
 }

@@ -77,6 +77,7 @@ export class ShipmentsService {
     if (userRole === 'driver' && shipment.driverId !== userId) {
       throw new ForbiddenException('Access denied');
     }
+    //
 
     return shipment;
   }

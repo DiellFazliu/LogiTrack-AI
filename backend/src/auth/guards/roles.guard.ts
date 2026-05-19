@@ -5,7 +5,7 @@ import { ROLES_KEY } from '../decorators/roles.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from '../../users/user.entity';
+import { User } from '../../modules/users/user.entity';
 
 @Injectable()
 export class RolesGuard implements CanActivate {

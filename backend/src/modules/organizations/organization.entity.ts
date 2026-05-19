@@ -1,6 +1,11 @@
+// src/modules/organizations/organization.entity.ts
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { User } from '../users/user.entity';
 import { Driver } from '../drivers/driver.entity';
+import { Vehicle } from '../vehicles/vehicle.entity';
+import { Warehouse } from '../warehouses/warehouse.entity';
+import { Product } from '../products/product.entity';
+import { Shipment } from '../shipments/shipment.entity';
 
 export enum PlanType {
   FREE = 'free',
@@ -54,12 +59,27 @@ export class Organization {
   @Column({ name: 'is_active', default: true })
   isActive!: boolean;
 
+  // ============================================
+  // RELACIONET (MULTI-TENANCY)
+  // ============================================
+  
   @OneToMany(() => User, (user) => user.organization)
   users!: User[];
 
-  
   @OneToMany(() => Driver, (driver) => driver.organization)
   drivers!: Driver[];
+
+  @OneToMany(() => Vehicle, (vehicle) => vehicle.organization)
+  vehicles!: Vehicle[];
+
+  @OneToMany(() => Warehouse, (warehouse) => warehouse.organization)
+  warehouses!: Warehouse[];
+
+  @OneToMany(() => Product, (product) => product.organization)
+  products!: Product[];
+
+  @OneToMany(() => Shipment, (shipment) => shipment.organization)
+  shipments!: Shipment[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

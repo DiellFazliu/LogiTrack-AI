@@ -1,7 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+// src/modules/organizations/organizations.service.ts
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Organization, PlanType, SubscriptionStatus } from './organization.entity';
+import { CreateOrganizationDto } from './dto/create-organization.dto';
+import { UpdateOrganizationDto } from './dto/update-organization.dto';
 
 @Injectable()
 export class OrganizationsService {
@@ -10,10 +13,10 @@ export class OrganizationsService {
     private orgRepository: Repository<Organization>,
   ) {}
 
-  async create(data: Partial<Organization>): Promise<Organization> {
+  async create(createDto: CreateOrganizationDto): Promise<Organization> {
     const organization = this.orgRepository.create({
-      ...data,
-      planType: PlanType.FREE,
+      ...createDto,
+      planType: createDto.planType || PlanType.FREE,
       subscriptionStatus: SubscriptionStatus.TRIAL,
       subscriptionEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     });
@@ -21,24 +24,54 @@ export class OrganizationsService {
   }
 
   async findAll(): Promise<Organization[]> {
-    return this.orgRepository.find({ relations: ['users'] });
+    return this.orgRepository.find({
+      relations: ['users', 'drivers', 'vehicles', 'warehouses', 'products', 'shipments'],
+    });
   }
 
   async findById(id: string): Promise<Organization> {
     const org = await this.orgRepository.findOne({
       where: { id },
-      relations: ['users'],
+      relations: ['users', 'drivers', 'vehicles', 'warehouses', 'products', 'shipments'],
     });
     if (!org) throw new NotFoundException('Organization not found');
     return org;
   }
 
-  async update(id: string, updateData: Partial<Organization>): Promise<Organization> {
-    await this.orgRepository.update(id, updateData);
+  async update(id: string, updateDto: UpdateOrganizationDto): Promise<Organization> {
+    const organization = await this.findById(id);
+    await this.orgRepository.update(id, updateDto);
+    return this.findById(id);
+  }
+
+  async updatePlan(id: string, planType: PlanType): Promise<Organization> {
+    const organization = await this.findById(id);
+    await this.orgRepository.update(id, { planType });
+    return this.findById(id);
+  }
+
+  async updateSubscription(id: string, status: SubscriptionStatus): Promise<Organization> {
+    const organization = await this.findById(id);
+    await this.orgRepository.update(id, { subscriptionStatus: status });
     return this.findById(id);
   }
 
   async remove(id: string): Promise<void> {
-    await this.orgRepository.delete(id);
+    const organization = await this.findById(id);
+    await this.orgRepository.update(id, { isActive: false });
+  }
+
+  async getOrganizationStats(id: string): Promise<any> {
+    const organization = await this.findById(id);
+    return {
+      totalUsers: organization.users?.length || 0,
+      totalDrivers: organization.drivers?.length || 0,
+      totalVehicles: organization.vehicles?.length || 0,
+      totalWarehouses: organization.warehouses?.length || 0,
+      totalProducts: organization.products?.length || 0,
+      totalShipments: organization.shipments?.length || 0,
+      planType: organization.planType,
+      subscriptionStatus: organization.subscriptionStatus,
+    };
   }
 }
