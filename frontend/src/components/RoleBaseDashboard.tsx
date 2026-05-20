@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { SuperAdminDashboard } from '../pages/super_admin/SuperAdminDashboard';
+import { SuperAdminDashboard } from '../pages/super-admin/SuperAdminDashboard';
 import { CompanyDashboard } from '../pages/company-admin/CompanyDashboard';
 import { DispatcherDashboard } from '../pages/dispatcher/DispatcherDashboard';
 import { DriverDashboard } from '../pages/driver/DriverDashboard';

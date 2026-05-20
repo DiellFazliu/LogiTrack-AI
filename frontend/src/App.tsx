@@ -12,31 +12,46 @@ import { RegisterPage } from './pages/auth/RegisterPage';
 
 // Customer Pages
 import { CustomerDashboard } from './pages/costumer/CostumerDashboard';
-import { CreateShipment } from './pages/costumer/CreateShipment';
+import { CreateShipment as CustomerCreateShipment } from './pages/costumer/CreateShipment';
 import { TrackShipment } from './pages/costumer/TrackShipment';
 import { ShipmentHistory } from './pages/costumer/ShipmentHistory';
 
 // Driver Pages
 import { DriverDashboard } from './pages/driver/DriverDashboard';
 import { MyShipments } from './pages/driver/MyShipments';
+import DriverShipmentDetails from './pages/driver/ShipmentDetails';
 import { UpdateLocation } from './pages/driver/UpdateLocation';
+import { RouteOptimizerPage } from './pages/driver/RouteOptimizerPage';
 
 // Dispatcher Pages
 import { DispatcherDashboard } from './pages/dispatcher/DispatcherDashboard';
 import { ShipmentList } from './pages/dispatcher/ShipmentList';
 import { AssignDriver } from './pages/dispatcher/AssignDriver';
+import { CreateShipment as DispatcherCreateShipment } from './pages/dispatcher/CreateShipment';
+import { ShipmentDetails as DispatcherShipmentDetails } from './pages/dispatcher/ShipmentDetails';
+import { DispatcherReports } from './pages/dispatcher/DispatcherReports';
 
 // Company Admin Pages
 import { CompanyDashboard } from './pages/company-admin/CompanyDashboard';
 import { CompanyUsersList } from './pages/company-admin/CompanyUsersList';
 import { DriversList } from './pages/company-admin/DriversList';
+import { CompanyVehiclesList } from './pages/company-admin/CompanyVehiclesList';
+import { CompanyWarehousesList } from './pages/company-admin/CompanyWarehousesList';
+import { CompanyProductsList } from './pages/company-admin/CompanyProductsList';
+import { CompanyShipmentsList } from './pages/company-admin/CompanyShipmentsList';
+import { CompanyReports } from './pages/company-admin/CompanyReports';
+import { CompanySettings } from './pages/company-admin/CompanySettings';
 
 // Super Admin Pages
-import { SuperAdminDashboard } from './pages/super_admin/SuperAdminDashboard';
-import { OrganizationsList } from './pages/super_admin/OrganizationList';
+import { SuperAdminDashboard } from './pages/super-admin/SuperAdminDashboard';
+import { OrganizationsList } from './pages/super-admin/OrganizationsList';
+import { UsersList } from './pages/super-admin/UsersList';
+import { SystemSettings } from './pages/super-admin/SystemSettings';
+import { PlansManagement } from './pages/super-admin/PlansManagement';
 
-import { RouteOptimizerPage } from './pages/driver/RouteOptimizerPage';
-
+// Shared/Common Pages
+import { ProfilePage } from './pages/common/ProfilePage';
+import { NotFoundPage } from './pages/common/NotFoundPage';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -51,48 +66,57 @@ function AppRoutes() {
 
   return (
     <Routes>
-
-      <Route 
-        path="/driver/route-optimizer" 
-        element={
-          <ProtectedRoute roles={['driver', 'super_admin']}>
-            <RouteOptimizerPage />
-          </ProtectedRoute>
-        } 
-      />
-
-      {/* Public Routes */}
+      {/* ==================== PUBLIC ROUTES ==================== */}
+      <Route path="/track/:trackingNumber" element={<TrackShipment />} />
+      <Route path="/track" element={<TrackShipment />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
-      <Route path="/track/:trackingNumber" element={<TrackShipment />} />
 
-      {/* Protected Routes with Layout */}
+      {/* ==================== PROTECTED ROUTES ==================== */}
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-        {/* Dashboard - përdor RoleBasedDashboard */}
+        {/* Dashboard */}
         <Route path="/dashboard" element={<RoleBasedDashboard />} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        
+        {/* Common Routes */}
+        <Route path="/profile" element={<ProfilePage />} />
 
         {/* Customer Routes */}
-        <Route path="/shipments/create" element={
+        <Route path="/customer/dashboard" element={
           <ProtectedRoute roles={['customer']}>
-            <CreateShipment />
+            <CustomerDashboard />
           </ProtectedRoute>
         } />
-        <Route path="/track" element={
+        <Route path="/customer/create-shipment" element={
+          <ProtectedRoute roles={['customer']}>
+            <CustomerCreateShipment />
+          </ProtectedRoute>
+        } />
+        <Route path="/customer/track" element={
           <ProtectedRoute roles={['customer']}>
             <TrackShipment />
           </ProtectedRoute>
         } />
-        <Route path="/shipments/history" element={
+        <Route path="/customer/history" element={
           <ProtectedRoute roles={['customer']}>
             <ShipmentHistory />
           </ProtectedRoute>
         } />
 
         {/* Driver Routes */}
+        <Route path="/driver/dashboard" element={
+          <ProtectedRoute roles={['driver']}>
+            <DriverDashboard />
+          </ProtectedRoute>
+        } />
         <Route path="/driver/shipments" element={
           <ProtectedRoute roles={['driver']}>
             <MyShipments />
+          </ProtectedRoute>
+        } />
+        <Route path="/driver/shipments/:id" element={
+          <ProtectedRoute roles={['driver']}>
+            <DriverShipmentDetails />
           </ProtectedRoute>
         } />
         <Route path="/driver/update-location" element={
@@ -100,21 +124,42 @@ function AppRoutes() {
             <UpdateLocation />
           </ProtectedRoute>
         } />
+        <Route path="/driver/route-optimizer" element={
+          <ProtectedRoute roles={['driver', 'super_admin']}>
+            <RouteOptimizerPage />
+          </ProtectedRoute>
+        } />
 
         {/* Dispatcher Routes */}
         <Route path="/dispatcher/dashboard" element={
-          <ProtectedRoute roles={['dispatcher']}>
+          <ProtectedRoute roles={['dispatcher', 'company_admin']}>
             <DispatcherDashboard />
           </ProtectedRoute>
         } />
         <Route path="/dispatcher/shipments" element={
-          <ProtectedRoute roles={['dispatcher']}>
+          <ProtectedRoute roles={['dispatcher', 'company_admin']}>
             <ShipmentList />
           </ProtectedRoute>
         } />
+        <Route path="/dispatcher/shipments/:id" element={
+          <ProtectedRoute roles={['dispatcher', 'company_admin']}>
+            <DispatcherShipmentDetails />
+          </ProtectedRoute>
+        } />
+        <Route path="/dispatcher/create-shipment" element={
+          <ProtectedRoute roles={['dispatcher', 'company_admin']}>
+            <DispatcherCreateShipment />
+          </ProtectedRoute>
+        } />
         <Route path="/dispatcher/assign-driver" element={
-          <ProtectedRoute roles={['dispatcher']}>
+          <ProtectedRoute roles={['dispatcher', 'company_admin']}>
             <AssignDriver />
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/dispatcher/reports" element={
+          <ProtectedRoute roles={['dispatcher', 'company_admin']}>
+            <DispatcherReports />
           </ProtectedRoute>
         } />
 
@@ -134,6 +179,36 @@ function AppRoutes() {
             <DriversList />
           </ProtectedRoute>
         } />
+        <Route path="/company/vehicles" element={
+          <ProtectedRoute roles={['company_admin']}>
+            <CompanyVehiclesList />
+          </ProtectedRoute>
+        } />
+        <Route path="/company/warehouses" element={
+          <ProtectedRoute roles={['company_admin']}>
+            <CompanyWarehousesList />
+          </ProtectedRoute>
+        } />
+        <Route path="/company/products" element={
+          <ProtectedRoute roles={['company_admin']}>
+            <CompanyProductsList />
+          </ProtectedRoute>
+        } />
+        <Route path="/company/shipments" element={
+          <ProtectedRoute roles={['company_admin']}>
+            <CompanyShipmentsList />
+          </ProtectedRoute>
+        } />
+        <Route path="/company/reports" element={
+          <ProtectedRoute roles={['company_admin']}>
+            <CompanyReports />
+          </ProtectedRoute>
+        } />
+        <Route path="/company/settings" element={
+          <ProtectedRoute roles={['company_admin']}>
+            <CompanySettings />
+          </ProtectedRoute>
+        } />
 
         {/* Super Admin Routes */}
         <Route path="/super-admin/dashboard" element={
@@ -146,10 +221,38 @@ function AppRoutes() {
             <OrganizationsList />
           </ProtectedRoute>
         } />
+        <Route path="/super-admin/users" element={
+          <ProtectedRoute roles={['super_admin']}>
+            <UsersList />
+          </ProtectedRoute>
+        } />
+        <Route path="/super-admin/plans" element={
+          <ProtectedRoute roles={['super_admin']}>
+            <PlansManagement />
+          </ProtectedRoute>
+        } />
+        <Route path="/super-admin/settings" element={
+          <ProtectedRoute roles={['super_admin']}>
+            <SystemSettings />
+          </ProtectedRoute>
+        } />
+
+        {/* AI Routes */}
+        <Route path="/ai/optimize-route" element={
+          <ProtectedRoute roles={['company_admin', 'dispatcher']}>
+            <RouteOptimizerPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/ai/chatbot" element={
+          <ProtectedRoute roles={['company_admin', 'dispatcher', 'driver']}>
+            {/* Chatbot component would go here */}
+            <div>AI Chatbot - Coming Soon</div>
+          </ProtectedRoute>
+        } />
       </Route>
 
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      {/* 404 Not Found */}
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }
@@ -158,7 +261,30 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <Toaster position="top-right" />
+        <Toaster 
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+            },
+            success: {
+              duration: 3000,
+              iconTheme: {
+                primary: '#10B981',
+                secondary: '#fff',
+              },
+            },
+            error: {
+              duration: 4000,
+              iconTheme: {
+                primary: '#EF4444',
+                secondary: '#fff',
+              },
+            },
+          }}
+        />
         <AppRoutes />
       </AuthProvider>
     </Router>

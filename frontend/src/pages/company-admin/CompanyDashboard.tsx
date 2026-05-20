@@ -31,8 +31,19 @@ export const CompanyDashboard: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await api.get('/stats');
-      setStats(response.data);
+      // Përdor endpoint-in e organizatës për statistika
+      const orgId = user?.organizationId;
+      const response = await api.get(`/organizations/${orgId}/stats`);
+      const data = response.data;
+      
+      setStats({
+        totalUsers: data.totalUsers || 0,
+        totalDrivers: data.totalDrivers || 0,
+        totalVehicles: data.totalVehicles || 0,
+        totalShipments: data.totalShipments || 0,
+        completedShipments: data.completedShipments || 0,
+        pendingShipments: data.pendingShipments || 0,
+      });
     } catch (error) {
       console.error('Error fetching stats:', error);
     } finally {
@@ -118,5 +129,4 @@ export const CompanyDashboard: React.FC = () => {
   );
 };
 
-// ✅ Eksporto edhe si default për siguri (optional)
 export default CompanyDashboard;
