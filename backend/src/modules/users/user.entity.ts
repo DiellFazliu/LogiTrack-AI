@@ -1,3 +1,4 @@
+// src/modules/users/user.entity.ts
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, ManyToMany, JoinTable } from 'typeorm';
 import { Organization } from '../organizations/organization.entity';
 import { Role } from '../roles/role.entity';
@@ -16,12 +17,18 @@ export class User {
   @Column()
   name!: string;
 
-  @Column({ name: 'organization_id', nullable: true })
+  @Column({ name: 'organization_id', nullable: true, type: 'uuid' })
   organizationId?: string;
 
   @ManyToOne(() => Organization, (org) => org.users)
   @JoinColumn({ name: 'organization_id' })
   organization?: Organization;
+
+  @Column({ name: 'created_by_organization_id', nullable: true, type: 'uuid' })
+  createdByOrganizationId?: string;
+
+  @Column({ name: 'last_updated_by', nullable: true, type: 'uuid' })
+  lastUpdatedBy?: string;
 
   @ManyToMany(() => Role)
   @JoinTable({

@@ -15,14 +15,4 @@ export class RegisterDto {
   @ApiProperty({ example: 'John Doe' })
   @IsString()
   name!: string;
-
-  @ApiProperty({ example: 'My Company', required: false, description: 'Required for company_admin registration' })
-  @IsOptional()
-  @IsString()
-  organizationName?: string;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  organizationId?: string;
 }
