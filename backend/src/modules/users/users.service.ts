@@ -11,11 +11,17 @@ export class UsersService {
     private userRepository: Repository<User>,
   ) {}
 
-  async findById(id: string): Promise<User> {
+  async findById(id: string, organizationId?: string, userRole?: string): Promise<User> {
+    const where: any = { id };
+    if (organizationId && userRole !== 'super_admin') {
+      where.organizationId = organizationId;
+    }
+    
     const user = await this.userRepository.findOne({
-      where: { id },
+      where,
       relations: ['organization', 'roles'],
     });
+    
     if (!user) throw new NotFoundException('User not found');
     return user;
   }
@@ -30,12 +36,24 @@ export class UsersService {
     });
   }
 
-  async update(id: string, updateData: Partial<User>): Promise<User> {
+  async update(id: string, updateData: Partial<User>, organizationId?: string, userRole?: string, updatedBy?: string): Promise<User> {
+    const user = await this.findById(id, organizationId, userRole);
+    
+    if (updateData.organizationId && userRole !== 'super_admin') {
+      throw new ForbiddenException('Cannot change organization');
+    }
+    
+    // ✅ Përditëso last_updated_by
+    if (updatedBy) {
+      updateData.lastUpdatedBy = updatedBy;
+    }
+    
     await this.userRepository.update(id, updateData);
-    return this.findById(id);
+    return this.findById(id, organizationId, userRole);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, organizationId?: string, userRole?: string): Promise<void> {
+    await this.findById(id, organizationId, userRole);
     await this.userRepository.delete(id);
   }
 

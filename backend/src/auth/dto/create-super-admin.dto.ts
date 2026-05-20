@@ -21,7 +21,7 @@ export class CreateSuperAdminDto {
   @IsString()
   phone?: string;
 
-  @ApiProperty({ description: 'Secret key for super admin creation' })
+  @ApiProperty({ description: 'Secret key for super admin creation', example: 'your-super-secret-key-change-this' })
   @IsString()
   secretKey!: string;
 }
