@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Search} from 'lucide-react';
+import { Search } from 'lucide-react';
 import toast from 'react-hot-toast';
+import api from '../../services/api';
 
 interface Shipment {
   id: string;
@@ -25,20 +26,18 @@ export const TrackShipment: React.FC = () => {
 
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/customer/shipments/track/${trackingNumber}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setShipment(data);
-      } else {
+      // Endpoint publik - nuk kërkon token
+      const response = await api.get(`/shipments/track/${trackingNumber}`);
+      setShipment(response.data);
+      toast.success('Shipment found!');
+    } catch (error: any) {
+      console.error('Error:', error);
+      if (error.response?.status === 404) {
         toast.error('Shipment not found');
-        setShipment(null);
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to track shipment');
       }
-    } catch (error) {
-      toast.error('Failed to track shipment');
+      setShipment(null);
     } finally {
       setLoading(false);
     }
@@ -50,6 +49,8 @@ export const TrackShipment: React.FC = () => {
       picked_up: 'bg-blue-100 text-blue-800',
       in_transit: 'bg-purple-100 text-purple-800',
       delivered: 'bg-green-100 text-green-800',
+      failed: 'bg-red-100 text-red-800',
+      cancelled: 'bg-gray-100 text-gray-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
@@ -95,7 +96,7 @@ export const TrackShipment: React.FC = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-500">Status:</span>
                   <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(shipment.status)}`}>
-                    {shipment.status}
+                    {shipment.status?.replace('_', ' ') || 'Unknown'}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -106,10 +107,12 @@ export const TrackShipment: React.FC = () => {
                   <span className="text-gray-500">Delivery:</span>
                   <span className="text-right">{shipment.delivery_address}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Estimated Delivery:</span>
-                  <span>{new Date(shipment.estimated_delivery).toLocaleDateString()}</span>
-                </div>
+                {shipment.estimated_delivery && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Estimated Delivery:</span>
+                    <span>{new Date(shipment.estimated_delivery).toLocaleDateString()}</span>
+                  </div>
+                )}
               </div>
             </div>
           )}

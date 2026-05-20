@@ -1,8 +1,7 @@
-// src/modules/drivers/drivers.service.ts
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Driver, DriverStatus } from './driver.entity';  // ✅ Shto DriverStatus enum
+import { Driver, DriverStatus } from './driver.entity';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
 
@@ -21,7 +20,7 @@ export class DriversService {
     return this.driverRepository.save(driver);
   }
 
-  async findAll(organizationId: string, status?: DriverStatus): Promise<Driver[]> {  // ✅ Ndrysho string → DriverStatus
+  async findAll(organizationId: string, status?: DriverStatus): Promise<Driver[]> {
     const where: any = { organizationId };
     if (status) where.status = status;
     
@@ -46,7 +45,7 @@ export class DriversService {
     return this.findOne(id, organizationId);
   }
 
-  async updateStatus(id: string, status: DriverStatus, organizationId: string): Promise<Driver> {  // ✅ Ndrysho string → DriverStatus
+  async updateStatus(id: string, status: DriverStatus, organizationId: string): Promise<Driver> {
     await this.findOne(id, organizationId);
     await this.driverRepository.update(id, { status });
     return this.findOne(id, organizationId);
@@ -61,7 +60,7 @@ export class DriversService {
     return this.driverRepository.find({
       where: { 
         organizationId, 
-        status: DriverStatus.AVAILABLE,  // ✅ Përdor enum, jo string 'available'
+        status: DriverStatus.AVAILABLE,
         isActive: true 
       },
     });

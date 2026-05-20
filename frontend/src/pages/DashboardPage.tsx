@@ -1,9 +1,9 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { SuperAdminDashboard } from './super_admin/SuperAdminDashboard';
+import { SuperAdminDashboard } from './super-admin/SuperAdminDashboard';
 import { CompanyDashboard } from './company-admin/CompanyDashboard';
-//import { DispatcherDashboard } from './dispatcher/DispatcherDashboard';
+import { DispatcherDashboard } from './dispatcher/DispatcherDashboard';
 import { DriverDashboard } from './driver/DriverDashboard';
 import { CustomerDashboard } from './costumer/CostumerDashboard';
 
@@ -24,8 +24,8 @@ export const DashboardPage: React.FC = () => {
         return <SuperAdminDashboard />;
       case 'company_admin':
         return <CompanyDashboard />;
-      // case 'dispatcher':
-      //   return <DispatcherDashboard />;
+      case 'dispatcher':
+       return <DispatcherDashboard />;
       case 'driver':
         return <DriverDashboard />;
       case 'customer':

@@ -1,7 +1,6 @@
-// src/modules/notifications/notifications.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
-import type { Queue } from 'bull';  // ✅ Përdor 'import type' për tipet
+import type { Queue } from 'bull';
 import { EMAIL_QUEUE } from '../../jobs/email.processor';
 import * as nodemailer from 'nodemailer';
 import { ConfigService } from '@nestjs/config';
@@ -9,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
-  private transporter: nodemailer.Transporter | null = null;  // ✅ Shto | null dhe inicializo
+  private transporter: nodemailer.Transporter | null = null;
 
   constructor(
     @InjectQueue(EMAIL_QUEUE)

@@ -1,4 +1,3 @@
-// src/modules/drivers/drivers.controller.ts
 import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { DriversService } from './drivers.service';
@@ -28,7 +27,7 @@ export class DriversController {
   @Get()
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Get all drivers' })
-  findAll(@Query('status') status: DriverStatus, @Request() req) {  // ✅ Ndrysho string → DriverStatus
+  findAll(@Query('status') status: DriverStatus, @Request() req) {
     return this.driversService.findAll(req.user.organizationId, status);
   }
 
@@ -56,7 +55,7 @@ export class DriversController {
   @Patch(':id/status')
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Update driver status' })
-  updateStatus(@Param('id') id: string, @Body('status') status: DriverStatus, @Request() req) {  // ✅ Ndrysho string → DriverStatus
+  updateStatus(@Param('id') id: string, @Body('status') status: DriverStatus, @Request() req) {
     return this.driversService.updateStatus(id, status, req.user.organizationId);
   }
 

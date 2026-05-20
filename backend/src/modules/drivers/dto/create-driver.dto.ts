@@ -1,4 +1,3 @@
-// src/modules/drivers/dto/create-driver.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsUUID, IsOptional, IsEnum, IsPhoneNumber } from 'class-validator';
 
