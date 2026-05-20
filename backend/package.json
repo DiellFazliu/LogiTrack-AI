@@ -19,6 +19,7 @@
     "migration:create": "npm run typeorm -- migration:create"
   },
   "dependencies": {
+    "@nestjs/axios": "^4.0.1",
     "@nestjs/bull": "^10.0.0",
     "@nestjs/cache-manager": "^2.1.0",
     "@nestjs/common": "^10.0.0",
@@ -29,6 +30,7 @@
     "@nestjs/platform-express": "^10.0.0",
     "@nestjs/swagger": "^7.4.2",
     "@nestjs/typeorm": "^10.0.0",
+    "@types/nodemailer": "^8.0.0",
     "axios": "^1.6.0",
     "bcrypt": "^5.1.1",
     "bull": "^4.11.0",
@@ -39,7 +41,8 @@
     "dotenv": "^16.0.0",
     "express": "^5.2.1",
     "ioredis": "^5.10.1",
-    "openai": "^4.20.0",
+    "nodemailer": "^8.0.7",
+    "openai": "^4.104.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
@@ -47,7 +50,8 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1",
-    "typeorm": "^0.3.28"
+    "typeorm": "^0.3.28",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

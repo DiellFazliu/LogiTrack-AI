@@ -35,6 +35,9 @@ import { DriversList } from './pages/company-admin/DriversList';
 import { SuperAdminDashboard } from './pages/super_admin/SuperAdminDashboard';
 import { OrganizationsList } from './pages/super_admin/OrganizationList';
 
+import { RouteOptimizerPage } from './pages/driver/RouteOptimizerPage';
+
+
 function AppRoutes() {
   const { user, loading } = useAuth();
 
@@ -48,6 +51,16 @@ function AppRoutes() {
 
   return (
     <Routes>
+
+      <Route 
+        path="/driver/route-optimizer" 
+        element={
+          <ProtectedRoute roles={['driver', 'super_admin']}>
+            <RouteOptimizerPage />
+          </ProtectedRoute>
+        } 
+      />
+
       {/* Public Routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
