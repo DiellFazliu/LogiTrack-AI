@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Package, Truck, Users, MapPin, FileText, Settings, History } from 'lucide-react';
+import { LayoutDashboard, Package, Truck, Users, MapPin, FileText, Settings, History, Route } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export const Sidebar: React.FC = () => {
@@ -21,6 +21,7 @@ export const Sidebar: React.FC = () => {
         { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
         { path: '/driver/shipments', icon: Package, label: 'My Shipments' },
         { path: '/driver/update-location', icon: MapPin, label: 'Update Location' },
+        { path: '/driver/route-optimizer', icon: Route, label: 'Route Optimizer' },  // ✅ Shto këtë!
       ];
     }
     if (role === 'dispatcher') {

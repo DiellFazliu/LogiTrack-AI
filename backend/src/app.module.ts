@@ -20,6 +20,10 @@ import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { AuthMiddleware } from './common/middleware/auth.middleware';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { RolesModule } from './modules/roles/roles.module';
+import { AiModule } from './modules/ai/ai.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { JobsModule } from './jobs/jobs.module';
+import { RoutesModule } from './modules/routes/routes.module';
 
 @Module({
   imports: [
@@ -80,6 +84,10 @@ import { RolesModule } from './modules/roles/roles.module';
     WarehousesModule,
     ProductsModule,
     RolesModule,
+    JobsModule,
+    AiModule,
+    NotificationsModule,
+    RoutesModule,
   ],
   providers: [
     {
