@@ -1,9 +1,10 @@
+// src/modules/drivers/drivers.controller.ts
 import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { DriversService } from './drivers.service';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
-import { DriverStatus } from './driver.entity';  // ✅ Shto importin e enum-it
+import { DriverStatus } from './driver.entity';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -34,8 +35,10 @@ export class DriversController {
   @Get('available')
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Get available drivers' })
-  getAvailable(@Request() req) {
-    return this.driversService.getAvailable(req.user.organizationId);
+  async getAvailable(@Request() req) {
+    const drivers = await this.driversService.getAvailable(req.user.organizationId);
+    console.log(`Found ${drivers.length} available drivers for organization ${req.user.organizationId}`);
+    return drivers;
   }
 
   @Get(':id')

@@ -1,16 +1,20 @@
+// frontend/src/pages/driver/MyShipments.tsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Package, MapPin, Clock, CheckCircle, AlertCircle, Eye } from 'lucide-react';
+import { Package, MapPin, Clock, AlertCircle, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
+import api from '../../services/api';
 
+// ✅ Përdor snake_case siç vjen nga backend-i
 interface Shipment {
   id: string;
-  tracking_number: string;
-  pickup_address: string;
-  delivery_address: string;
+  trackingNumber: string;
+  pickupAddress: string;
+  deliveryAddress: string;
   status: string;
   priority: string;
-  estimated_delivery: string;
+  estimatedDelivery: string;
+  is_express: boolean;
 }
 
 export const MyShipments: React.FC = () => {
@@ -23,20 +27,18 @@ export const MyShipments: React.FC = () => {
 
   const fetchShipments = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/driver/shipments', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      console.log('Fetching shipments for driver...');
+      const response = await api.get('/shipments/my');
+      console.log('Response data:', response.data);
       
-      if (response.ok) {
-        const data = await response.json();
-        setShipments(data);
-      } else {
-        toast.error('Failed to fetch shipments');
-      }
-    } catch (error) {
+      const data = response.data;
+      const shipmentsList = data.items || data || [];
+      console.log('Shipments found:', shipmentsList.length);
+      
+      setShipments(shipmentsList);
+    } catch (error: any) {
       console.error('Error:', error);
-      toast.error('Failed to fetch shipments');
+      toast.error(error.response?.data?.message || 'Failed to fetch shipments');
     } finally {
       setLoading(false);
     }
@@ -49,6 +51,7 @@ export const MyShipments: React.FC = () => {
       in_transit: 'bg-purple-100 text-purple-800',
       delivered: 'bg-green-100 text-green-800',
       failed: 'bg-red-100 text-red-800',
+      cancelled: 'bg-gray-100 text-gray-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
@@ -68,6 +71,7 @@ export const MyShipments: React.FC = () => {
       <div className="bg-white shadow">
         <div className="container mx-auto px-4 py-4">
           <h1 className="text-3xl font-bold text-gray-800">My Shipments</h1>
+          <p className="text-gray-500 mt-1">Shipments assigned to you</p>
         </div>
       </div>
 
@@ -77,6 +81,7 @@ export const MyShipments: React.FC = () => {
             <div className="bg-white rounded-lg shadow p-12 text-center">
               <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500">No shipments assigned yet</p>
+              <p className="text-sm text-gray-400 mt-1">When a dispatcher assigns you a shipment, it will appear here</p>
             </div>
           ) : (
             shipments.map((shipment) => (
@@ -86,19 +91,19 @@ export const MyShipments: React.FC = () => {
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         {getPriorityIcon(shipment.priority)}
-                        <h3 className="text-lg font-semibold">#{shipment.tracking_number}</h3>
+                        <h3 className="text-lg font-semibold">#{shipment.trackingNumber}</h3>
                       </div>
                       <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(shipment.status)}`}>
-                        {shipment.status.replace('_', ' ')}
+                        {shipment.status?.replace('_', ' ')}
                       </span>
                     </div>
-                    {shipment.estimated_delivery && (
+                    {shipment.estimatedDelivery && (
                       <div className="text-right">
                         <div className="text-sm text-gray-500 flex items-center gap-1">
                           <Clock className="w-3 h-3" /> Estimated
                         </div>
                         <div className="text-sm font-medium">
-                          {new Date(shipment.estimated_delivery).toLocaleDateString()}
+                          {new Date(shipment.estimatedDelivery).toLocaleDateString()}
                         </div>
                       </div>
                     )}
@@ -109,14 +114,14 @@ export const MyShipments: React.FC = () => {
                       <MapPin className="w-4 h-4 text-green-600 mt-1" />
                       <div>
                         <div className="text-xs text-gray-500">Pickup</div>
-                        <div className="text-sm">{shipment.pickup_address}</div>
+                        <div className="text-sm">{shipment.pickupAddress}</div>
                       </div>
                     </div>
                     <div className="flex items-start gap-2">
                       <MapPin className="w-4 h-4 text-red-600 mt-1" />
                       <div>
                         <div className="text-xs text-gray-500">Delivery</div>
-                        <div className="text-sm">{shipment.delivery_address}</div>
+                        <div className="text-sm">{shipment.deliveryAddress}</div>
                       </div>
                     </div>
                   </div>
@@ -135,4 +140,5 @@ export const MyShipments: React.FC = () => {
     </div>
   );
 };
+
 export default MyShipments;

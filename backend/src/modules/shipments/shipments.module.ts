@@ -4,11 +4,14 @@ import { Shipment } from './shipment.entity';
 import { ShipmentsService } from './shipments.service';
 import { ShipmentsController } from './shipments.controller';
 import { UsersModule } from '../users/users.module';
+import { Driver } from '../drivers/driver.entity';  
+import { DriversModule } from '../drivers/drivers.module';  // ✅ Shto importin
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Shipment]),
+    TypeOrmModule.forFeature([Shipment, Driver]),
     UsersModule,
+    DriversModule,
   ],
   providers: [ShipmentsService],
   controllers: [ShipmentsController],

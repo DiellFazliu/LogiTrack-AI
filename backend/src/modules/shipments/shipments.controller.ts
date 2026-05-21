@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+// src/modules/shipments/shipments.controller.ts
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ShipmentsService } from './shipments.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
@@ -9,19 +10,24 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/roles.enum';
+import { DriversService } from '../drivers/drivers.service';  // ✅ Shto importin
 
 @ApiTags('Shipments')
 @ApiBearerAuth()
 @Controller('shipments')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ShipmentsController {
-  constructor(private shipmentsService: ShipmentsService) {}
+  constructor(
+    private shipmentsService: ShipmentsService,
+    private driversService: DriversService,  // ✅ Shto DriversService në constructor
+  ) {}
 
   @Post()
   @Roles(UserRole.CUSTOMER, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Create a new shipment' })
   create(@Body() createDto: CreateShipmentDto, @Request() req) {
-    return this.shipmentsService.create(createDto, req.user.id, req.user.organizationId);
+    const organizationId = createDto.organizationId || req.user.organizationId;
+    return this.shipmentsService.create(createDto, req.user.id, organizationId);
   }
 
   @Get()
@@ -44,12 +50,26 @@ export class ShipmentsController {
     return this.shipmentsService.getTracking(trackingNumber);
   }
 
-  @Get(':id')
-  @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.CUSTOMER)
-  @ApiOperation({ summary: 'Get shipment by ID' })
-  findOne(@Param('id') id: string, @Request() req) {
-    return this.shipmentsService.findOne(id, req.user.organizationId, req.user.role, req.user.id);
-  }
+    @Get(':id')
+    @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.CUSTOMER)
+    @ApiOperation({ summary: 'Get shipment by ID' })
+    async findOne(@Param('id') id: string, @Request() req) {
+      // Për driver, kalojmë userId, JO driver.id
+      if (req.user.role === 'driver') {
+        // ✅ Kalo req.user.id, jo driver.id
+        return this.shipmentsService.findOne(id, req.user.organizationId, req.user.role, req.user.id);
+      }
+      
+      return this.shipmentsService.findOne(id, req.user.organizationId, req.user.role, req.user.id);
+    }
+
+    @Get(':id/history')
+    @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.CUSTOMER)
+    @ApiOperation({ summary: 'Get shipment status history' })
+    async getHistory(@Param('id') id: string, @Request() req) {
+      // ✅ Kalo req.user.id për driver
+      return this.shipmentsService.getHistory(id, req.user.organizationId, req.user.role, req.user.id);
+    }
 
   @Put(':id')
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
