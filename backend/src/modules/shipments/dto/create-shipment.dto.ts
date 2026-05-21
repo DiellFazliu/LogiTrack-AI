@@ -45,6 +45,11 @@ export class CreateShipmentDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
+  @IsUUID()
+  organizationId?: string;  // ✅ Shto këtë
+
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsNumber()
   @Min(0)
   volumeM3?: number;
@@ -63,4 +68,29 @@ export class CreateShipmentDto {
   @IsOptional()
   @IsBoolean()
   isExpress?: boolean;
+
+  // ✅ Fushat e koordinatave - BRENDA klasës
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  pickupLatitude?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  pickupLongitude?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  deliveryLatitude?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  deliveryLongitude?: number;
 }

@@ -10,6 +10,7 @@ interface User {
   name: string;
   role: string;
   organizationId: string | null;
+  organizationName?: string;
   phone?: string;
   isActive?: boolean;
 }
@@ -19,6 +20,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<User>;
   logout: () => void;
+  updateUser: (updatedData: Partial<User>) => Promise<void>;
   hasRole: (roles: string[]) => boolean;
   isAdmin: () => boolean;
   isSuperAdmin: () => boolean;
@@ -59,23 +61,48 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const response = await api.post('/auth/login', { email, password });
       const { token: newToken, user: userData } = response.data;
       
-      // Ruaj në localStorage
       localStorage.setItem('token', newToken);
       localStorage.setItem('user', JSON.stringify(userData));
       
-      // Ruaj në state
       setToken(newToken);
       setUser(userData);
       
-      // Konfiguro axios
       api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
       
-      console.log('Login successful. User role:', userData.role); // Debug
+      console.log('Login successful. User role:', userData.role);
       toast.success(`Welcome back, ${userData.name}!`);
       
       return userData;
     } catch (error: any) {
       const message = error.response?.data?.message || 'Login failed';
+      toast.error(message);
+      throw error;
+    }
+  };
+
+  // ✅ Përdor PATCH /auth/me në vend të /users/me
+  const updateUser = async (updatedData: Partial<User>) => {
+    if (!user) {
+      throw new Error('No user logged in');
+    }
+
+    try {
+      const response = await api.patch('/auth/me', {
+        name: updatedData.name,
+        phone: updatedData.phone,
+        organizationId: updatedData.organizationId,
+      });
+      
+      const updatedUserFromBackend = response.data;
+      
+      const newUserData = { ...user, ...updatedUserFromBackend };
+      setUser(newUserData);
+      localStorage.setItem('user', JSON.stringify(newUserData));
+      
+      toast.success('Profile updated successfully');
+    } catch (error: any) {
+      console.error('Failed to update user:', error);
+      const message = error.response?.data?.message || 'Failed to update user';
       toast.error(message);
       throw error;
     }
@@ -112,7 +139,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       user, 
       loading, 
       login, 
-      logout, 
+      logout,
+      updateUser,
       hasRole, 
       isAdmin,
       isSuperAdmin,

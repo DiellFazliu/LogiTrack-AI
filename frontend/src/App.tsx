@@ -109,6 +109,7 @@ function AppRoutes() {
             <DriverDashboard />
           </ProtectedRoute>
         } />
+        // frontend/src/App.tsx
         <Route path="/driver/shipments" element={
           <ProtectedRoute roles={['driver']}>
             <MyShipments />
@@ -154,6 +155,11 @@ function AppRoutes() {
         <Route path="/dispatcher/assign-driver" element={
           <ProtectedRoute roles={['dispatcher', 'company_admin']}>
             <AssignDriver />
+          </ProtectedRoute>
+        } />
+                <Route path="/dispatcher/users" element={
+          <ProtectedRoute roles={['dispatcher', 'company_admin']}>
+            <CompanyUsersList />
           </ProtectedRoute>
         } />
         

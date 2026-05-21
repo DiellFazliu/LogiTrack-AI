@@ -29,6 +29,14 @@ export class OrganizationsService {
     });
   }
 
+    async findAvailableOrganizations(): Promise<Organization[]> {
+      return this.orgRepository.find({
+        where: { isActive: true },
+        select: ['id', 'name', 'email', 'phone', 'address'], // Vetëm fushat e nevojshme për customer
+        order: { name: 'ASC' },
+      });
+    }
+
   async findById(id: string): Promise<Organization> {
     const org = await this.orgRepository.findOne({
       where: { id },

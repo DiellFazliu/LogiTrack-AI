@@ -1,5 +1,5 @@
 // src/modules/organizations/organizations.controller.ts
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { OrganizationsService } from './organizations.service';
 import { Organization, PlanType, SubscriptionStatus } from './organization.entity';
@@ -21,23 +21,46 @@ export class OrganizationsController {
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create a new organization' })
   @ApiResponse({ status: 201, description: 'Organization created successfully' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiBody({ type: CreateOrganizationDto })
+  @ApiResponse({ status: 403, description: 'Forbidden - Super Admin only' })
   create(@Body() createDto: CreateOrganizationDto) {
     return this.orgService.create(createDto);
   }
 
+  // ✅ Endpoint për admin-at për të parë të gjitha organizatat
   @Get()
-  @Roles(UserRole.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Get all organizations' })
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
+  @ApiOperation({ summary: 'Get all organizations (Admin only)' })
   @ApiResponse({ status: 200, description: 'Organizations retrieved successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   findAll() {
     return this.orgService.findAll();
   }
 
+  // ✅ Endpoint për customer-at për të parë organizatat aktive
+  @Get('available')
+  @Roles(UserRole.CUSTOMER, UserRole.DRIVER, UserRole.DISPATCHER)
+  @ApiOperation({ summary: 'Get available organizations for customers/drivers/dispatchers' })
+  @ApiResponse({ status: 200, description: 'Available organizations retrieved successfully' })
+  async getAvailableOrganizations() {
+    return this.orgService.findAvailableOrganizations();
+  }
+
+  // ✅ Endpoint për të marrë organizatën e përdoruesit aktual
+  @Get('my-organization')
+  @ApiOperation({ summary: 'Get current user organization' })
+  @ApiResponse({ status: 200, description: 'Organization retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Organization not found' })
+  async getMyOrganization(@Request() req) {
+    const organizationId = req.user.organizationId;
+    if (!organizationId) {
+      return { message: 'No organization associated with this user' };
+    }
+    return this.orgService.findById(organizationId);
+  }
+
   @Get(':id')
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
-  @ApiOperation({ summary: 'Get organization by ID' })
+  @ApiOperation({ summary: 'Get organization by ID (Admin only)' })
   @ApiResponse({ status: 200, description: 'Organization retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Organization not found' })
   findOne(@Param('id') id: string) {
@@ -46,8 +69,9 @@ export class OrganizationsController {
 
   @Put(':id')
   @Roles(UserRole.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Update organization' })
+  @ApiOperation({ summary: 'Update organization (Super Admin only)' })
   @ApiResponse({ status: 200, description: 'Organization updated successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Super Admin only' })
   update(@Param('id') id: string, @Body() updateDto: UpdateOrganizationDto) {
     return this.orgService.update(id, updateDto);
   }
@@ -88,6 +112,7 @@ export class OrganizationsController {
   @Get(':id/drivers')
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
   @ApiOperation({ summary: 'Get drivers by organization' })
+  @ApiResponse({ status: 200, description: 'Drivers retrieved successfully' })
   async getDriversByOrganization(@Param('id') id: string) {
     const organization = await this.orgService.findById(id);
     return organization.drivers;
@@ -96,6 +121,7 @@ export class OrganizationsController {
   @Get(':id/vehicles')
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
   @ApiOperation({ summary: 'Get vehicles by organization' })
+  @ApiResponse({ status: 200, description: 'Vehicles retrieved successfully' })
   async getVehiclesByOrganization(@Param('id') id: string) {
     const organization = await this.orgService.findById(id);
     return organization.vehicles;
@@ -104,6 +130,7 @@ export class OrganizationsController {
   @Get(':id/shipments')
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
   @ApiOperation({ summary: 'Get shipments by organization' })
+  @ApiResponse({ status: 200, description: 'Shipments retrieved successfully' })
   async getShipmentsByOrganization(@Param('id') id: string) {
     const organization = await this.orgService.findById(id);
     return organization.shipments;
@@ -111,7 +138,7 @@ export class OrganizationsController {
 
   @Delete(':id')
   @Roles(UserRole.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Delete organization' })
+  @ApiOperation({ summary: 'Delete organization (soft delete)' })
   @ApiResponse({ status: 200, description: 'Organization deleted successfully' })
   remove(@Param('id') id: string) {
     return this.orgService.remove(id);

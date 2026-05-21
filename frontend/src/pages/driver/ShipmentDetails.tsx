@@ -13,17 +13,17 @@ import { useAuth } from '../../context/AuthContext';
 
 interface Shipment {
   id: string;
-  tracking_number: string;
+  trackingNumber: string;
   status: string;
-  pickup_address: string;
-  delivery_address: string;
-  weight_kg: number;
-  volume_m3: number;
+  pickupAddress: string;
+  deliveryAddress: string;
+  weightKg: number;
+  volumeM3: number;
   priority: string;
   is_express: boolean;
   notes: string;
-  estimated_delivery: string;
-  actual_delivery: string;
+  estimatedDelivery: string;
+  actualDelivery: string;
   created_at: string;
   picked_up_at?: string | null;
   delivered_at?: string | null;
@@ -89,10 +89,18 @@ export const DriverShipmentDetails: React.FC = () => {
         status: newStatus,
         notes: statusNote
       });
-      toast.success('Status updated successfully');
+      
+      toast.success(`Status updated to ${newStatus.replace('_', ' ')}`);
       fetchShipment();
       fetchHistory();
       setStatusNote('');
+      
+      // Nëse statusi është delivered, navigo prapa pas 2 sekondash
+      if (newStatus === 'delivered') {
+        setTimeout(() => {
+          navigate('/driver/shipments');
+        }, 2000);
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to update status');
     } finally {
@@ -100,11 +108,38 @@ export const DriverShipmentDetails: React.FC = () => {
     }
   };
 
+  const markAsDelivered = () => {
+    setNewStatus('delivered');
+    // Call updateStatus directly
+    const updateDirect = async () => {
+      setUpdating(true);
+      try {
+        await api.patch(`/shipments/${id}/status`, {
+          status: 'delivered',
+          notes: statusNote || 'Delivery completed'
+        });
+        
+        toast.success('Shipment marked as Delivered!');
+        fetchShipment();
+        fetchHistory();
+        setStatusNote('');
+        
+        setTimeout(() => {
+          navigate('/driver/shipments');
+        }, 2000);
+      } catch (error: any) {
+        toast.error(error.response?.data?.message || 'Failed to update status');
+      } finally {
+        setUpdating(false);
+      }
+    };
+    updateDirect();
+  };
+
   const openMaps = () => {
     if (!shipment) return;
     
-    // Open Google Maps with delivery address
-    const encodedAddress = encodeURIComponent(shipment.delivery_address);
+    const encodedAddress = encodeURIComponent(shipment.deliveryAddress);
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`, '_blank');
   };
 
@@ -127,6 +162,7 @@ export const DriverShipmentDetails: React.FC = () => {
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
+  
 
   const getPriorityColor = (priority: string) => {
     const colors: Record<string, string> = {
@@ -137,6 +173,7 @@ export const DriverShipmentDetails: React.FC = () => {
     };
     return colors[priority] || 'bg-gray-100 text-gray-800';
   };
+  
 
   const isStatusCompleted = (statusToCheck: string): boolean => {
     const statusOrder = ['pending', 'picked_up', 'in_transit', 'delivered'];
@@ -190,7 +227,7 @@ export const DriverShipmentDetails: React.FC = () => {
               </button>
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">Shipment Details</h1>
-                <p className="text-sm text-gray-500 font-mono mt-1">{shipment.tracking_number}</p>
+                <p className="text-sm text-gray-500 font-mono mt-1">{shipment.trackingNumber}</p>
               </div>
             </div>
             <div className="flex gap-2">
@@ -223,7 +260,7 @@ export const DriverShipmentDetails: React.FC = () => {
                   </div>
                   <div className="flex-1">
                     <div className="font-medium text-sm text-gray-500 mb-1">Pickup Address</div>
-                    <div className="text-gray-800">{shipment.pickup_address}</div>
+                    <div className="text-gray-800">{shipment.pickupAddress}</div>
                   </div>
                 </div>
                 
@@ -240,7 +277,7 @@ export const DriverShipmentDetails: React.FC = () => {
                   </div>
                   <div className="flex-1">
                     <div className="font-medium text-sm text-gray-500 mb-1">Delivery Address</div>
-                    <div className="text-gray-800">{shipment.delivery_address}</div>
+                    <div className="text-gray-800">{shipment.deliveryAddress}</div>
                     <button
                       onClick={openMaps}
                       className="mt-2 inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
@@ -322,13 +359,41 @@ export const DriverShipmentDetails: React.FC = () => {
 
           {/* Sidebar - Right Side */}
           <div className="space-y-6">
-            {/* Update Status */}
+            {/* Update Status Section */}
             {canUpdateStatus() && (
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
                   <RefreshCw className="w-4 h-4" /> Update Delivery Status
                 </h3>
+                
+                {/* Quick Action Button for Delivered */}
+                {shipment.status === 'in_transit' && (
+                  <div className="mb-4">
+                    <button
+                      onClick={markAsDelivered}
+                      disabled={updating}
+                      className="w-full bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 transition flex items-center justify-center gap-2 text-lg font-semibold"
+                    >
+                      <CheckCircle className="w-5 h-5" />
+                      {updating ? 'Updating...' : '✓ Mark as Delivered'}
+                    </button>
+                    <p className="text-xs text-gray-500 text-center mt-2">
+                      Click this when you have completed the delivery
+                    </p>
+                  </div>
+                )}
+                
+                {/* Manual Status Update */}
                 <div className="space-y-3">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-gray-300"></div>
+                    </div>
+                    <div className="relative flex justify-center text-xs">
+                      <span className="px-2 bg-white text-gray-500">Or update manually</span>
+                    </div>
+                  </div>
+                  
                   <select
                     value={newStatus}
                     onChange={(e) => setNewStatus(e.target.value)}
@@ -364,15 +429,15 @@ export const DriverShipmentDetails: React.FC = () => {
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-500">Tracking Number:</span>
-                  <span className="font-mono">{shipment.tracking_number}</span>
+                  <span className="font-mono">{shipment.trackingNumber}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Weight:</span>
-                  <span>{shipment.weight_kg || 0} kg</span>
+                  <span>{shipment.weightKg || 0} kg</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Volume:</span>
-                  <span>{shipment.volume_m3 || 0} m³</span>
+                  <span>{shipment.volumeM3 || 0} m³</span>
                 </div>
                 {shipment.vehicle && (
                   <div className="flex justify-between">
@@ -380,20 +445,20 @@ export const DriverShipmentDetails: React.FC = () => {
                     <span>{shipment.vehicle.license_plate}</span>
                   </div>
                 )}
-                {shipment.estimated_delivery && (
+                {shipment.estimatedDelivery && (
                   <div className="flex justify-between">
                     <span className="text-gray-500 flex items-center gap-1">
                       <Calendar className="w-3 h-3" /> Est. Delivery:
                     </span>
-                    <span>{new Date(shipment.estimated_delivery).toLocaleDateString()}</span>
+                    <span>{new Date(shipment.estimatedDelivery).toLocaleDateString()}</span>
                   </div>
                 )}
-                {shipment.actual_delivery && (
+                {shipment.actualDelivery && (
                   <div className="flex justify-between">
                     <span className="text-gray-500 flex items-center gap-1">
                       <CheckCircle className="w-3 h-3 text-green-500" /> Actual Delivery:
                     </span>
-                    <span>{new Date(shipment.actual_delivery).toLocaleString()}</span>
+                    <span>{new Date(shipment.actualDelivery).toLocaleString()}</span>
                   </div>
                 )}
               </div>
@@ -446,7 +511,7 @@ export const DriverShipmentDetails: React.FC = () => {
                     </div>
                     <div>
                       <p className="font-medium text-sm">In Transit</p>
-                      {isStatusCompleted('in_transit') && !shipment.actual_delivery ? (
+                      {isStatusCompleted('in_transit') && !shipment.actualDelivery ? (
                         <p className="text-xs text-purple-600">In progress</p>
                       ) : isStatusCompleted('in_transit') ? (
                         <p className="text-xs text-green-600">Completed</p>
@@ -465,8 +530,8 @@ export const DriverShipmentDetails: React.FC = () => {
                     </div>
                     <div>
                       <p className="font-medium text-sm">Delivered</p>
-                      {shipment.actual_delivery ? (
-                        <p className="text-xs text-gray-500">{new Date(shipment.actual_delivery).toLocaleString()}</p>
+                      {shipment.actualDelivery ? (
+                        <p className="text-xs text-gray-500">{new Date(shipment.actualDelivery).toLocaleString()}</p>
                       ) : shipment.status === 'delivered' ? (
                         <p className="text-xs text-green-600">Completed</p>
                       ) : (

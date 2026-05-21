@@ -1,5 +1,5 @@
 // src/modules/auth/auth.controller.ts
-import { Controller, Post, Body, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, HttpCode, HttpStatus, Get, Patch } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -54,18 +54,18 @@ export class AuthController {
   @ApiBody({ type: CreateSuperAdminDto })
   async createSuperAdmin(
     @Body() createSuperAdminDto: CreateSuperAdminDto,
-    @Request() req,  // ✅ Shto req
+    @Request() req,
   ) {
     return this.authService.createSuperAdmin(
       createSuperAdminDto.secretKey,
       createSuperAdminDto,
-      req.user,  // ✅ Kalojmë currentUser
+      req.user,
     );
   }
 
   @Post('users')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @HttpCode(HttpStatus.CREATED)
   @ApiBearerAuth()
   @ApiOperation({ 
@@ -77,6 +77,43 @@ export class AuthController {
   async createUser(@Body() createUserDto: CreateUserDto, @Request() req) {
     return this.authService.createUser(createUserDto, req.user);
   }
+
+  // ✅ GET /auth/me - Merr profilin e përdoruesit aktual
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user profile' })
+  @ApiOkResponse({ description: 'Profile retrieved successfully' })
+  async getProfile(@Request() req) {
+    return this.authService.getProfile(req.user.id);
+  }
+
+  // ✅ PATCH /auth/me - Përditëso profilin e përdoruesit aktual
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update current user profile' })
+  @ApiOkResponse({ description: 'Profile updated successfully' })
+  async updateProfile(@Request() req, @Body() updateData: { name?: string; phone?: string; organizationId?: string }) {
+    return this.authService.updateProfile(req.user.id, updateData);
+  }
+  // src/modules/auth/auth.controller.ts
+@Post('sync-drivers')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.SUPER_ADMIN)
+@HttpCode(HttpStatus.OK)
+@ApiBearerAuth()
+@ApiOperation({ summary: 'Sync existing driver users to drivers table' })
+async syncDrivers() {
+  const result = await this.authService.syncExistingDrivers();
+  return { 
+    message: 'Sync completed', 
+    created: result.created, 
+    skipped: result.skipped 
+  };
+}
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)

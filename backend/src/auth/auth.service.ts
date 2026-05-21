@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ForbiddenException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException, ConflictException, InternalServerErrorException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,6 +11,8 @@ import { CreateUserDto, CreateUserRole } from './dto/create-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { CreateSuperAdminDto } from './dto/create-super-admin.dto';
 import { ConfigService } from '@nestjs/config';
+import { Driver } from '../modules/drivers/driver.entity';
+import { DriverStatus } from '../modules/drivers/driver.entity';
 
 // Interface for validated user (without password)
 export interface ValidatedUser {
@@ -18,7 +20,7 @@ export interface ValidatedUser {
   email: string;
   name: string;
   role: string;
-  organizationId?: string;
+  organizationId?: string | null;
   isActive?: boolean;
 }
 
@@ -27,7 +29,7 @@ export interface CurrentUser {
   id: string;
   email: string;
   role: string;
-  organizationId?: string;
+  organizationId?: string | null;
 }
 
 // Interface for login response
@@ -39,7 +41,7 @@ export interface LoginResponse {
     email: string;
     name: string;
     role: string;
-    organizationId?: string;
+    organizationId?: string | null;
   };
 }
 
@@ -55,7 +57,7 @@ interface JwtPayload {
   id: string;
   email: string;
   role: string;
-  organizationId?: string;
+  organizationId?: string | null;
   exp?: number;
   iat?: number;
 }
@@ -72,6 +74,8 @@ export class AuthService {
     private organizationRepository: Repository<Organization>,
     @InjectRepository(Role)
     private roleRepository: Repository<Role>,
+    @InjectRepository(Driver) 
+    private driverRepository: Repository<Driver>,
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {
@@ -115,6 +119,7 @@ export class AuthService {
       name: user.name,
       role: user.roles?.[0]?.name || 'customer',
       organizationId: user.organizationId,
+      isActive: user.isActive,
     };
   }
 
@@ -154,8 +159,12 @@ export class AuthService {
     };
     const token = this.jwtService.sign(payload);
 
-    const { password: _, ...result } = savedUser;
-    return { user: result, token };
+    const { password: _, ...userWithoutPassword } = savedUser;
+    
+    return { 
+      user: userWithoutPassword as Omit<User, 'password'>, 
+      token 
+    };
   }
 
   async createUser(createUserDto: CreateUserDto, currentUser: CurrentUser): Promise<UserResponse> {
@@ -185,7 +194,7 @@ export class AuthService {
         finalOrganizationId = savedOrg.id;
       }
     }
-    // COMPANY ADMIN - Can only create customer, driver, dispatcher
+    // COMPANY ADMIN - Can create customer, driver, dispatcher
     else if (currentUserRole === 'company_admin') {
       if (!currentUserOrgId) {
         throw new ForbiddenException('Company admin must have an organization');
@@ -193,6 +202,22 @@ export class AuthService {
       
       if (role === CreateUserRole.COMPANY_ADMIN) {
         throw new ForbiddenException('Company admin cannot create another company admin');
+      }
+      
+      finalOrganizationId = currentUserOrgId;
+    }
+    // ✅ DISPATCHER - Can create customer, driver (but not dispatcher or company_admin)
+    else if (currentUserRole === 'dispatcher') {
+      if (!currentUserOrgId) {
+        throw new ForbiddenException('Dispatcher must have an organization');
+      }
+      
+      if (role === CreateUserRole.COMPANY_ADMIN) {
+        throw new ForbiddenException('Dispatcher cannot create company admin');
+      }
+      
+      if (role === CreateUserRole.DISPATCHER) {
+        throw new ForbiddenException('Dispatcher cannot create another dispatcher');
       }
       
       finalOrganizationId = currentUserOrgId;
@@ -217,62 +242,87 @@ export class AuthService {
       phone,
       organizationId: finalOrganizationId,
       roles: [userRole],
-      createdByOrganizationId: currentUserOrgId,
+      createdByOrganizationId: currentUserOrgId || undefined,
       lastUpdatedBy: currentUser.id,
     });
 
     const savedUser = await this.userRepository.save(newUser);
 
-    const { password: _, ...result } = savedUser;
-    return { user: result, message: 'User created successfully' };
+    // ✅ Nëse roli është DRIVER, krijo edhe në tabelën drivers
+    if (targetRole === CreateUserRole.DRIVER) {
+      try {
+        const licenseNumber = `LIC${Date.now().toString().slice(-8)}${Math.random().toString(36).substring(2, 4).toUpperCase()}`;
+        
+        const newDriver = this.driverRepository.create({
+          userId: savedUser.id,
+          organizationId: finalOrganizationId,
+          licenseNumber: licenseNumber,
+          phone: phone || '',
+          status: DriverStatus.AVAILABLE,
+          isActive: true,
+          totalDeliveries: 0,
+          rating: 0,
+        });
+        
+        await this.driverRepository.save(newDriver);
+        console.log(`✅ Driver created successfully for user ${savedUser.id} (${savedUser.name})`);
+      } catch (driverError) {
+        console.error('❌ Error creating driver record:', driverError);
+        await this.userRepository.delete(savedUser.id);
+        throw new InternalServerErrorException('Failed to create driver record. User was not created.');
+      }
+    }
+
+    const { password: _, ...userWithoutPassword } = savedUser;
+    return { user: userWithoutPassword as Omit<User, 'password'>, message: 'User created successfully' };
   }
 
   async createSuperAdmin(
     secretKey: string, 
     createSuperAdminDto: CreateSuperAdminDto,
     currentUser: CurrentUser,
-      ): Promise<UserResponse> {
-        if (currentUser.role !== 'super_admin') {
-          throw new ForbiddenException('Only super admin can create new super admin');
-        }
+  ): Promise<UserResponse> {
+    if (currentUser.role !== 'super_admin') {
+      throw new ForbiddenException('Only super admin can create new super admin');
+    }
 
-        if (secretKey !== this.superAdminSecretKey) {
-          throw new UnauthorizedException('Invalid secret key');
-        }
+    if (secretKey !== this.superAdminSecretKey) {
+      throw new UnauthorizedException('Invalid secret key');
+    }
 
-        const { email, password, name, phone } = createSuperAdminDto;
+    const { email, password, name, phone } = createSuperAdminDto;
 
-        const existingUser = await this.userRepository.findOne({ where: { email } });
-        if (existingUser) {
-          throw new ConflictException('Super admin already exists');
-        }
+    const existingUser = await this.userRepository.findOne({ where: { email } });
+    if (existingUser) {
+      throw new ConflictException('Super admin already exists');
+    }
 
-        let superAdminRole = await this.roleRepository.findOne({ where: { name: 'super_admin' } });
-        if (!superAdminRole) {
-          superAdminRole = this.roleRepository.create({ 
-            name: 'super_admin', 
-            description: 'Full system access' 
-          });
-          await this.roleRepository.save(superAdminRole);
-        }
+    let superAdminRole = await this.roleRepository.findOne({ where: { name: 'super_admin' } });
+    if (!superAdminRole) {
+      superAdminRole = this.roleRepository.create({ 
+        name: 'super_admin', 
+        description: 'Full system access' 
+      });
+      await this.roleRepository.save(superAdminRole);
+    }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-        const newUser = this.userRepository.create({
-          email,
-          password: hashedPassword,
-          name,
-          phone,
-          roles: [superAdminRole],
-          createdByOrganizationId: currentUser.organizationId,
-          lastUpdatedBy: currentUser.id,
-        });
+    const newUser = this.userRepository.create({
+      email,
+      password: hashedPassword,
+      name,
+      phone,
+      roles: [superAdminRole],
+      createdByOrganizationId: currentUser.organizationId || undefined,
+      lastUpdatedBy: currentUser.id,
+    });
 
-        const savedUser = await this.userRepository.save(newUser);
+    const savedUser = await this.userRepository.save(newUser);
 
-        const { password: _, ...result } = savedUser;
-        return { user: result, message: 'Super admin created successfully' };
-      }
+    const { password: _, ...userWithoutPassword } = savedUser;
+    return { user: userWithoutPassword as Omit<User, 'password'>, message: 'Super admin created successfully' };
+  }
 
   async login(user: ValidatedUser): Promise<LoginResponse> {
     const payload: JwtPayload = { 
@@ -329,10 +379,89 @@ export class AuthService {
   async forgotPassword(email: string): Promise<void> {
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) return;
-    // Logic for sending reset email would go here
   }
 
   isTokenBlacklisted(token: string): boolean {
     return this.blacklistedTokens.has(token);
+  }
+
+  async updateProfile(userId: string, updateData: { name?: string; phone?: string; organizationId?: string }): Promise<Omit<User, 'password'>> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['roles'],
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (updateData.name !== undefined) user.name = updateData.name;
+    if (updateData.phone !== undefined) user.phone = updateData.phone;
+    if (updateData.organizationId !== undefined) user.organizationId = updateData.organizationId;
+
+    const savedUser = await this.userRepository.save(user);
+    
+    const { password, ...result } = savedUser;
+    return result;
+  }
+
+  async getProfile(userId: string): Promise<Omit<User, 'password'>> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['roles', 'organization'],
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const { password, ...result } = user;
+    return result;
+  }
+
+  async syncExistingDrivers(): Promise<{ created: number; skipped: number }> {
+    const driverRole = await this.roleRepository.findOne({ where: { name: 'driver' } });
+    
+    if (!driverRole) {
+      console.log('Driver role not found');
+      return { created: 0, skipped: 0 };
+    }
+    
+    const users = await this.userRepository
+      .createQueryBuilder('user')
+      .innerJoin('user.roles', 'role')
+      .where('role.id = :roleId', { roleId: driverRole.id })
+      .getMany();
+    
+    let created = 0;
+    let skipped = 0;
+    
+    for (const user of users) {
+      const existingDriver = await this.driverRepository.findOne({
+        where: { userId: user.id }
+      });
+      
+      if (!existingDriver) {
+        const licenseNumber = `LIC${Date.now().toString().slice(-8)}${Math.random().toString(36).substring(2, 4).toUpperCase()}`;
+        
+        const driver = this.driverRepository.create({
+          userId: user.id,
+          organizationId: user.organizationId,
+          licenseNumber: licenseNumber,
+          phone: user.phone || '',
+          status: DriverStatus.AVAILABLE,
+          isActive: true,
+          totalDeliveries: 0,
+          rating: 0,
+        });
+        
+        await this.driverRepository.save(driver);
+        created++;
+      } else {
+        skipped++;
+      }
+    }
+    
+    return { created, skipped };
   }
 }
