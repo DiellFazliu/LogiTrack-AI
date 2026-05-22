@@ -25,6 +25,9 @@ export class Product {
   @Column({ nullable: true })
   category?: string;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true, default: 0 })
+  price!: number;  // ✅ Shto këtë fushë
+
   @Column({ name: 'weight_kg', type: 'decimal', precision: 10, scale: 2, nullable: true })
   weightKg?: number;
 
