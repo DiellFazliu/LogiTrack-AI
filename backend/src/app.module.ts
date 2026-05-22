@@ -12,6 +12,7 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { WarehousesModule } from './modules/warehouses/warehouses.module';
 import { ProductsModule } from './modules/products/products.module';
 import { ShipmentsModule } from './modules/shipments/shipments.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -24,6 +25,9 @@ import { AiModule } from './modules/ai/ai.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { JobsModule } from './jobs/jobs.module';
 import { RoutesModule } from './modules/routes/routes.module';
+
+import { ReviewsModule } from './modules/reviews/reviews.module';
+
 
 @Module({
   imports: [
@@ -88,6 +92,8 @@ import { RoutesModule } from './modules/routes/routes.module';
     AiModule,
     NotificationsModule,
     RoutesModule,
+    ReportsModule,
+    ReviewsModule,
   ],
   providers: [
     {
