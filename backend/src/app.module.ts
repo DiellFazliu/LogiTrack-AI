@@ -31,6 +31,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { ReturnsModule } from './modules/returns/returns.module';
 import { DocumentsModule } from './modules/documents/documents.module';
+import { InvoicesModule } from './modules/invoices/invoices.module';
 
 @Module({
   imports: [
@@ -100,6 +101,7 @@ import { DocumentsModule } from './modules/documents/documents.module';
     AuditModule,
     ReturnsModule,
     DocumentsModule,
+    InvoicesModule,
   ],
   providers: [
     {
