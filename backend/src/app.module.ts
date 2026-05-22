@@ -25,6 +25,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { JobsModule } from './jobs/jobs.module';
 import { RoutesModule } from './modules/routes/routes.module';
+import { DocumentsModule } from './modules/documents/documents.module';
 
 import { ReviewsModule } from './modules/reviews/reviews.module';
 
