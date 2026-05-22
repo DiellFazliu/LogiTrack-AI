@@ -23,8 +23,7 @@ export enum ReturnReason {
 }
 
 @Entity('returns')
-@Index(['original_shipment_id'])
-@Index(['return_status'])
+
 export class Return {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
