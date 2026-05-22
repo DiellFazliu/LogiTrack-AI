@@ -29,6 +29,7 @@ import { RoutesModule } from './modules/routes/routes.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 
 import { AuditModule } from './modules/audit/audit.module';
+import { ReturnsModule } from './modules/returns/returns.module';
 
 @Module({
   imports: [
@@ -96,6 +97,7 @@ import { AuditModule } from './modules/audit/audit.module';
     ReportsModule,
     ReviewsModule,
     AuditModule,
+    ReturnsModule,
   ],
   providers: [
     {
