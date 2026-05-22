@@ -1,63 +1,59 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bull';
-import type { Queue } from 'bull';
-import { EMAIL_QUEUE } from '../../jobs/email.processor';
-import * as nodemailer from 'nodemailer';
-import { ConfigService } from '@nestjs/config';
+// src/modules/notifications/notifications.service.ts
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Notification, NotificationType } from './notification.entity';
+import { CreateNotificationDto } from './dto/create-notification.dto';
+import { UpdateNotificationDto } from './dto/update-notification.dto';
 
 @Injectable()
 export class NotificationsService {
-  private readonly logger = new Logger(NotificationsService.name);
-  private transporter: nodemailer.Transporter | null = null;
-
   constructor(
-    @InjectQueue(EMAIL_QUEUE)
-    private emailQueue: Queue,
-    private configService: ConfigService,
-  ) {
-    this.initTransporter();
+    @InjectRepository(Notification)
+    private notificationRepository: Repository<Notification>,
+  ) {}
+
+  async create(createDto: CreateNotificationDto): Promise<Notification> {
+    const notification = this.notificationRepository.create(createDto);
+    return this.notificationRepository.save(notification);
   }
 
-  private initTransporter() {
-    const user = this.configService.get('EMAIL_USER');
-    const pass = this.configService.get('EMAIL_PASS');
-    
-    if (user && pass && user !== 'your-email@gmail.com') {
-      this.transporter = nodemailer.createTransport({
-        host: this.configService.get('EMAIL_HOST'),
-        port: this.configService.get('EMAIL_PORT'),
-        secure: false,
-        auth: { user, pass },
-      });
-      this.logger.log('Email transporter initialized');
-    } else {
-      this.logger.warn('Email credentials not configured. Email sending disabled.');
-    }
-  }
-
-  async sendEmail(to: string, subject: string, content: string, shipmentId?: string) {
-    const job = await this.emailQueue.add('send', {
-      to,
-      subject,
-      content,
-      shipmentId,
+  async findAllByUser(userId: string, limit = 50, offset = 0): Promise<Notification[]> {
+    return this.notificationRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: offset,
     });
-    
-    this.logger.log(`Email job added to queue with id ${job.id}`);
-    return { jobId: job.id, status: 'queued' };
   }
 
-  async sendShipmentStatusUpdate(to: string, trackingNumber: string, status: string) {
-    const subject = `Shipment ${trackingNumber} Status Update`;
-    const content = `Your shipment ${trackingNumber} has been updated to: ${status}`;
-    return this.sendEmail(to, subject, content, trackingNumber);
+  async findUnreadCount(userId: string): Promise<number> {
+    return this.notificationRepository.count({
+      where: { userId, isRead: false },
+    });
   }
 
-  async sendWelcomeEmail(to: string, name: string) {
-    const subject = 'Welcome to LogiTrack AI';
-    const content = `Hello ${name}, welcome to LogiTrack AI! Start tracking your shipments today.`;
-    
-    const job = await this.emailQueue.add('welcome', { to, name });
-    return { jobId: job.id, status: 'queued' };
+  async findOne(id: string): Promise<Notification> {
+    const notification = await this.notificationRepository.findOne({ where: { id } });
+    if (!notification) throw new NotFoundException('Notification not found');
+    return notification;
+  }
+
+  async markAsRead(id: string): Promise<Notification> {
+    const notification = await this.findOne(id);
+    notification.isRead = true;
+    notification.readAt = new Date();
+    return this.notificationRepository.save(notification);
+  }
+
+  async markAllAsRead(userId: string): Promise<void> {
+    await this.notificationRepository.update(
+      { userId, isRead: false },
+      { isRead: true, readAt: new Date() }
+    );
+  }
+
+  async remove(id: string): Promise<void> {
+    await this.notificationRepository.delete(id);
   }
 }
