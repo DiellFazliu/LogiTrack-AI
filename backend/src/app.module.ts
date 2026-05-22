@@ -28,6 +28,7 @@ import { RoutesModule } from './modules/routes/routes.module';
 
 import { ReviewsModule } from './modules/reviews/reviews.module';
 
+import { AuditModule } from './modules/audit/audit.module';
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
     RoutesModule,
     ReportsModule,
     ReviewsModule,
+    AuditModule,
   ],
   providers: [
     {
