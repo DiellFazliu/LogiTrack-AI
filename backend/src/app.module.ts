@@ -30,6 +30,8 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 
 import { AuditModule } from './modules/audit/audit.module';
 import { ReturnsModule } from './modules/returns/returns.module';
+import { Documents } from './modules/documents/documents.module';
+
 
 @Module({
   imports: [
@@ -98,6 +100,7 @@ import { ReturnsModule } from './modules/returns/returns.module';
     ReviewsModule,
     AuditModule,
     ReturnsModule,
+    DocumentsModule,
   ],
   providers: [
     {
