@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,  // ✅ Shto këtë
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -51,6 +52,7 @@ export class WaybillsService {
       generatedBy: waybill.generatedBy,
       createdAt: waybill.createdAt,
       isSigned: !!waybill.signature, // Shto këtë rresht
+      
     };
   }
   private generateWaybillNumber(): string {
@@ -122,19 +124,64 @@ export class WaybillsService {
     return waybills.map(w => this.toResponseDto(w));
   }
 
-  async findByShipment(shipmentId: string, organizationId: string): Promise<WaybillResponseDto> {
-    const waybill = await this.waybillRepository.findOne({
-      where: {
-        shipmentId,
-        shipment: { organizationId },
-      },
-      relations: ['shipment', 'shipment.driver', 'shipment.driver.user', 'shipment.vehicle'],
-    });
-    if (!waybill) {
-      throw new NotFoundException(`Waybill for shipment ${shipmentId} not found`);
-    }
-    return this.toResponseDto(waybill);
+// backend/src/modules/waybills/waybills.service.ts
+async findByShipment(shipmentId: string, organizationId: string): Promise<WaybillResponseDto> {
+  console.log('findByShipment called with:', { shipmentId, organizationId });
+  
+  const waybill = await this.waybillRepository.findOne({
+    where: {
+      shipmentId: shipmentId,  // Përdor shipmentId direkt
+    },
+    relations: ['shipment', 'shipment.driver', 'shipment.driver.user', 'shipment.vehicle'],
+  });
+  
+  console.log('Found waybill:', waybill);
+  
+  if (!waybill) {
+    throw new NotFoundException(`Waybill for shipment ${shipmentId} not found`);
   }
+  
+  // Kontrollo që shipment i përket organizatës së duhur
+  if (waybill.shipment.organizationId !== organizationId) {
+    throw new ForbiddenException('Access denied to this waybill');
+  }
+  
+  return this.toResponseDto(waybill);
+}
+// backend/src/modules/waybills/waybills.service.ts
+// Shto këtë metodë pas metodës findByShipment:
+async markAsPrinted(id: string, organizationId: string): Promise<WaybillResponseDto> {
+  const waybill = await this.waybillRepository.findOne({
+    where: {
+      id,
+      shipment: { organizationId },
+    },
+  });
+  if (!waybill) {
+    throw new NotFoundException(`Waybill with ID ${id} not found`);
+  }
+
+  // Nëse nuk ke kolonat isPrinted dhe printedAt, thjesht kthe waybill-in
+  // Ose shto këto kolona në migration
+  
+  return this.toResponseDto(waybill);
+}
+async findByShipmentPublic(shipmentId: string): Promise<WaybillResponseDto> {
+  console.log('findByShipmentPublic called with shipmentId:', shipmentId);
+  
+  const waybill = await this.waybillRepository.findOne({
+    where: { shipmentId },
+    relations: ['shipment', 'shipment.driver', 'shipment.driver.user', 'shipment.vehicle'],
+  });
+  
+  console.log('Found waybill:', waybill);
+  
+  if (!waybill) {
+    throw new NotFoundException(`Waybill for shipment ${shipmentId} not found`);
+  }
+  
+  return this.toResponseDto(waybill);
+}
 
   async findOne(id: string, organizationId: string): Promise<WaybillResponseDto> {
     const waybill = await this.waybillRepository.findOne({

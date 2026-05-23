@@ -1,4 +1,6 @@
+// frontend/src/pages/costumer/CustomerDashboard.tsx
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom'; // ✅ Shto useNavigate
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { TruckIcon, ClockIcon, CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
@@ -24,6 +26,7 @@ interface Shipment {
 
 export const CustomerDashboard: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate(); // ✅ Shto navigate
   const [stats, setStats] = useState<ShipmentStats>({ total: 0, delivered: 0, inTransit: 0, pending: 0 });
   const [recentShipments, setRecentShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +67,11 @@ export const CustomerDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ✅ Funksioni për të trajtuar klikimin Track
+  const handleTrackClick = (trackingNumber: string) => {
+    navigate(`/customer/track/${trackingNumber}`);
   };
 
   const statCards = [
@@ -123,18 +131,24 @@ export const CustomerDashboard: React.FC = () => {
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b flex justify-between items-center">
           <h2 className="text-lg font-semibold text-gray-800">Recent Shipments</h2>
-          <a href="/shipments" className="text-sm text-blue-600 hover:text-blue-800">
-            View All →
-          </a>
+          <button 
+            onClick={() => navigate('/customer/track')}
+            className="text-sm text-blue-600 hover:text-blue-800"
+          >
+            Track Shipment →
+          </button>
         </div>
         
         {recentShipments.length === 0 ? (
           <div className="text-center py-12">
             <TruckIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-500">No shipments found.</p>
-            <a href="/create-shipment" className="inline-block mt-4 text-blue-600 hover:text-blue-800">
+            <button 
+              onClick={() => navigate('/customer/create-shipment')}
+              className="inline-block mt-4 text-blue-600 hover:text-blue-800"
+            >
               Create your first shipment →
-            </a>
+            </button>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -182,12 +196,12 @@ export const CustomerDashboard: React.FC = () => {
                       {new Date(shipment.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4">
-                      <a 
-                        href={`/track/${shipment.trackingNumber}`}
+                      <button 
+                        onClick={() => handleTrackClick(shipment.trackingNumber)}
                         className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                       >
                         Track
-                      </a>
+                      </button>
                     </td>
                   </tr>
                 ))}
