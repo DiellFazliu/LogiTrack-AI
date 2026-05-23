@@ -1,3 +1,4 @@
+// waybills.service.ts
 import {
   Injectable,
   NotFoundException,
@@ -11,8 +12,6 @@ import { UpdateWaybillDto } from './dto/update-waybill.dto';
 import { SignWaybillDto } from './dto/sign-waybill.dto';
 import { WaybillResponseDto, ShipmentInfoDto } from './dto/waybill-response.dto';
 import { Shipment, ShipmentStatus } from '../shipments/shipment.entity';
-import { Driver } from '../drivers/driver.entity';
-import { Vehicle } from '../vehicles/vehicle.entity';
 import * as QRCode from 'qrcode';
 
 @Injectable()
@@ -22,14 +21,10 @@ export class WaybillsService {
     private waybillRepository: Repository<Waybill>,
     @InjectRepository(Shipment)
     private shipmentRepository: Repository<Shipment>,
-    @InjectRepository(Driver)
-    private driverRepository: Repository<Driver>,
-    @InjectRepository(Vehicle)
-    private vehicleRepository: Repository<Vehicle>,
   ) {}
 
+// waybills.service.ts - Pjesa e toResponseDto
   private toResponseDto(waybill: Waybill): WaybillResponseDto {
-    // Get driver name safely
     let driverName: string | undefined;
     if (waybill.shipment?.driver) {
       driverName = waybill.shipment.driver.user?.name || waybill.shipment.driver.licenseNumber;
@@ -53,16 +48,11 @@ export class WaybillsService {
       qrCode: waybill.qrCode,
       signature: waybill.signature,
       signedAt: waybill.signedAt,
-      signedBy: waybill.signedBy,
       generatedBy: waybill.generatedBy,
-      isSigned: waybill.isSigned,
-      isPrinted: waybill.isPrinted,
-      printedAt: waybill.printedAt,
-      notes: waybill.notes,
       createdAt: waybill.createdAt,
+      isSigned: !!waybill.signature, // Shto këtë rresht
     };
   }
-
   private generateWaybillNumber(): string {
     const date = new Date();
     const year = date.getFullYear();
@@ -84,7 +74,7 @@ export class WaybillsService {
   }
 
   async generate(createDto: CreateWaybillDto, userId: string): Promise<WaybillResponseDto> {
-    const { shipmentId, notes, generatePdf = true } = createDto;
+    const { shipmentId, generatePdf = true } = createDto;
 
     const shipment = await this.shipmentRepository.findOne({
       where: { id: shipmentId },
@@ -109,9 +99,6 @@ export class WaybillsService {
       waybillNumber,
       qrCode,
       generatedBy: userId,
-      notes,
-      isSigned: false,
-      isPrinted: false,
     });
 
     if (generatePdf) {
@@ -191,15 +178,13 @@ export class WaybillsService {
       throw new NotFoundException(`Waybill with ID ${id} not found`);
     }
 
-    if (waybill.isSigned) {
+    // Kontrollo nëse tashmë është nënshkruar (nëse signature ekziston)
+    if (waybill.signature) {
       throw new BadRequestException('Waybill is already signed');
     }
 
     waybill.signature = signWaybillDto.signature;
     waybill.signedAt = new Date();
-    waybill.signedBy = userId;
-    waybill.isSigned = true;
-    waybill.notes = signWaybillDto.notes || waybill.notes;
 
     // Update shipment status if needed
     if (waybill.shipment && waybill.shipment.status === ShipmentStatus.PENDING) {
@@ -207,24 +192,6 @@ export class WaybillsService {
       waybill.shipment.pickedUpAt = new Date();
       await this.shipmentRepository.save(waybill.shipment);
     }
-
-    const savedWaybill = await this.waybillRepository.save(waybill);
-    return this.toResponseDto(savedWaybill);
-  }
-
-  async markAsPrinted(id: string, organizationId: string): Promise<WaybillResponseDto> {
-    const waybill = await this.waybillRepository.findOne({
-      where: {
-        id,
-        shipment: { organizationId },
-      },
-    });
-    if (!waybill) {
-      throw new NotFoundException(`Waybill with ID ${id} not found`);
-    }
-
-    waybill.isPrinted = true;
-    waybill.printedAt = new Date();
 
     const savedWaybill = await this.waybillRepository.save(waybill);
     return this.toResponseDto(savedWaybill);
@@ -245,7 +212,11 @@ export class WaybillsService {
       throw new NotFoundException(`Waybill with ID ${id} not found`);
     }
 
-    Object.assign(waybill, updateDto);
+    // Update only fields that exist
+    if (updateDto.pdfUrl !== undefined) waybill.pdfUrl = updateDto.pdfUrl;
+    if (updateDto.qrCode !== undefined) waybill.qrCode = updateDto.qrCode;
+    if (updateDto.signature !== undefined) waybill.signature = updateDto.signature;
+    
     const savedWaybill = await this.waybillRepository.save(waybill);
     return this.toResponseDto(savedWaybill);
   }
