@@ -1,5 +1,6 @@
-// src/pages/customer/TrackShipment.tsx
-import React, { useState } from 'react';
+// frontend/src/pages/customer/TrackShipment.tsx
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Search, 
   Truck, 
@@ -10,15 +11,16 @@ import {
   CheckCircle, 
   Clock, 
   AlertCircle,
-  Printer,
   RotateCcw,
   FileText,
-  Download
+  Printer,
+  Eye,
+  X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
-import { waybillsService } from '../../services/waybills.service';
+import { waybillsService, type WaybillResponse } from '../../services/waybills.service';
 
 interface Shipment {
   id: string;
@@ -46,39 +48,34 @@ interface Shipment {
   };
 }
 
-interface WaybillData {
-  id: string;
-  waybillNumber: string;
-  pdfUrl: string | null;
-  isSigned: boolean;
-}
-
 export const TrackShipment: React.FC = () => {
+  const navigate = useNavigate();
+  const { trackingNumber: urlTrackingNumber } = useParams<{ trackingNumber?: string }>();
   const [trackingNumber, setTrackingNumber] = useState('');
   const [shipment, setShipment] = useState<Shipment | null>(null);
-  const [waybill, setWaybill] = useState<WaybillData | null>(null);
+  const [waybill, setWaybill] = useState<WaybillResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [printingWaybill, setPrintingWaybill] = useState(false);
+  const [showWaybillModal, setShowWaybillModal] = useState(false);
+  const [generatingWaybill, setGeneratingWaybill] = useState(false);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!trackingNumber.trim()) {
-      toast.error('Please enter a tracking number');
-      return;
+  // Auto-search kur ka tracking number në URL
+  useEffect(() => {
+    if (urlTrackingNumber) {
+      setTrackingNumber(urlTrackingNumber.toUpperCase());
+      performSearch(urlTrackingNumber);
     }
+  }, [urlTrackingNumber]);
 
+  const performSearch = async (trackNum: string) => {
     setLoading(true);
     try {
-      // 1. Merr të dhënat e dërgesës
-      const shipmentResponse = await api.get(`/shipments/track/${trackingNumber}`);
+      const shipmentResponse = await api.get(`/shipments/track/${trackNum}`);
       setShipment(shipmentResponse.data);
 
-      // 2. Merr waybill për këtë dërgesë (nëse ekziston)
       try {
         const waybillResponse = await waybillsService.getByShipment(shipmentResponse.data.id);
         setWaybill(waybillResponse);
       } catch (waybillError: any) {
-        // Waybill nuk ekziston akoma - nuk është problem
         console.log('No waybill found for this shipment');
         setWaybill(null);
       }
@@ -98,64 +95,40 @@ export const TrackShipment: React.FC = () => {
     }
   };
 
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trackingNumber.trim()) {
+      toast.error('Please enter a tracking number');
+      return;
+    }
+    // Navigate to URL with tracking number
+    navigate(`/customer/track/${trackingNumber.toUpperCase()}`);
+  };
+
   const handleGenerateWaybill = async () => {
     if (!shipment) return;
 
-    setPrintingWaybill(true);
+    setGeneratingWaybill(true);
     try {
-      // Gjenero waybill të ri
       const newWaybill = await waybillsService.generate(shipment.id);
       setWaybill(newWaybill);
-      
-      // Shkarko PDF-në
-      if (newWaybill.id) {
-        const pdfBlob = await waybillsService.downloadPdf(newWaybill.id);
-        const url = window.URL.createObjectURL(pdfBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `waybill_${newWaybill.waybillNumber}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        toast.success('Waybill generated and downloaded!');
-      }
+      toast.success('Waybill generated successfully!');
+      setShowWaybillModal(true);
     } catch (error: any) {
       console.error('Error generating waybill:', error);
-      toast.error(error.response?.data?.message || 'Failed to generate waybill');
+      if (error.response?.status === 403) {
+        toast.error('You do not have permission to generate waybills.');
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to generate waybill');
+      }
     } finally {
-      setPrintingWaybill(false);
+      setGeneratingWaybill(false);
     }
   };
 
-  const handlePrintWaybill = async () => {
-    if (!waybill) {
-      // Nëse nuk ka waybill, gjenero një të ri
-      await handleGenerateWaybill();
-      return;
-    }
-
-    setPrintingWaybill(true);
-    try {
-      // Shëno waybill si të printuar
-      await waybillsService.markAsPrinted(waybill.id);
-      
-      // Shkarko PDF-në ekzistuese
-      const pdfBlob = await waybillsService.downloadPdf(waybill.id);
-      const url = window.URL.createObjectURL(pdfBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `waybill_${waybill.waybillNumber}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      toast.success('Waybill downloaded!');
-    } catch (error: any) {
-      console.error('Error printing waybill:', error);
-      toast.error(error.response?.data?.message || 'Failed to print waybill');
-    } finally {
-      setPrintingWaybill(false);
+  const handleViewWaybill = () => {
+    if (waybill) {
+      setShowWaybillModal(true);
     }
   };
 
@@ -197,6 +170,13 @@ export const TrackShipment: React.FC = () => {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
+  const handleTrackAnother = () => {
+    setTrackingNumber('');
+    setShipment(null);
+    setWaybill(null);
+    navigate('/customer/track');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -207,7 +187,6 @@ export const TrackShipment: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header */}
       <div className="bg-white shadow">
         <div className="container mx-auto px-4 py-6">
           <h1 className="text-3xl font-bold text-gray-800">Track Your Shipment</h1>
@@ -227,7 +206,7 @@ export const TrackShipment: React.FC = () => {
                 type="text"
                 value={trackingNumber}
                 onChange={(e) => setTrackingNumber(e.target.value.toUpperCase())}
-                placeholder="Enter tracking number (e.g., TRK36296555RNY8)"
+                placeholder="Enter tracking number"
                 className="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <button
@@ -245,7 +224,6 @@ export const TrackShipment: React.FC = () => {
         {/* Shipment Details */}
         {shipment && (
           <>
-            {/* Status Header */}
             <div className="bg-white rounded-lg shadow mb-6 p-6">
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
@@ -320,7 +298,6 @@ export const TrackShipment: React.FC = () => {
               </div>
             </div>
 
-            {/* Details Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Route Information */}
               <div className="bg-white rounded-lg shadow p-6">
@@ -361,20 +338,24 @@ export const TrackShipment: React.FC = () => {
                         <p className="text-sm text-gray-500">Driver</p>
                         <p className="font-medium text-gray-800">{shipment.driver.name}</p>
                         {shipment.driver.phone && (
-                          <p className="text-sm text-gray-600">📞 {shipment.driver.phone}</p>
+                          <p className="text-sm text-gray-600 mt-1">📞 {shipment.driver.phone}</p>
                         )}
                       </div>
+                      {shipment.vehicle?.license_plate && (
+                        <div className="pt-2">
+                          <p className="text-sm text-gray-500">Vehicle</p>
+                          <p className="font-medium text-gray-800">
+                            {shipment.vehicle.license_plate} 
+                            {shipment.vehicle.type && ` (${shipment.vehicle.type})`}
+                          </p>
+                        </div>
+                      )}
                     </>
                   ) : (
-                    <p className="text-gray-500">Driver not assigned yet</p>
-                  )}
-                  {shipment.vehicle?.license_plate && (
-                    <div>
-                      <p className="text-sm text-gray-500">Vehicle</p>
-                      <p className="font-medium text-gray-800">
-                        {shipment.vehicle.license_plate} 
-                        {shipment.vehicle.type && ` (${shipment.vehicle.type})`}
-                      </p>
+                    <div className="text-center py-4">
+                      <User className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                      <p className="text-gray-500">No driver assigned yet</p>
+                      <p className="text-xs text-gray-400 mt-1">A driver will be assigned to your shipment soon</p>
                     </div>
                   )}
                 </div>
@@ -443,36 +424,20 @@ export const TrackShipment: React.FC = () => {
               </h3>
               <div className="flex flex-wrap gap-4">
                 {waybill ? (
-                  <>
-                    <button
-                      onClick={handlePrintWaybill}
-                      disabled={printingWaybill}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2 disabled:opacity-50"
-                    >
-                      {printingWaybill ? (
-                        <LoadingSpinner size="sm" />
-                      ) : (
-                        <>
-                          <Download className="w-4 h-4" />
-                          Download Waybill (PDF)
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => window.open(waybill.pdfUrl || '#', '_blank')}
-                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition flex items-center gap-2"
-                    >
-                      <Printer className="w-4 h-4" />
-                      Preview Waybill
-                    </button>
-                  </>
+                  <button
+                    onClick={handleViewWaybill}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
+                  >
+                    <Eye className="w-4 h-4" />
+                    View Waybill
+                  </button>
                 ) : (
                   <button
                     onClick={handleGenerateWaybill}
-                    disabled={printingWaybill}
+                    disabled={generatingWaybill}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2 disabled:opacity-50"
                   >
-                    {printingWaybill ? (
+                    {generatingWaybill ? (
                       <LoadingSpinner size="sm" />
                     ) : (
                       <>
@@ -484,11 +449,7 @@ export const TrackShipment: React.FC = () => {
                 )}
                 
                 <button
-                  onClick={() => {
-                    setTrackingNumber('');
-                    setShipment(null);
-                    setWaybill(null);
-                  }}
+                  onClick={handleTrackAnother}
                   className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition flex items-center gap-2"
                 >
                   <RotateCcw className="w-4 h-4" />
@@ -522,6 +483,88 @@ export const TrackShipment: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Waybill Modal */}
+      {showWaybillModal && waybill && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white">
+              <h2 className="text-xl font-semibold">Waybill {waybill.waybillNumber}</h2>
+              <button onClick={() => setShowWaybillModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="text-center">
+                <h1 className="text-2xl font-bold">LOGITRACK</h1>
+                <p className="text-lg mt-2">Waybill: {waybill.waybillNumber}</p>
+              </div>
+              
+              <div className="border rounded-lg p-4">
+                <h3 className="font-semibold mb-3">Shipment Information</h3>
+                <div className="space-y-2">
+                  <div className="flex">
+                    <span className="w-32 text-gray-500">Tracking:</span>
+                    <span className="font-mono">{waybill.shipment.trackingNumber}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 text-gray-500">Status:</span>
+                    <span>{waybill.shipment.status}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 text-gray-500">Pickup:</span>
+                    <span>{waybill.shipment.pickupAddress}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 text-gray-500">Delivery:</span>
+                    <span>{waybill.shipment.deliveryAddress}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {waybill.shipment.driverName && (
+                <div className="border rounded-lg p-4">
+                  <h3 className="font-semibold mb-3">Driver</h3>
+                  <p>{waybill.shipment.driverName}</p>
+                </div>
+              )}
+              
+              {waybill.shipment.vehiclePlate && (
+                <div className="border rounded-lg p-4">
+                  <h3 className="font-semibold mb-3">Vehicle</h3>
+                  <p>{waybill.shipment.vehiclePlate}</p>
+                </div>
+              )}
+              
+              {waybill.signature && (
+                <div className="border rounded-lg p-4 text-center">
+                  <h3 className="font-semibold mb-3">Signature</h3>
+                  <img src={waybill.signature} alt="Signature" className="max-w-full h-auto border rounded mx-auto" style={{ maxHeight: '150px' }} />
+                  <p className="text-sm text-gray-500 mt-2">
+                    Signed at: {new Date(waybill.signedAt!).toLocaleString()}
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex justify-center pt-4 gap-3">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print Waybill
+                </button>
+                <button
+                  onClick={() => setShowWaybillModal(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

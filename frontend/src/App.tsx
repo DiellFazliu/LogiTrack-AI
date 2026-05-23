@@ -87,6 +87,20 @@ function AppRoutes() {
             <CustomerDashboard />
           </ProtectedRoute>
         } />
+        // frontend/src/App.tsx
+// Sigurohu që ke këtë rrugë për customer track:
+
+<Route path="/customer/track" element={
+  <ProtectedRoute roles={['customer']}>
+    <TrackShipment />
+  </ProtectedRoute>
+} />
+
+<Route path="/customer/track/:trackingNumber" element={
+  <ProtectedRoute roles={['customer']}>
+    <TrackShipment />
+  </ProtectedRoute>
+} />
         <Route path="/customer/create-shipment" element={
           <ProtectedRoute roles={['customer']}>
             <CustomerCreateShipment />
@@ -120,6 +134,7 @@ function AppRoutes() {
             <DriverShipmentDetails />
           </ProtectedRoute>
         } />
+        
         <Route path="/driver/update-location" element={
           <ProtectedRoute roles={['driver']}>
             <UpdateLocation />

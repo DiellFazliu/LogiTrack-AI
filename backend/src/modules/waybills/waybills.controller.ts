@@ -40,7 +40,7 @@ export class WaybillsController {
   constructor(private readonly waybillsService: WaybillsService) {}
 
   @Post('generate')
-  @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.SUPER_ADMIN, UserRole.CUSTOMER)
+  @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.SUPER_ADMIN, UserRole.CUSTOMER, UserRole.DRIVER)
   @ApiOperation({ summary: 'Generate a new waybill for a shipment' })
   async generate(@Body() createDto: CreateWaybillDto, @Req() req: any): Promise<WaybillResponseDto> {
     return this.waybillsService.generate(createDto, req.user.id);
@@ -53,15 +53,36 @@ export class WaybillsController {
     return this.waybillsService.findAll(req.user.organizationId);
   }
 
-  @Get('shipment/:shipmentId')
-  @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Get waybill by shipment ID' })
-  async findByShipment(
-    @Param('shipmentId') shipmentId: string,
-    @Req() req: any,
-  ): Promise<WaybillResponseDto> {
-    return this.waybillsService.findByShipment(shipmentId, req.user.organizationId);
+// backend/src/modules/waybills/waybills.controller.ts
+// Sigurohu që ke këtë endpoint:
+
+// backend/src/modules/waybills/waybills.controller.ts
+// Ndrysho këtë pjesë:
+
+@Get('shipment/:shipmentId')
+@Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.SUPER_ADMIN, UserRole.CUSTOMER)
+@ApiOperation({ summary: 'Get waybill by shipment ID' })
+async findByShipment(
+  @Param('shipmentId') shipmentId: string,
+  @Req() req: any,
+): Promise<WaybillResponseDto> {
+  // Për customer, nuk kemi organizationId
+  if (req.user.role === UserRole.CUSTOMER) {
+    return this.waybillsService.findByShipmentPublic(shipmentId);
   }
+  return this.waybillsService.findByShipment(shipmentId, req.user.organizationId);
+}
+@Post(':id/print')
+@Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.SUPER_ADMIN, UserRole.CUSTOMER)
+@HttpCode(HttpStatus.OK)
+@ApiOperation({ summary: 'Mark waybill as printed' })
+async markAsPrinted(
+  @Param('id') id: string,
+  @Req() req: any,
+): Promise<WaybillResponseDto> {
+  return this.waybillsService.markAsPrinted(id, req.user.organizationId);
+}
+
 
   @Get('number/:waybillNumber')
   @ApiOperation({ summary: 'Get waybill by waybill number (public)' })

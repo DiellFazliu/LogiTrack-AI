@@ -1,15 +1,18 @@
 // frontend/src/pages/driver/ShipmentDetails.tsx
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Package, MapPin, Calendar, User, Truck, 
   Clock, CheckCircle, AlertCircle, 
-  Truck as TruckIcon, ArrowLeft, RefreshCw, Phone, Mail,
-  Navigation, PhoneCall, MessageSquare
+  ArrowLeft, RefreshCw, Phone,
+  Navigation, PhoneCall, FileText, 
+  PenTool, Printer, X, PlayCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { waybillsService, type WaybillResponse } from '../../services/waybills.service';
+import { Link } from 'react-router-dom';
 
 interface Shipment {
   id: string;
@@ -17,6 +20,10 @@ interface Shipment {
   status: string;
   pickupAddress: string;
   deliveryAddress: string;
+  pickupLatitude?: number;
+  pickupLongitude?: number;
+  deliveryLatitude?: number;
+  deliveryLongitude?: number;
   weightKg: number;
   volumeM3: number;
   priority: string;
@@ -43,19 +50,69 @@ interface StatusHistory {
 export const DriverShipmentDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const location = useLocation();
   const [shipment, setShipment] = useState<Shipment | null>(null);
   const [history, setHistory] = useState<StatusHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [statusNote, setStatusNote] = useState('');
-  const [showDirections, setShowDirections] = useState(false);
+  
+  // Waybill state
+  const [waybill, setWaybill] = useState<WaybillResponse | null>(null);
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [showWaybillModal, setShowWaybillModal] = useState(false);
+  const [signature, setSignature] = useState<string>('');
+  const [signatureNotes, setSignatureNotes] = useState('');
+  const [signing, setSigning] = useState(false);
+  const [loadingWaybill, setLoadingWaybill] = useState(false);
+  const [isGeneratingWaybill, setIsGeneratingWaybill] = useState(false);
+  
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     fetchShipment();
     fetchHistory();
+    autoGenerateAndFetchWaybill();
   }, [id]);
+
+  // Auto-generate waybill if not exists
+  const autoGenerateAndFetchWaybill = async () => {
+    setLoadingWaybill(true);
+    try {
+      // First try to get existing waybill
+      const waybillData = await waybillsService.getByShipment(id!);
+      setWaybill(waybillData);
+    } catch (error: any) {
+      // If 404, waybill doesn't exist - generate it automatically
+      if (error.response?.status === 404) {
+        console.log('No waybill found, auto-generating...');
+        setIsGeneratingWaybill(true);
+        try {
+          const newWaybill = await waybillsService.generate(id!);
+          setWaybill(newWaybill);
+          toast.success('Waybill generated automatically');
+        } catch (genError: any) {
+          console.error('Error auto-generating waybill:', genError);
+          toast.error('Failed to generate waybill');
+        } finally {
+          setIsGeneratingWaybill(false);
+        }
+      } else {
+        console.error('Error fetching waybill:', error);
+      }
+    } finally {
+      setLoadingWaybill(false);
+    }
+  };
+
+  // Check if coming from route optimizer to open signature modal
+  useEffect(() => {
+    if (location.state?.openSignatureModal && waybill && !waybill.isSigned) {
+      setShowSignatureModal(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, waybill]);
 
   const fetchShipment = async () => {
     try {
@@ -63,7 +120,7 @@ export const DriverShipmentDetails: React.FC = () => {
       setShipment(response.data);
       setNewStatus(response.data.status);
     } catch (error: any) {
-      console.error('Error:', error);
+      console.error('Error fetching shipment:', error);
       toast.error(error.response?.data?.message || 'Failed to fetch shipment');
     } finally {
       setLoading(false);
@@ -78,6 +135,143 @@ export const DriverShipmentDetails: React.FC = () => {
       console.error('Failed to fetch history:', error);
       setHistory([]);
     }
+  };
+
+  const handleViewWaybill = () => {
+    setShowWaybillModal(true);
+  };
+
+// frontend/src/pages/driver/ShipmentDetails.tsx
+// Ndrysho handleStartDeliveryProcedure:
+
+const handleStartDeliveryProcedure = () => {
+  if (!shipment) {
+    toast.error('No shipment data');
+    return;
+  }
+  
+  if (!waybill) {
+    toast.error('Waybill not ready yet');
+    return;
+  }
+  
+  // Dërgo të dhënat si URL parameters
+  const params = new URLSearchParams({
+    shipmentId: shipment.id,
+    trackingNumber: shipment.trackingNumber,
+    waybillNumber: waybill.waybillNumber,
+    pickupAddress: shipment.pickupAddress || '',
+    deliveryAddress: shipment.deliveryAddress || '',
+    pickupLat: shipment.pickupLatitude?.toString() || '',
+    pickupLng: shipment.pickupLongitude?.toString() || '',
+    deliveryLat: shipment.deliveryLatitude?.toString() || '',
+    deliveryLng: shipment.deliveryLongitude?.toString() || '',
+  });
+  
+  navigate(`/driver/route-optimizer?${params.toString()}`);
+};
+
+  const handleSignWaybill = async () => {
+    if (!signature) {
+      toast.error('Please provide signature');
+      return;
+    }
+
+    setSigning(true);
+    try {
+      const signedWaybill = await waybillsService.sign(waybill!.id, signature, signatureNotes);
+      setWaybill(signedWaybill);
+      setShowSignatureModal(false);
+      setSignature('');
+      setSignatureNotes('');
+      toast.success('Waybill signed successfully!');
+      
+      if (shipment && shipment.status !== 'delivered') {
+        await api.patch(`/shipments/${id}/status`, {
+          status: 'delivered',
+          notes: 'Delivery completed with signature'
+        });
+        fetchShipment();
+        fetchHistory();
+      }
+    } catch (error: any) {
+      console.error('Error signing waybill:', error);
+      toast.error(error.response?.data?.message || 'Failed to sign waybill');
+    } finally {
+      setSigning(false);
+    }
+  };
+
+  const initCanvas = () => {
+    if (!canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    canvas.width = canvas.offsetWidth;
+    canvas.height = 200;
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#000';
+    ctx.fillStyle = '#f9fafb';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  };
+
+  const saveSignature = () => {
+    if (!canvasRef.current) return;
+    const signatureData = canvasRef.current.toDataURL();
+    setSignature(signatureData);
+    handleSignWaybill();
+  };
+
+  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    ctx.beginPath();
+    const rect = canvas.getBoundingClientRect();
+    let clientX, clientY;
+    
+    if ('touches' in e) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    ctx.moveTo(x, y);
+    
+    const drawHandler = (drawEvent: MouseEvent | TouchEvent) => {
+      let drawX, drawY;
+      if ('touches' in drawEvent) {
+        drawX = drawEvent.touches[0].clientX - rect.left;
+        drawY = drawEvent.touches[0].clientY - rect.top;
+      } else {
+        drawX = drawEvent.clientX - rect.left;
+        drawY = drawEvent.clientY - rect.top;
+      }
+      ctx.lineTo(drawX, drawY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(drawX, drawY);
+    };
+    
+    const stopDrawing = () => {
+      canvas.removeEventListener('mousemove', drawHandler as any);
+      canvas.removeEventListener('mouseup', stopDrawing);
+      canvas.removeEventListener('touchmove', drawHandler as any);
+      canvas.removeEventListener('touchend', stopDrawing);
+    };
+    
+    canvas.addEventListener('mousemove', drawHandler as any);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('touchmove', drawHandler as any);
+    canvas.addEventListener('touchend', stopDrawing);
   };
 
   const updateStatus = async () => {
@@ -95,7 +289,6 @@ export const DriverShipmentDetails: React.FC = () => {
       fetchHistory();
       setStatusNote('');
       
-      // Nëse statusi është delivered, navigo prapa pas 2 sekondash
       if (newStatus === 'delivered') {
         setTimeout(() => {
           navigate('/driver/shipments');
@@ -109,36 +302,38 @@ export const DriverShipmentDetails: React.FC = () => {
   };
 
   const markAsDelivered = () => {
-    setNewStatus('delivered');
-    // Call updateStatus directly
-    const updateDirect = async () => {
-      setUpdating(true);
-      try {
-        await api.patch(`/shipments/${id}/status`, {
-          status: 'delivered',
-          notes: statusNote || 'Delivery completed'
-        });
-        
-        toast.success('Shipment marked as Delivered!');
-        fetchShipment();
-        fetchHistory();
-        setStatusNote('');
-        
-        setTimeout(() => {
-          navigate('/driver/shipments');
-        }, 2000);
-      } catch (error: any) {
-        toast.error(error.response?.data?.message || 'Failed to update status');
-      } finally {
-        setUpdating(false);
-      }
-    };
-    updateDirect();
+    if (waybill && !waybill.isSigned) {
+      setShowSignatureModal(true);
+    } else {
+      setNewStatus('delivered');
+      const updateDirect = async () => {
+        setUpdating(true);
+        try {
+          await api.patch(`/shipments/${id}/status`, {
+            status: 'delivered',
+            notes: statusNote || 'Delivery completed'
+          });
+          
+          toast.success('Shipment marked as Delivered!');
+          fetchShipment();
+          fetchHistory();
+          setStatusNote('');
+          
+          setTimeout(() => {
+            navigate('/driver/shipments');
+          }, 2000);
+        } catch (error: any) {
+          toast.error(error.response?.data?.message || 'Failed to update status');
+        } finally {
+          setUpdating(false);
+        }
+      };
+      updateDirect();
+    }
   };
 
   const openMaps = () => {
     if (!shipment) return;
-    
     const encodedAddress = encodeURIComponent(shipment.deliveryAddress);
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`, '_blank');
   };
@@ -162,7 +357,6 @@ export const DriverShipmentDetails: React.FC = () => {
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
-  
 
   const getPriorityColor = (priority: string) => {
     const colors: Record<string, string> = {
@@ -173,7 +367,6 @@ export const DriverShipmentDetails: React.FC = () => {
     };
     return colors[priority] || 'bg-gray-100 text-gray-800';
   };
-  
 
   const isStatusCompleted = (statusToCheck: string): boolean => {
     const statusOrder = ['pending', 'picked_up', 'in_transit', 'delivered'];
@@ -211,6 +404,9 @@ export const DriverShipmentDetails: React.FC = () => {
       </div>
     );
   }
+
+  const isWaybillReady = waybill && !isGeneratingWaybill;
+  const showStartButton = isWaybillReady && !waybill.isSigned && shipment.status !== 'delivered';
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -251,7 +447,62 @@ export const DriverShipmentDetails: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content - Left Side */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Addresses */}
+            {/* Waybill Section */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-blue-500" />
+                Waybill / Delivery Document
+              </h3>
+              
+              {loadingWaybill || isGeneratingWaybill ? (
+                <div className="flex justify-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                  <span className="ml-2 text-gray-500">Preparing waybill...</span>
+                </div>
+              ) : waybill ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                      <p className="text-sm text-gray-500">Waybill Number</p>
+                      <p className="font-mono font-medium">{waybill.waybillNumber}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Status</p>
+                      <span className={`px-2 py-1 rounded-full text-xs ${waybill.isSigned ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                        {waybill.isSigned ? '✓ Signed' : 'Pending Signature'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleViewWaybill}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2"
+                    >
+                      <Printer className="w-4 h-4" />
+                      View & Print
+                    </button>
+                  </div>
+
+                  {/* Main Action Button - Start Delivery Procedure */}
+                  {showStartButton && (
+                    <button
+                      onClick={handleStartDeliveryProcedure}
+                      className="w-full mt-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center justify-center gap-2 text-lg font-semibold"
+                    >
+                      <PlayCircle className="w-5 h-5" />
+                      Start Delivery Procedure
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-gray-500">Preparing waybill...</p>
+                </div>
+              )}
+            </div>
+
+            {/* Addresses - unchanged */}
             <div className="bg-white rounded-lg shadow p-6">
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
@@ -290,7 +541,7 @@ export const DriverShipmentDetails: React.FC = () => {
               </div>
             </div>
 
-            {/* Customer Info */}
+            {/* Customer Info - unchanged */}
             {shipment.customer && (
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
@@ -305,21 +556,13 @@ export const DriverShipmentDetails: React.FC = () => {
                     </div>
                     <div className="flex gap-2">
                       {shipment.customer.phone && (
-                        <>
-                          <button
-                            onClick={callCustomer}
-                            className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition"
-                            title="Call customer"
-                          >
-                            <PhoneCall className="w-5 h-5" />
-                          </button>
-                          <button
-                            className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition"
-                            title="Send SMS"
-                          >
-                            <MessageSquare className="w-5 h-5" />
-                          </button>
-                        </>
+                        <button
+                          onClick={callCustomer}
+                          className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition"
+                          title="Call customer"
+                        >
+                          <PhoneCall className="w-5 h-5" />
+                        </button>
                       )}
                     </div>
                   </div>
@@ -333,7 +576,7 @@ export const DriverShipmentDetails: React.FC = () => {
               </div>
             )}
 
-            {/* Status History */}
+            {/* Status History - unchanged */}
             {history.length > 0 && (
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="font-semibold mb-4">Status History</h3>
@@ -357,7 +600,7 @@ export const DriverShipmentDetails: React.FC = () => {
             )}
           </div>
 
-          {/* Sidebar - Right Side */}
+          {/* Sidebar - Right Side - unchanged except removing manual sign button */}
           <div className="space-y-6">
             {/* Update Status Section */}
             {canUpdateStatus() && (
@@ -366,7 +609,6 @@ export const DriverShipmentDetails: React.FC = () => {
                   <RefreshCw className="w-4 h-4" /> Update Delivery Status
                 </h3>
                 
-                {/* Quick Action Button for Delivered */}
                 {shipment.status === 'in_transit' && (
                   <div className="mb-4">
                     <button
@@ -377,13 +619,9 @@ export const DriverShipmentDetails: React.FC = () => {
                       <CheckCircle className="w-5 h-5" />
                       {updating ? 'Updating...' : '✓ Mark as Delivered'}
                     </button>
-                    <p className="text-xs text-gray-500 text-center mt-2">
-                      Click this when you have completed the delivery
-                    </p>
                   </div>
                 )}
                 
-                {/* Manual Status Update */}
                 <div className="space-y-3">
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
@@ -423,7 +661,7 @@ export const DriverShipmentDetails: React.FC = () => {
               </div>
             )}
 
-            {/* Shipment Details */}
+            {/* Shipment Details - unchanged */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="font-semibold mb-4">Shipment Details</h3>
               <div className="space-y-3 text-sm">
@@ -464,7 +702,7 @@ export const DriverShipmentDetails: React.FC = () => {
               </div>
             </div>
 
-            {/* Delivery Timeline */}
+            {/* Delivery Timeline - unchanged */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="font-semibold mb-4 flex items-center gap-2">
                 <Clock className="w-4 h-4" /> Delivery Progress
@@ -472,7 +710,6 @@ export const DriverShipmentDetails: React.FC = () => {
               <div className="relative">
                 <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-gray-200"></div>
                 <div className="space-y-5">
-                  {/* Order Created */}
                   <div className="flex gap-3">
                     <div className="relative z-10 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
                       <CheckCircle className="w-3 h-3 text-white" />
@@ -483,7 +720,6 @@ export const DriverShipmentDetails: React.FC = () => {
                     </div>
                   </div>
                   
-                  {/* Picked Up */}
                   <div className="flex gap-3">
                     <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
                       isStatusCompleted('picked_up') ? 'bg-blue-500' : 'bg-gray-300'
@@ -502,7 +738,6 @@ export const DriverShipmentDetails: React.FC = () => {
                     </div>
                   </div>
                   
-                  {/* In Transit */}
                   <div className="flex gap-3">
                     <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
                       isStatusCompleted('in_transit') ? 'bg-purple-500' : 'bg-gray-300'
@@ -521,7 +756,6 @@ export const DriverShipmentDetails: React.FC = () => {
                     </div>
                   </div>
                   
-                  {/* Delivered */}
                   <div className="flex gap-3">
                     <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
                       shipment.status === 'delivered' ? 'bg-green-500' : 'bg-gray-300'
@@ -543,7 +777,6 @@ export const DriverShipmentDetails: React.FC = () => {
               </div>
             </div>
 
-            {/* Notes */}
             {shipment.notes && (
               <div className="bg-yellow-50 rounded-lg shadow p-4 border border-yellow-200">
                 <div className="flex items-start gap-2">
@@ -556,7 +789,6 @@ export const DriverShipmentDetails: React.FC = () => {
               </div>
             )}
 
-            {/* Alert for failed/cancelled */}
             {(shipment.status === 'failed' || shipment.status === 'cancelled') && (
               <div className="bg-red-50 rounded-lg shadow p-4 border border-red-200">
                 <div className="flex items-center gap-2">
@@ -573,6 +805,170 @@ export const DriverShipmentDetails: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Waybill Modal for View & Print */}
+      {showWaybillModal && waybill && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white">
+              <h2 className="text-xl font-semibold">Waybill {waybill.waybillNumber}</h2>
+              <button onClick={() => setShowWaybillModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="text-center">
+                <h1 className="text-2xl font-bold">LOGITRACK</h1>
+                <p className="text-lg mt-2">Waybill: {waybill.waybillNumber}</p>
+              </div>
+              
+              <div className="border rounded-lg p-4">
+                <h3 className="font-semibold mb-3">Shipment Information</h3>
+                <div className="space-y-2">
+                  <div className="flex">
+                    <span className="w-32 text-gray-500">Tracking:</span>
+                    <span className="font-mono">{waybill.shipment.trackingNumber}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 text-gray-500">Status:</span>
+                    <span>{waybill.shipment.status}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 text-gray-500">Pickup:</span>
+                    <span>{waybill.shipment.pickupAddress}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 text-gray-500">Delivery:</span>
+                    <span>{waybill.shipment.deliveryAddress}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {waybill.shipment.driverName && (
+                <div className="border rounded-lg p-4">
+                  <h3 className="font-semibold mb-3">Driver</h3>
+                  <p>{waybill.shipment.driverName}</p>
+                </div>
+              )}
+              
+              {waybill.shipment.vehiclePlate && (
+                <div className="border rounded-lg p-4">
+                  <h3 className="font-semibold mb-3">Vehicle</h3>
+                  <p>{waybill.shipment.vehiclePlate}</p>
+                </div>
+              )}
+              
+              {waybill.signature && (
+                <div className="border rounded-lg p-4 text-center">
+                  <h3 className="font-semibold mb-3">Signature</h3>
+                  <img src={waybill.signature} alt="Signature" className="max-w-full h-auto border rounded mx-auto" style={{ maxHeight: '150px' }} />
+                  <p className="text-sm text-gray-500 mt-2">
+                    Signed at: {new Date(waybill.signedAt!).toLocaleString()}
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex justify-center pt-4 gap-3">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print Waybill
+                </button>
+                <button
+                  onClick={() => setShowWaybillModal(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Signature Modal */}
+      {showSignatureModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-semibold">Sign Waybill</h2>
+              <button
+                onClick={() => setShowSignatureModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Signature (Draw below)
+                </label>
+                <div className="border-2 border-gray-300 rounded-lg overflow-hidden">
+                  <canvas
+                    ref={canvasRef}
+                    onMouseDown={startDrawing}
+                    onTouchStart={startDrawing}
+                    style={{ width: '100%', height: '200px', background: '#f9fafb', cursor: 'crosshair' }}
+                  />
+                </div>
+                <div className="flex justify-between mt-2">
+                  <button
+                    onClick={() => {
+                      if (canvasRef.current) {
+                        const ctx = canvasRef.current.getContext('2d');
+                        ctx?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+                        initCanvas();
+                      }
+                    }}
+                    className="text-sm text-red-500 hover:text-red-600"
+                  >
+                    Clear Signature
+                  </button>
+                  <button
+                    onClick={() => initCanvas()}
+                    className="text-sm text-gray-500 hover:text-gray-600"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={signatureNotes}
+                  onChange={(e) => setSignatureNotes(e.target.value)}
+                  rows={2}
+                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Add any delivery notes..."
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={saveSignature}
+                  disabled={signing}
+                  className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+                >
+                  {signing ? 'Signing...' : 'Confirm Signature'}
+                </button>
+                <button
+                  onClick={() => setShowSignatureModal(false)}
+                  className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

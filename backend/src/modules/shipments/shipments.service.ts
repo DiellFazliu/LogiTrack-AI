@@ -283,14 +283,51 @@ await this.shipmentRepository.update(id, {
   return result;  // Kthe direkt result, pa modifikim shtesë
 }
 
-  async getTracking(trackingNumber: string): Promise<Shipment> {
-    const shipment = await this.shipmentRepository.findOne({
-      where: { trackingNumber },
-      relations: ['driver', 'vehicle'],
-    });
-    if (!shipment) throw new NotFoundException('Shipment not found');
-    return shipment;
+// backend/src/modules/shipments/shipments.service.ts
+async getTracking(trackingNumber: string) {
+  console.log('getTracking called for:', trackingNumber);
+  
+  const shipment = await this.shipmentRepository.findOne({
+    where: { trackingNumber },
+    relations: ['driver', 'driver.user', 'vehicle'], // ✅ Shto këto relations
+  });
+  
+  if (!shipment) {
+    throw new NotFoundException('Shipment not found');
   }
+  
+  console.log('Found shipment:', shipment.id);
+  console.log('Driver:', shipment.driver);
+  console.log('Driver user:', shipment.driver?.user);
+  console.log('Vehicle:', shipment.vehicle);
+  
+  // Formato përgjigjen
+  return {
+    id: shipment.id,
+    trackingNumber: shipment.trackingNumber,
+    status: shipment.status,
+    pickupAddress: shipment.pickupAddress,
+    deliveryAddress: shipment.deliveryAddress,
+    estimated_delivery: shipment.estimatedDelivery,
+    actual_delivery: shipment.actualDelivery,
+    createdAt: shipment.createdAt,
+    weight_kg: shipment.weightKg,
+    volume_m3: shipment.volumeM3,
+    notes: shipment.notes,
+    driver: shipment.driver ? {
+      name: shipment.driver.user?.name || 'Driver',
+      phone: shipment.driver.phone || '',
+    } : null,
+    vehicle: shipment.vehicle ? {
+      license_plate: shipment.vehicle.licensePlate,
+      type: shipment.vehicle.type,
+    } : null,
+    customer: shipment.customer ? {
+      name: shipment.customer.name,
+      email: shipment.customer.email,
+    } : null,
+  };
+}
 
   async remove(id: string, organizationId: string): Promise<void> {
     await this.findOne(id, organizationId, 'admin', '');
