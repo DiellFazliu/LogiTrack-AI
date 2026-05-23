@@ -58,6 +58,30 @@ export class OrganizationsController {
     return this.orgService.findById(organizationId);
   }
 
+  // Shto pas importeve, para metodave ekzistuese
+
+  @Get('me')
+  @Roles(UserRole.COMPANY_ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get current user\'s organization' })
+  async getMyOrganizationByMe(@Request() req) {
+    const organizationId = req.user.organizationId;
+    if (!organizationId) {
+      return {message: 'User is not associated with an organization' };
+    }
+    return this.orgService.findById(organizationId);
+  }
+
+  @Put('me')
+  @Roles(UserRole.COMPANY_ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Update current user\'s organization' })
+  async updateMyOrganizationByMe(@Request() req, @Body() updateDto: UpdateOrganizationDto) {
+    const organizationId = req.user.organizationId;
+    if (!organizationId) {
+      return {message: 'User is not associated with an organization'};
+    }
+    return this.orgService.update(organizationId, updateDto);
+  }
+
   @Get(':id')
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
   @ApiOperation({ summary: 'Get organization by ID (Admin only)' })

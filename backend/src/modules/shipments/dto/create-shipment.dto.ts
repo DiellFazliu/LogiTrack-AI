@@ -1,4 +1,3 @@
-// src/modules/shipments/dto/create-shipment.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsOptional, IsUUID, IsEnum, IsNumber, IsBoolean, IsDateString, Min } from 'class-validator';
 
@@ -13,6 +12,10 @@ export class CreateShipmentDto {
   @ApiProperty({ example: 'SHIP-001' })
   @IsString()
   trackingNumber!: string;
+
+  @ApiProperty({ required: false })
+  @IsUUID()
+  organizationId?: string;
 
   @ApiProperty()
   @IsString()
@@ -45,11 +48,6 @@ export class CreateShipmentDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsUUID()
-  organizationId?: string;  // ✅ Shto këtë
-
-  @ApiProperty({ required: false })
-  @IsOptional()
   @IsNumber()
   @Min(0)
   volumeM3?: number;
@@ -69,28 +67,23 @@ export class CreateShipmentDto {
   @IsBoolean()
   isExpress?: boolean;
 
-  // ✅ Fushat e koordinatave - BRENDA klasës
   @ApiProperty({ required: false })
   @IsOptional()
   @IsNumber()
-  @Min(0)
   pickupLatitude?: number;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsNumber()
-  @Min(0)
   pickupLongitude?: number;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsNumber()
-  @Min(0)
   deliveryLatitude?: number;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsNumber()
-  @Min(0)
   deliveryLongitude?: number;
 }

@@ -35,7 +35,7 @@ export const CompanySettings: React.FC = () => {
 
   const fetchSettings = async () => {
     try {
-      const response = await api.get('/organizations/me');
+      const response = await api.get('/organizations/my-organization');
       const org = response.data;
       setSettings({
         name: org.name || '',
@@ -57,7 +57,8 @@ export const CompanySettings: React.FC = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.put('/organizations/me', {
+      
+    await api.put('/organizations/my-organization', {
         name: settings.name,
         email: settings.email,
         phone: settings.phone,

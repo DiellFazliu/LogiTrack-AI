@@ -1,34 +1,124 @@
 // src/modules/drivers/drivers.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { Driver, DriverStatus } from './driver.entity';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
+import { User } from '../users/user.entity';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class DriversService {
   constructor(
     @InjectRepository(Driver)
     private driverRepository: Repository<Driver>,
+    private usersService: UsersService,
+    private dataSource: DataSource,
   ) {}
 
   async create(createDto: CreateDriverDto, organizationId: string): Promise<Driver> {
-    const driver = this.driverRepository.create({
-      ...createDto,
-      organizationId,
-      status: DriverStatus.AVAILABLE,
-      isActive: true,
-      totalDeliveries: 0,
-      rating: 0,
-    });
-    return this.driverRepository.save(driver);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Create user (if needed) and link Driver.
+      // Modes:
+      // - if createDto.userId => link existing user.
+      // - else => create a new user using createDto.{name,email,password,phone}
+      let savedUser: User | null = null;
+
+      if (createDto.userId) {
+        savedUser = await queryRunner.manager.findOne(User, {
+          where: { id: createDto.userId, organizationId },
+        });
+
+        if (!savedUser) {
+          throw new ConflictException('User not found in this organization');
+        }
+      } else {
+        if (!createDto.email || !createDto.password || !createDto.name) {
+          throw new ConflictException(
+            'Provide either userId OR { name, email, password } to create a driver user',
+          );
+        }
+
+        const existingUser = await queryRunner.manager.findOne(User, {
+          where: { email: createDto.email },
+        });
+
+        if (existingUser) {
+          if (existingUser.organizationId !== organizationId) {
+            throw new ConflictException('User already exists in a different organization');
+          }
+          savedUser = existingUser;
+        } else {
+          const hashedPassword = await bcrypt.hash(createDto.password, 10);
+
+          const user = queryRunner.manager.create(User, {
+            email: createDto.email,
+            name: createDto.name,
+            password: hashedPassword,
+            organizationId,
+            phone: createDto.phone,
+            isActive: true,
+          });
+
+          savedUser = await queryRunner.manager.save(user);
+
+          await queryRunner.manager.query(
+            `
+            INSERT INTO user_roles (user_id, role_id)
+            SELECT $1, id FROM roles WHERE name = 'driver'
+            `,
+            [savedUser.id],
+          );
+        }
+      }
+
+      // Ensure driver role is present (idempotent)
+      await queryRunner.manager.query(
+        `
+        INSERT INTO user_roles (user_id, role_id)
+        SELECT $1, id FROM roles WHERE name = 'driver'
+        `,
+        [savedUser!.id],
+      );
+
+      // Create driver linked to the user
+      const driver = queryRunner.manager.create(Driver, {
+        userId: savedUser!.id,
+        organizationId,
+        licenseNumber: createDto.licenseNumber,
+        phone: createDto.phone,
+        status: DriverStatus.AVAILABLE,
+        isActive: true,
+        totalDeliveries: 0,
+        rating: 0,
+      });
+
+      const savedDriver = await queryRunner.manager.save(driver);
+
+      await queryRunner.commitTransaction();
+      return savedDriver;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async findAll(organizationId: string, status?: DriverStatus): Promise<Driver[]> {
     const where: any = { organizationId, isActive: true };
     if (status) where.status = status;
-    
+
     return this.driverRepository.find({
       where,
       relations: ['user', 'organization'],
@@ -41,23 +131,32 @@ export class DriversService {
       where: { id, organizationId, isActive: true },
       relations: ['user', 'organization', 'shipments'],
     });
+
     if (!driver) throw new NotFoundException('Driver not found');
     return driver;
   }
-      // src/modules/drivers/drivers.service.ts
-    async findByUserId(userId: string): Promise<Driver | null> {
-      return this.driverRepository.findOne({
-        where: { userId: userId, isActive: true },
-      });
-    }
 
-  async update(id: string, updateDto: UpdateDriverDto, organizationId: string): Promise<Driver> {
+  async findByUserId(userId: string): Promise<Driver | null> {
+    return this.driverRepository.findOne({
+      where: { userId: userId, isActive: true },
+    });
+  }
+
+  async update(
+    id: string,
+    updateDto: UpdateDriverDto,
+    organizationId: string,
+  ): Promise<Driver> {
     await this.findOne(id, organizationId);
     await this.driverRepository.update(id, updateDto);
     return this.findOne(id, organizationId);
   }
 
-  async updateStatus(id: string, status: DriverStatus, organizationId: string): Promise<Driver> {
+  async updateStatus(
+    id: string,
+    status: DriverStatus,
+    organizationId: string,
+  ): Promise<Driver> {
     await this.findOne(id, organizationId);
     await this.driverRepository.update(id, { status });
     return this.findOne(id, organizationId);
@@ -68,23 +167,21 @@ export class DriversService {
     await this.driverRepository.update(id, { isActive: false });
   }
 
-  // ✅ Rregullo getAvailable për të marrë emrin dhe email-in nga User
   async getAvailable(organizationId: string): Promise<any[]> {
     const drivers = await this.driverRepository.find({
-      where: { 
-        organizationId, 
+      where: {
+        organizationId,
         status: DriverStatus.AVAILABLE,
-        isActive: true 
+        isActive: true,
       },
-      relations: ['user'], // Join me tabelën users
+      relations: ['user'],
       order: { createdAt: 'DESC' },
     });
 
-    // Transformo të dhënat për të përfshirë emrin dhe email-in nga user
-    return drivers.map(driver => ({
+    return drivers.map((driver) => ({
       id: driver.id,
-      name: driver.user?.name || 'N/A',
-      email: driver.user?.email || 'N/A',
+      name: driver.user?.name ?? '',
+      email: driver.user?.email ?? '',
       phone: driver.phone,
       status: driver.status,
       totalDeliveries: driver.totalDeliveries,
@@ -93,3 +190,4 @@ export class DriversService {
     }));
   }
 }
+

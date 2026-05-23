@@ -7,23 +7,27 @@ import api from '../../services/api';
 
 interface Shipment {
   id: string;
-  tracking_number: string;
-  customer_name: string;
-  customer_id: string;
-  pickup_address: string;
-  delivery_address: string;
-  status: string;
-  priority: string;
-  is_express: boolean;
-  weight_kg: number;
-  volume_m3: number;
+  tracking_number?: string;
+  trackingNumber?: string;
+  customer_name?: string;
+  customerName?: string;
+  customer_id?: string;
+  pickup_address?: string;
+  delivery_address?: string;
+  deliveryAddress?: string;
+  status?: string;
+  priority?: string;
+  is_express?: boolean;
+  weight_kg?: number;
+  volume_m3?: number;
   driver_name?: string;
   driver_id?: string;
   vehicle_plate?: string;
-  estimated_delivery: string;
-  actual_delivery: string;
-  created_at: string;
-  created_by: string;
+  estimated_delivery?: string;
+  actual_delivery?: string;
+  created_at?: string;
+  createdAt?: string;
+  created_by?: string;
 }
 
 interface ShipmentStats {
@@ -58,17 +62,22 @@ export const CompanyShipmentsList: React.FC = () => {
   const fetchShipments = async () => {
     try {
       const response = await api.get('/shipments');
-      const data = response.data.items || response.data || [];
+      let data = response.data;
+      if (data.items) data = data.items;
+      if (!Array.isArray(data)) data = [];
+      
       setShipments(data);
       
-      // Calculate stats
       setStats({
         total: data.length,
-        pending: data.filter((s: Shipment) => s.status === 'pending').length,
-        inTransit: data.filter((s: Shipment) => s.status === 'in_transit' || s.status === 'picked_up').length,
-        delivered: data.filter((s: Shipment) => s.status === 'delivered').length,
-        cancelled: data.filter((s: Shipment) => s.status === 'cancelled').length,
-        failed: data.filter((s: Shipment) => s.status === 'failed').length,
+        pending: data.filter((s: Shipment) => (s.status || '').toLowerCase() === 'pending').length,
+        inTransit: data.filter((s: Shipment) => {
+          const status = (s.status || '').toLowerCase();
+          return status === 'in_transit' || status === 'picked_up';
+        }).length,
+        delivered: data.filter((s: Shipment) => (s.status || '').toLowerCase() === 'delivered').length,
+        cancelled: data.filter((s: Shipment) => (s.status || '').toLowerCase() === 'cancelled').length,
+        failed: data.filter((s: Shipment) => (s.status || '').toLowerCase() === 'failed').length,
       });
     } catch (error: any) {
       console.error('Error:', error);
@@ -78,19 +87,66 @@ export const CompanyShipmentsList: React.FC = () => {
     }
   };
 
+  const getField = (shipment: Shipment, field: string): string => {
+    const camel = field.charAt(0).toLowerCase() + field.slice(1);
+    const snake = field.replace(/([A-Z])/g, '_$1').toLowerCase();
+    const kebab = field.replace(/([A-Z])/g, '-$1').toLowerCase();
+
+    return (
+      (shipment as any)[camel] ??
+      (shipment as any)[snake] ??
+      (shipment as any)[kebab] ??
+      (shipment as any)[field] ??
+      ''
+    );
+  };
+
+  const getFilteredShipments = () => {
+    return shipments.filter(shipment => {
+      const trackingNumber = getField(shipment, 'trackingNumber') || getField(shipment, 'tracking_number');
+      const customerName = getField(shipment, 'customerName') || getField(shipment, 'customer_name');
+      const deliveryAddress = getField(shipment, 'deliveryAddress') || getField(shipment, 'delivery_address');
+
+      const searchLower = search.toLowerCase();
+
+      const matchesSearch =
+        trackingNumber.toLowerCase().includes(searchLower) ||
+        customerName.toLowerCase().includes(searchLower) ||
+        deliveryAddress.toLowerCase().includes(searchLower);
+
+      const status = (shipment.status || '').toLowerCase();
+      const matchesStatus = statusFilter === 'all' || status === statusFilter.toLowerCase();
+
+      const priority = (shipment.priority || '').toLowerCase();
+      const matchesPriority = priorityFilter === 'all' || priority === priorityFilter.toLowerCase();
+
+      const createdAt = shipment.created_at || shipment.createdAt;
+      const matchesDate =
+        (!dateRange.start || (createdAt && new Date(createdAt) >= new Date(dateRange.start))) &&
+        (!dateRange.end || (createdAt && new Date(createdAt) <= new Date(dateRange.end)));
+
+      return matchesSearch && matchesStatus && matchesPriority && matchesDate;
+    });
+  };
+
   const exportToCSV = () => {
     const filtered = getFilteredShipments();
+    if (filtered.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+    
     const csv = [
       ['Tracking #', 'Customer', 'Status', 'Priority', 'Weight (kg)', 'Volume (m³)', 'Driver', 'Created Date', 'Est. Delivery'],
       ...filtered.map(s => [
-        s.tracking_number,
-        s.customer_name,
-        s.status,
-        s.priority,
-        s.weight_kg,
-        s.volume_m3,
+        getField(s, 'tracking_number'),
+        getField(s, 'customer_name'),
+        s.status || 'N/A',
+        s.priority || 'normal',
+        s.weight_kg?.toString() || '0',
+        s.volume_m3?.toString() || '0',
         s.driver_name || 'Not assigned',
-        new Date(s.created_at).toLocaleDateString(),
+        new Date(s.created_at || s.createdAt || Date.now()).toLocaleDateString(),
         s.estimated_delivery ? new Date(s.estimated_delivery).toLocaleDateString() : 'N/A'
       ])
     ].map(row => row.join(',')).join('\n');
@@ -105,7 +161,7 @@ export const CompanyShipmentsList: React.FC = () => {
     toast.success('Export started');
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status?: string) => {
     const colors: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-800',
       picked_up: 'bg-blue-100 text-blue-800',
@@ -114,10 +170,10 @@ export const CompanyShipmentsList: React.FC = () => {
       failed: 'bg-red-100 text-red-800',
       cancelled: 'bg-gray-100 text-gray-800',
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return colors[status || ''] || 'bg-gray-100 text-gray-800';
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status?: string) => {
     switch (status) {
       case 'delivered':
         return <CheckCircle className="w-4 h-4 text-green-600" />;
@@ -135,27 +191,14 @@ export const CompanyShipmentsList: React.FC = () => {
     }
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (priority?: string) => {
     const colors: Record<string, string> = {
       low: 'bg-gray-100 text-gray-800',
       normal: 'bg-blue-100 text-blue-800',
       high: 'bg-orange-100 text-orange-800',
       urgent: 'bg-red-100 text-red-800',
     };
-    return colors[priority] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getFilteredShipments = () => {
-    return shipments.filter(shipment => {
-      const matchesSearch = shipment.tracking_number.toLowerCase().includes(search.toLowerCase()) ||
-                           shipment.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
-                           shipment.delivery_address.toLowerCase().includes(search.toLowerCase());
-      const matchesStatus = statusFilter === 'all' || shipment.status === statusFilter;
-      const matchesPriority = priorityFilter === 'all' || shipment.priority === priorityFilter;
-      const matchesDate = (!dateRange.start || new Date(shipment.created_at) >= new Date(dateRange.start)) &&
-                         (!dateRange.end || new Date(shipment.created_at) <= new Date(dateRange.end));
-      return matchesSearch && matchesStatus && matchesPriority && matchesDate;
-    });
+    return colors[priority || 'normal'] || 'bg-gray-100 text-gray-800';
   };
 
   const filteredShipments = getFilteredShipments();
@@ -170,7 +213,7 @@ export const CompanyShipmentsList: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header */}
+      {/* Header (i njëjtë) */}
       <div className="bg-white shadow">
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center flex-wrap gap-4">
@@ -188,7 +231,7 @@ export const CompanyShipmentsList: React.FC = () => {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Stats Cards */}
+        {/* Stats Cards (i njëjtë) */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-4 text-center">
             <p className="text-2xl font-bold text-blue-600">{stats.total}</p>
@@ -216,10 +259,9 @@ export const CompanyShipmentsList: React.FC = () => {
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Filters (i njëjtë) */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
@@ -230,8 +272,6 @@ export const CompanyShipmentsList: React.FC = () => {
                 className="w-full pl-9 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            
-            {/* Status Filter */}
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -245,8 +285,6 @@ export const CompanyShipmentsList: React.FC = () => {
               <option value="failed">Failed</option>
               <option value="cancelled">Cancelled</option>
             </select>
-
-            {/* Priority Filter */}
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
@@ -258,8 +296,6 @@ export const CompanyShipmentsList: React.FC = () => {
               <option value="high">High</option>
               <option value="urgent">Urgent</option>
             </select>
-
-            {/* Date Range */}
             <input
               type="date"
               value={dateRange.start}
@@ -275,8 +311,6 @@ export const CompanyShipmentsList: React.FC = () => {
               placeholder="End Date"
             />
           </div>
-          
-          {/* Export Button */}
           <div className="flex justify-end mt-4">
             <button
               onClick={exportToCSV}
@@ -317,31 +351,51 @@ export const CompanyShipmentsList: React.FC = () => {
                   filteredShipments.map((shipment) => (
                     <tr key={shipment.id} className="hover:bg-gray-50 transition">
                       <td className="px-6 py-4">
-                        <span className="font-mono text-sm font-medium">{shipment.tracking_number}</span>
+                        <span className="font-mono text-sm font-medium">{getField(shipment, 'trackingNumber') || getField(shipment, 'tracking_number')}</span>
                       </td>
                       <td className="px-6 py-4">
                         <div>
-                          <p className="font-medium text-sm">{shipment.customer_name || 'N/A'}</p>
-                          <p className="text-xs text-gray-500">ID: {shipment.customer_id?.slice(0, 8)}</p>
+                        <p className="font-medium text-sm">{getField(shipment, 'customer_name') || getField(shipment, 'customerName') || 'N/A'}</p>
+                          <p className="text-xs text-gray-500">ID: {shipment.customer_id?.slice(0, 8) || 'N/A'}</p>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm truncate max-w-xs">{shipment.pickup_address}</p>
+                        <p
+                          className="text-sm truncate max-w-[180px]"
+                          title={getField(shipment, 'pickupAddress') || getField(shipment, 'pickup_address') || 'N/A'}
+                        >
+                          {(getField(shipment, 'pickupAddress') || getField(shipment, 'pickup_address') || 'N/A')
+                            .split(',')
+                            .map(s => s.trim())
+                            .filter(Boolean)[0] ||
+                            (getField(shipment, 'pickupAddress') || getField(shipment, 'pickup_address') || 'N/A').split(',').map(s => s.trim()).filter(Boolean)[1] ||
+                            'N/A'}
+                        </p>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm truncate max-w-xs">{shipment.delivery_address}</p>
+                        <p
+                          className="text-sm truncate max-w-[180px]"
+                          title={getField(shipment, 'deliveryAddress') || getField(shipment, 'delivery_address') || 'N/A'}
+                        >
+                          {(getField(shipment, 'deliveryAddress') || getField(shipment, 'delivery_address') || 'N/A')
+                            .split(',')
+                            .map(s => s.trim())
+                            .filter(Boolean)[0] ||
+                            (getField(shipment, 'deliveryAddress') || getField(shipment, 'delivery_address') || 'N/A').split(',').map(s => s.trim()).filter(Boolean)[1] ||
+                            'N/A'}
+                        </p>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-1">
                           {getStatusIcon(shipment.status)}
                           <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(shipment.status)}`}>
-                            {shipment.status?.replace('_', ' ')}
+                            {(shipment.status || '').replace('_', ' ')}
                           </span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(shipment.priority)}`}>
-                          {shipment.priority}
+                          {shipment.priority || 'normal'}
                         </span>
                         {shipment.is_express && (
                           <span className="ml-1 px-1 py-0.5 rounded text-xs bg-orange-100 text-orange-800">Express</span>
@@ -358,8 +412,8 @@ export const CompanyShipmentsList: React.FC = () => {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm">{new Date(shipment.created_at).toLocaleDateString()}</p>
-                        <p className="text-xs text-gray-500">{new Date(shipment.created_at).toLocaleTimeString()}</p>
+                        <p className="text-sm">{new Date(shipment.created_at || shipment.createdAt || Date.now()).toLocaleDateString()}</p>
+                        <p className="text-xs text-gray-500">{new Date(shipment.created_at || shipment.createdAt || Date.now()).toLocaleTimeString()}</p>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex gap-2">
