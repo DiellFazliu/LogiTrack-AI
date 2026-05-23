@@ -65,6 +65,7 @@ export class ShipmentsService {
       throw new InternalServerErrorException('Failed to create shipment');
     }
   }
+  
 
   async findAll(query: ShipmentQueryDto, organizationId: string, userRole: string, userId: string) {
     const { status, search, driverId, page = 1, limit = 10 } = query;

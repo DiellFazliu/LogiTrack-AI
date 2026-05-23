@@ -23,7 +23,7 @@ export const CustomerDashboard: React.FC = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await api.get('/shipments?limit=5');
+      const response = await api.get('/shipments/my?limit=5');
       const shipments = response.data.items;
       
       setRecentShipments(shipments);
