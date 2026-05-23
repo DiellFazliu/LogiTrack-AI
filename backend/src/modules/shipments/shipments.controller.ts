@@ -63,6 +63,13 @@ export class ShipmentsController {
       return this.shipmentsService.findOne(id, req.user.organizationId, req.user.role, req.user.id);
     }
 
+    @Get('customer/my')
+    @Roles(UserRole.CUSTOMER)
+    @ApiOperation({ summary: 'Get my shipments (for customers)' })
+    async getCustomerShipments(@Query() query: ShipmentQueryDto, @Request() req) {
+      return this.shipmentsService.findByCustomer(req.user.id, query);
+    }
+
     @Get(':id/history')
     @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.CUSTOMER)
     @ApiOperation({ summary: 'Get shipment status history' })

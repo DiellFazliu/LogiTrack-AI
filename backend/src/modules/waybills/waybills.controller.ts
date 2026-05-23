@@ -21,7 +21,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { Response } from 'express';
-import { WaybillsService } from './waybills.sevice';
+import { WaybillsService } from './waybills.service';
 import { CreateWaybillDto } from './dto/create-waybill.dto';
 import { UpdateWaybillDto } from './dto/update-waybill.dto';
 import { SignWaybillDto } from './dto/sign-waybill.dto';
@@ -39,9 +39,8 @@ export class WaybillsController {
   constructor(private readonly waybillsService: WaybillsService) {}
 
   @Post('generate')
-  @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.SUPER_ADMIN, UserRole.CUSTOMER)
   @ApiOperation({ summary: 'Generate a new waybill for a shipment' })
-  @ApiResponse({ status: 201, type: WaybillResponseDto })
   async generate(@Body() createDto: CreateWaybillDto, @Req() req: any): Promise<WaybillResponseDto> {
     return this.waybillsService.generate(createDto, req.user.id);
   }
@@ -68,6 +67,7 @@ export class WaybillsController {
   async findByWaybillNumber(@Param('waybillNumber') waybillNumber: string): Promise<WaybillResponseDto> {
     return this.waybillsService.findByWaybillNumber(waybillNumber);
   }
+
 
   @Get(':id')
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.SUPER_ADMIN)

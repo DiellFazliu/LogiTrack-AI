@@ -7,11 +7,13 @@ import { Shipment } from '../shipments/shipment.entity';
 import { Driver } from '../drivers/driver.entity';
 import { Vehicle } from '../vehicles/vehicle.entity';
 import { ShipmentsModule } from '../shipments/shipments.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([TrackingHistory, Shipment, Driver, Vehicle]),
     ShipmentsModule,
+    UsersModule,
   ],
   controllers: [TrackingController],
   providers: [TrackingService],
