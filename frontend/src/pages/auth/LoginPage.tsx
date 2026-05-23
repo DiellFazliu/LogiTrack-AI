@@ -24,7 +24,7 @@ export const LoginPage: React.FC = () => {
       toast.success('Login successful!');
 
       // Redirect based on role
-      if (user.role === 'super_admin') navigate('/super-admin');
+      if (user.role === 'super_admin') navigate('/super-admin/dashboard');
       else if (user.role === 'company_admin') navigate('/company-admin');
       else if (user.role === 'dispatcher') navigate('/dispatcher');
       else if (user.role === 'driver') navigate('/driver');

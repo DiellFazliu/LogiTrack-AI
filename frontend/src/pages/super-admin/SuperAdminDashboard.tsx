@@ -142,7 +142,7 @@ export const SuperAdminDashboard: React.FC = () => {
       value: stats.totalDrivers, 
       icon: Users, 
       color: 'bg-indigo-500', 
-      path: '/super-admin/organizations',
+      path: '/super-admin/drivers', 
       description: 'Total drivers'
     },
     { 
@@ -150,7 +150,7 @@ export const SuperAdminDashboard: React.FC = () => {
       value: stats.totalVehicles, 
       icon: Building2, 
       color: 'bg-teal-500', 
-      path: '/super-admin/organizations',
+      path: '/super-admin/vehicles',
       description: 'Fleet size'
     },
   ];
