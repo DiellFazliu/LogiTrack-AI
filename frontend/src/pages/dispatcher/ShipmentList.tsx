@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Package, Eye, Edit, Truck, Search, Filter } from 'lucide-react';
+import { Package, Eye, Edit, Truck, Search, Filter, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+
 
 interface Shipment {
   id: string;
@@ -30,14 +31,8 @@ export const ShipmentList: React.FC = () => {
   const fetchShipments = async () => {
     setLoading(true);
     try {
-      // ✅ Shto cache busting për të shmangur 304
-      const response = await api.get('/shipments', {
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-        }
-      });
+      // Cache busting removed to avoid CORS preflight failing on custom headers.
+      const response = await api.get('/shipments');
       
       console.log('Response status:', response.status);
       console.log('Response data:', response.data);
@@ -168,8 +163,21 @@ export const ShipmentList: React.FC = () => {
                   <tr key={shipment.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 font-medium">{shipment.trackingNumber}</td>
                     <td className="px-6 py-4">{getCustomerName(shipment)}</td>
-                    <td className="px-6 py-4 max-w-xs truncate">{shipment.pickupAddress}</td>
-                    <td className="px-6 py-4 max-w-xs truncate">{shipment.deliveryAddress}</td>
+                    <td className="px-6 py-4 max-w-xs truncate">
+                      {shipment.pickupAddress?.split(',')?.[0] || ''}
+                      {!shipment.pickupAddress?.split(',')?.[0] && shipment.pickupAddress}
+                      {shipment.pickupAddress && shipment.pickupAddress.includes(',')
+                        ? ''
+                        : shipment.pickupAddress?.split(',')?.[1] || ''}
+                    </td>
+                    <td className="px-6 py-4 max-w-xs truncate">
+                      {shipment.deliveryAddress?.split(',')?.[0] || ''}
+                      {!shipment.deliveryAddress?.split(',')?.[0] && shipment.deliveryAddress}
+                      {shipment.deliveryAddress && shipment.deliveryAddress.includes(',')
+                        ? ''
+                        : shipment.deliveryAddress?.split(',')?.[1] || ''}
+                    </td>
+
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(shipment.status)}`}>
                         {shipment.status?.replace('_', ' ')}
@@ -203,5 +211,4 @@ export const ShipmentList: React.FC = () => {
 
 export default ShipmentList;
 
-// Shto importin për RefreshCw
-import { RefreshCw } from 'lucide-react';
+

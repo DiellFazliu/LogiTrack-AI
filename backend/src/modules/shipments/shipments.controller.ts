@@ -10,7 +10,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/roles.enum';
-import { DriversService } from '../drivers/drivers.service';  // ✅ Shto importin
+import { DriversService } from '../drivers/drivers.service';
 
 @ApiTags('Shipments')
 @ApiBearerAuth()
@@ -19,7 +19,7 @@ import { DriversService } from '../drivers/drivers.service';  // ✅ Shto import
 export class ShipmentsController {
   constructor(
     private shipmentsService: ShipmentsService,
-    private driversService: DriversService,  // ✅ Shto DriversService në constructor
+    private driversService: DriversService,
   ) {}
 
   @Post()
@@ -66,7 +66,6 @@ export class ShipmentsController {
     async findOne(@Param('id') id: string, @Request() req) {
       // Për driver, kalojmë userId, JO driver.id
       if (req.user.role === 'driver') {
-        // ✅ Kalo req.user.id, jo driver.id
         return this.shipmentsService.findOne(id, req.user.organizationId, req.user.role, req.user.id);
       }
       

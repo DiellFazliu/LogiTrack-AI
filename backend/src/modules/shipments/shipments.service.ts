@@ -14,7 +14,7 @@ export class ShipmentsService {
   constructor(
     @InjectRepository(Shipment)
     private shipmentRepository: Repository<Shipment>,
-        @InjectRepository(Driver)  // ✅ Shto DriverRepository
+        @InjectRepository(Driver)
         private driverRepository: Repository<Driver>
   ) {}
 
@@ -98,8 +98,6 @@ async getHistory(id: string, organizationId: string, userRole: string, userId: s
   return [];
 }
 
-// src/modules/shipments/shipments.service.ts
-
 async findOne(id: string, organizationId: string, userRole: string, userId: string): Promise<Shipment> {
   const shipment = await this.shipmentRepository.findOne({
     where: { id },
@@ -126,7 +124,6 @@ async findOne(id: string, organizationId: string, userRole: string, userId: stri
     if (!driver || shipment.driverId !== driver.id) {
       throw new ForbiddenException('Access denied - This shipment is not assigned to you');
     }
-    // src/modules/shipments/shipments.service.ts - findOne method
 
 console.log('=== FIND ONE DEBUG ===');
 console.log('User role:', userRole);
@@ -184,8 +181,6 @@ if (userRole === 'driver') {
     return this.findOne(id, organizationId, 'admin', '');
   }
 
-// src/modules/shipments/shipments.service.ts
-
 async assignDriver(id: string, driverId: string, organizationId: string): Promise<Shipment> {
   const shipment = await this.findOne(id, organizationId, 'admin', '');
   
@@ -193,7 +188,6 @@ async assignDriver(id: string, driverId: string, organizationId: string): Promis
     throw new NotFoundException('Shipment not found');
   }
   
-  // ✅ Sigurohu që driverId është ID e tabelës drivers
   let finalDriverId = driverId;
   
   // Kontrollo nëse driverId është user_id
@@ -206,17 +200,52 @@ async assignDriver(id: string, driverId: string, organizationId: string): Promis
     console.log(`Converted userId ${driverId} to driverId ${finalDriverId}`);
   }
   
-  await this.shipmentRepository.update(id, { 
+await this.shipmentRepository.update(id, { 
     driverId: finalDriverId,
     status: ShipmentStatus.IN_TRANSIT
   });
+
+  // If vehicle already assigned on this shipment, sync driver license_number from vehicle.license_plate
+  const updated = await this.shipmentRepository.findOne({
+    where: { id },
+    relations: ['driver', 'vehicle'],
+  });
+
+  if (updated?.driver && updated?.vehicle) {
+    const driver = updated.driver;
+    const vehicle = updated.vehicle;
+
+    // NOTE: license_number is UNIQUE in drivers and license_plate is UNIQUE in vehicles
+    if (vehicle.licensePlate && driver.licenseNumber !== vehicle.licensePlate) {
+      driver.licenseNumber = vehicle.licensePlate;
+      await this.driverRepository.save(driver);
+    }
+  }
   
   return this.findOne(id, organizationId, 'admin', '');
 }
 
   async assignVehicle(id: string, vehicleId: string, organizationId: string): Promise<Shipment> {
     await this.findOne(id, organizationId, 'admin', '');
+
     await this.shipmentRepository.update(id, { vehicleId });
+
+    // If driver already assigned on this shipment, sync driver license_number from vehicle.license_plate
+    const updated = await this.shipmentRepository.findOne({
+      where: { id },
+      relations: ['driver', 'vehicle'],
+    });
+
+    if (updated?.driver && updated?.vehicle) {
+      const driver = updated.driver;
+      const vehicle = updated.vehicle;
+
+      if (vehicle.licensePlate && driver.licenseNumber !== vehicle.licensePlate) {
+        driver.licenseNumber = vehicle.licensePlate;
+        await this.driverRepository.save(driver);
+      }
+    }
+
     return this.findOne(id, organizationId, 'admin', '');
   }
 

@@ -59,17 +59,50 @@ export const CompanyUsersList: React.FC = () => {
   const fetchUsers = async () => {
     try {
       const response = await api.get('/users');
-      let usersData = response.data;
-      
-      if (Array.isArray(usersData)) {
-        setUsers(usersData);
-      } else if (usersData.items) {
-        setUsers(usersData.items);
-      } else if (usersData.data) {
-        setUsers(usersData.data);
-      } else {
-        setUsers([]);
-      }
+      const usersData = response.data;
+
+      let rawList: any[] = [];
+      if (Array.isArray(usersData)) rawList = usersData;
+      else if (usersData?.items) rawList = usersData.items;
+      else if (usersData?.data) rawList = usersData.data;
+
+      // Normalize backend shape -> UI shape so role/status filters work.
+      const list: CompanyUser[] = rawList
+        .map((u: any): CompanyUser => {
+          const orgId = u?.organizationId ?? u?.organization_id;
+
+          const roles = u?.roles;
+          const roleName: string | undefined = Array.isArray(roles)
+            ? roles[0]?.name ?? roles[0]?.role?.name
+            : undefined;
+
+          return {
+            id: String(u.id),
+            email: u.email,
+            name: u.name,
+            role: roleName ?? u.role ?? '',
+            phone: u.phone ?? '',
+            is_active: u.is_active ?? u.isActive ?? true,
+            created_at: u.created_at ?? (u.createdAt ? new Date(u.createdAt).toISOString() : ''),
+            last_login: u.last_login ?? (u.lastLogin ? new Date(u.lastLogin).toISOString() : undefined),
+          };
+        })
+        .filter((u) => u.id);
+
+      // ✅ Company admin should only see users belonging to their organization.
+      // Keep this as a safety-net, but now we normalize org id keys reliably.
+      const myOrgId = (currentUser as any)?.organizationId;
+      const finalList = myOrgId
+        ? list.filter((u: any, _idx: number) => {
+            // We need orgId for each raw user; remap it here using rawList.
+            // Find matching raw user by id.
+            const raw = rawList.find((x: any) => String(x?.id) === String(u.id));
+            const rawOrgId = raw?.organizationId ?? raw?.organization_id;
+            return rawOrgId ? String(rawOrgId) === String(myOrgId) : false;
+          })
+        : list;
+
+      setUsers(finalList);
     } catch (error: any) {
       console.error('Error:', error);
       toast.error(error.response?.data?.message || 'Failed to fetch users');
@@ -145,15 +178,19 @@ export const CompanyUsersList: React.FC = () => {
   const updateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
-    
+
     setSubmitting(true);
     try {
+      // IMPORTANT: backend User entity uses relations for roles.
+      // Sending `role: string` likely does nothing / can fail.
+      // Our update endpoint expects Partial<User>, but roles updates are not implemented here.
+      // So we update only fields that actually exist as columns: name/email/phone.
       await api.put(`/users/${selectedUser.id}`, {
         name: selectedUser.name,
         email: selectedUser.email,
         phone: selectedUser.phone,
-        role: selectedUser.role,
       });
+
       toast.success('User updated successfully');
       setShowEditModal(false);
       setSelectedUser(null);

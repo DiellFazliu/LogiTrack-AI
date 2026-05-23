@@ -39,9 +39,21 @@ export interface ShipmentsResponse {
   total: number;
   page: number;
   limit: number;
+  totalPages?: number;
 }
 
 export const shipmentsService = {
+  async getStats(): Promise<{
+  total: number;
+  pending: number;
+  inTransit: number;
+  delivered: number;
+  cancelled: number;
+  failed: number;
+  }> {
+    const response = await api.get('/shipments/stats');
+    return response.data;
+  },
   // Merr të gjitha dërgesat (me pagination dhe filtra)
   async getAll(params?: {
     page?: number;
@@ -151,6 +163,22 @@ async getDriverShipments(params?: {
     delayed: number;
   }> {
     const response = await api.get('/shipments/statistics');
+    return response.data;
+  },
+
+  /**
+   * Merr statistikat ditore për grafikë
+   */
+  async getDailyStats(days: number = 7): Promise<{ date: string; total: number; delivered: number }[]> {
+    const response = await api.get('/shipments/stats/daily', { params: { days } });
+    return response.data;
+  },
+
+  /**
+   * Merr statistikat e performancës së shoferëve
+   */
+  async getDriverPerformance(limit: number = 10): Promise<{ driverId: string; driverName: string; deliveries: number; rating: number }[]> {
+    const response = await api.get('/shipments/stats/drivers', { params: { limit } });
     return response.data;
   },
 };

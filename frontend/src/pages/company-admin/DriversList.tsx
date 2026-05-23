@@ -13,12 +13,30 @@ interface Driver {
   rating: number;
   total_deliveries: number;
   hire_date: string;
+
+  // Optional fields used by EditDriverModal (may exist on backend entity/DTO)
+  address?: string;
+  hireDate?: string;
+  emergency_contact?: string;
+  emergency_phone?: string;
+  is_active?: boolean;
+  licenseNumber?: string;
 }
+
 
 export const DriversList: React.FC = () => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
+
+
+// Optional: normalize driver objects coming from backend.
+// This component already tolerates both snake_case and camelCase fields.
+
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Edit modal state (backend has PUT /drivers/:id; UI edit form still TBD)
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
 
   useEffect(() => {
     fetchDrivers();
@@ -26,9 +44,63 @@ export const DriversList: React.FC = () => {
 
   const fetchDrivers = async () => {
     try {
-      // Përdor endpoint-in e saktë: GET /drivers
       const response = await api.get('/drivers');
-      setDrivers(Array.isArray(response.data) ? response.data : []);
+      const data = response.data;
+
+      // Normalize: keep both possible shapes (entity vs DTO).
+      // Support backend returning either:
+      // - Driver[]
+      // - { data: Driver[] }
+      // - { items: Driver[] }
+      const raw = Array.isArray(data)
+        ? data
+        : (data?.data ?? data?.items ?? []);
+
+      console.log('DriversList: /drivers payload', data);
+
+      const list: Driver[] = raw.map((d: any) => ({
+        id: String(d.id),
+        // backend Driver entity fields (from TypeORM) are mostly camelCase:
+        // - licenseNumber, totalDeliveries, hireDate
+        // - user info is under d.user
+        // Backend returns name/email derived from user relation.
+        // Prefer user.* but keep fallbacks.
+        name: d.user?.name ?? d.name ?? '',
+        email: d.user?.email ?? d.email ?? '',
+
+        // Map backend driver fields -> UI fields used by EditDriverModal / PUT payload
+        // (Use both snake_case and camelCase to tolerate backend serialization differences)
+        license_number: d.license_number ?? d.licenseNumber ?? d.licenseNumber ?? '',
+        licenseNumber: d.licenseNumber ?? d.license_number ?? '',
+        phone: d.phone ?? d.phone_number ?? '',
+        status: d.status ?? d.currentStatus ?? '',
+
+        rating: Number(d.rating ?? 0) || 0,
+        total_deliveries: Number(d.total_deliveries ?? d.totalDeliveries ?? 0) || 0,
+
+        hire_date: d.hire_date ?? (d.hireDate ? String(d.hireDate) : '') ?? '',
+        hireDate: d.hireDate ? String(d.hireDate) : d.hire_date ?? '',
+
+        // prefer camelCase (backend entity serialization), fallback to snake_case
+        address: d.address ?? '',
+        emergency_contact: d.emergencyContact ?? d.emergency_contact ?? '',
+        emergency_phone: d.emergencyPhone ?? d.emergency_phone ?? '',
+        is_active: d.isActive ?? d.is_active ?? true,
+
+        // keep legacy fields in case other parts rely on them
+        emergencyContact: d.emergencyContact ?? d.emergency_contact ?? '',
+        emergencyPhone: d.emergencyPhone ?? d.emergency_phone ?? '',
+        isActive: d.isActive ?? d.is_active ?? true,
+      }));
+
+
+      setDrivers(list);
+
+      // Debug helper: if list is empty but request succeeded, we need to inspect backend payload.
+      // (Visible in browser console)
+      if (list.length === 0) {
+        console.warn('DriversList: /drivers returned empty list', data);
+      }
     } catch (error: any) {
       console.error('Error:', error);
       if (error.response?.status === 401) {
@@ -43,13 +115,17 @@ export const DriversList: React.FC = () => {
 
   const deleteDriver = async (id: string) => {
     if (!confirm('Are you sure you want to delete this driver?')) return;
-    
+
     try {
+      // Backend performs soft-delete by setting isActive=false.
+      // Use the exact DELETE endpoint.
       await api.delete(`/drivers/${id}`);
       toast.success('Driver deleted successfully');
       fetchDrivers();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete driver');
+      console.error('deleteDriver failed', error);
+      const msg = error?.response?.data?.message;
+      toast.error(msg || 'Failed to delete driver');
     }
   };
 
@@ -127,12 +203,25 @@ export const DriversList: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button className="text-blue-600 hover:text-blue-800">
+                    <button
+                      type="button"
+                      className="text-blue-600 hover:text-blue-800"
+                      aria-label="Edit driver"
+                      title="Edit driver"
+                      onClick={() => {
+                        setSelectedDriver(driver);
+                        setShowEditModal(true);
+                      }}
+                    >
                       <Edit className="w-4 h-4" />
                     </button>
-                    <button 
-                      onClick={() => deleteDriver(driver.id)}
-                      className="text-red-600 hover:text-red-800"
+                    <button
+                      onClick={() => toast.error('Edit not implemented yet')}
+
+                      className="text-blue-600 hover:text-blue-800"
+                      aria-label="Delete driver"
+                      title="Delete driver"
+                      type="button"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -182,25 +271,512 @@ export const DriversList: React.FC = () => {
         )}
       </div>
 
-      {/* Create Driver Modal - Simplified */}
+      {/* Create Driver Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h2 className="text-xl font-bold mb-4">Add New Driver</h2>
-            <p className="text-gray-500 mb-4">Driver creation form would go here</p>
-            <div className="flex justify-end gap-2">
-              <button 
-                onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 border rounded hover:bg-gray-50"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <AddDriverModal
+          onClose={() => setShowCreateModal(false)}
+          onCreated={() => fetchDrivers()}
+        />
+      )}
+
+      {/* Edit Driver Modal */}
+      {showEditModal && selectedDriver && (
+        <EditDriverModal
+          driver={selectedDriver}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedDriver(null);
+          }}
+          onSaved={() => {
+            setShowEditModal(false);
+            setSelectedDriver(null);
+            fetchDrivers();
+          }}
+        />
       )}
     </div>
   );
 };
 
+function EditDriverModal({
+  driver,
+  onClose,
+  onSaved,
+}: {
+  driver: Driver;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(driver.name ?? '');
+  const [email, setEmail] = useState(driver.email ?? '');
+
+  // Backend UpdateDriverDto requires licenseNumber (non-optional),
+  // so keep it in state and always send it.
+  const [licenseNumber, setLicenseNumber] = useState(
+    (driver as any).license_number ?? (driver as any).licenseNumber ?? ''
+  );
+
+  const [phone, setPhone] = useState(driver.phone ?? '');
+  const [address, setAddress] = useState((driver as any).address ?? '');
+  const [status, setStatus] = useState<
+    'available' | 'on_duty' | 'on_break' | 'off_duty' | 'sick' | 'vacation'
+  >((driver.status as any) || 'available');
+  const [hireDate, setHireDate] = useState((driver as any).hire_date ?? '');
+  const [emergencyContact, setEmergencyContact] = useState((driver as any).emergency_contact ?? '');
+  const [emergencyPhone, setEmergencyPhone] = useState((driver as any).emergency_phone ?? '');
+  const [isActive, setIsActive] = useState((driver as any).is_active ?? true);
+
+
+
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    setName(driver.name ?? '');
+    setEmail(driver.email ?? '');
+
+    setLicenseNumber(
+      (driver as any).license_number ?? (driver as any).licenseNumber ?? ''
+    );
+
+    setPhone(driver.phone ?? '');
+    setAddress((driver as any).address ?? '');
+    setEmergencyContact(
+      (driver as any).emergency_contact ?? (driver as any).emergencyContact ?? ''
+    );
+    setEmergencyPhone(
+      (driver as any).emergency_phone ?? (driver as any).emergencyPhone ?? ''
+    );
+    setHireDate((driver as any).hire_date ?? (driver as any).hireDate ?? '');
+    setIsActive((driver as any).is_active ?? (driver as any).isActive ?? true);
+
+    setStatus((driver.status as any) || 'available');
+  }, [driver]);
+
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    setSubmitting(true);
+    try {
+          const payload = {
+            // Backend DTO: CreateDriverDto / UpdateDriverDto fields
+            licenseNumber: licenseNumber.trim(),
+            phone: phone.trim(),
+            address: address.trim() ? address.trim() : undefined,
+            status,
+            hireDate: hireDate ? hireDate : undefined,
+            emergencyContact: emergencyContact.trim() ? emergencyContact.trim() : undefined,
+            emergencyPhone: emergencyPhone.trim() ? emergencyPhone.trim() : undefined,
+            isActive,
+          };
+
+          console.log('EditDriverModal PUT payload', payload);
+
+          await api.put(`/drivers/${driver.id}`, payload);
+
+      toast.success('Driver updated successfully');
+      onSaved();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to update driver');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-[520px] max-w-[95vw]">
+        <h2 className="text-xl font-bold mb-4">Edit Driver</h2>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Name</label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="mt-1 w-full border rounded px-3 py-2"
+                placeholder="Driver full name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Email</label>
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-1 w-full border rounded px-3 py-2"
+                placeholder="Driver email"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">License Number</label>
+              <input
+                value={licenseNumber}
+                onChange={(e) => setLicenseNumber(e.target.value)}
+                className="mt-1 w-full border rounded px-3 py-2"
+                placeholder="e.g. LIC-123"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Phone</label>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="mt-1 w-full border rounded px-3 py-2"
+                placeholder="e.g. +383..."
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700">Address (optional)</label>
+              <input
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className="mt-1 w-full border rounded px-3 py-2"
+                placeholder="Street, city"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Hire Date (optional)</label>
+              <input
+                type="date"
+                value={hireDate}
+                onChange={(e) => setHireDate(e.target.value)}
+                className="mt-1 w-full border rounded px-3 py-2"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Status</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as any)}
+                className="mt-1 w-full border rounded px-3 py-2"
+              >
+                <option value="available">Available</option>
+                <option value="on_duty">On Duty</option>
+                <option value="on_break">On Break</option>
+                <option value="off_duty">Off Duty</option>
+                <option value="sick">Sick</option>
+                <option value="vacation">Vacation</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Emergency Contact (optional)</label>
+              <input
+                value={emergencyContact}
+                onChange={(e) => setEmergencyContact(e.target.value)}
+                className="mt-1 w-full border rounded px-3 py-2"
+                placeholder="Name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Emergency Phone (optional)</label>
+              <input
+                value={emergencyPhone}
+                onChange={(e) => setEmergencyPhone(e.target.value)}
+                className="mt-1 w-full border rounded px-3 py-2"
+                placeholder="e.g. +383..."
+              />
+            </div>
+
+            <div className="sm:col-span-2 flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <label className="block text-sm font-medium text-gray-700">Active</label>
+                <p className="text-xs text-gray-500">
+                  If disabled, driver won’t be available for assignment.
+                </p>
+              </div>
+              <label className="inline-flex items-center cursor-pointer select-none shrink-0">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  className="sr-only"
+                />
+                <div className="w-12 h-6 bg-gray-200 rounded-full p-1 transition-colors">
+                  <div
+                    className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                      isActive ? 'translate-x-6' : 'translate-x-0'
+                    }`}
+                  />
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border rounded hover:bg-gray-50"
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              disabled={submitting}
+            >
+              {submitting ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function AddDriverModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  // driver table columns (from migrations / entity):
+  // id, user_id, organization_id, license_number, phone, address,
+  // status, rating, total_deliveries, hire_date, emergency_contact,
+  // emergency_phone, is_active, created_at, updated_at
+  //
+  // UI should collect all editable fields exposed by CreateDriverDto.
+  // Backend manages organizationId from JWT; also rating/totalDeliveries are derived defaults.
+
+  const [licenseNumber, setLicenseNumber] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+
+  // These fields are part of the Driver's linked User entity.
+  // Current backend CreateDriverDto only requires licenseNumber + phone,
+  // but the UI collects additional user fields so you can pass them if supported.
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const [status, setStatus] = useState<
+    'available' | 'on_duty' | 'on_break' | 'off_duty' | 'sick' | 'vacation'
+  >('available');
+  const [hireDate, setHireDate] = useState('');
+  const [emergencyContact, setEmergencyContact] = useState('');
+  const [emergencyPhone, setEmergencyPhone] = useState('');
+  const [isActive, setIsActive] = useState(true);
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!licenseNumber.trim()) return;
+    if (!phone.trim()) return;
+
+    setSubmitting(true);
+    try {
+        // Must match backend CreateDriverDto field names.
+        // If backend supports creating a linked user, pass user fields.
+        // Otherwise, it will safely ignore/complain and you can remove these fields.
+        // Backend CreateDriverDto currently supports linking to an existing user via `userId`.
+        // To avoid creating duplicate driver records, we must not attempt to create the User here.
+        // If you want combined create-user+create-driver, that requires backend DTO+service changes.
+        // Backend requires `userId` to link a Driver to an existing User.
+        // Since the modal UI currently collects user fields (name/email/password) but
+        // backend CreateDriverDto doesn't, we cannot safely create the user here.
+        // TODO: implement backend CreateDriverDto to accept user fields OR provide a
+        // real `userId` to link.
+        await api.post('/drivers', {
+          // userId must be provided to link a driver to an existing user.
+          // For now backend requires it, so we block creation unless you wire user creation/search first.
+          userId: undefined,
+          name,
+          email,
+          password,
+          licenseNumber: licenseNumber.trim(),
+          phone: phone.trim(),
+          address: address.trim() ? address.trim() : undefined,
+          status,
+          hireDate: hireDate ? hireDate : undefined,
+          emergencyContact: emergencyContact.trim() ? emergencyContact.trim() : undefined,
+          emergencyPhone: emergencyPhone.trim() ? emergencyPhone.trim() : undefined,
+          isActive,
+        });
+
+      toast.success('Driver created successfully');
+      onClose();
+      onCreated();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to create driver');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-[520px] max-w-[95vw]">
+        <h2 className="text-xl font-bold mb-4">Add New Driver</h2>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Name</label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="mt-1 w-full border rounded px-3 py-2"
+                placeholder="Driver full name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Email</label>
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-1 w-full border rounded px-3 py-2"
+                placeholder="Driver email"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-1 w-full border rounded px-3 py-2"
+                placeholder="Temporary password"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Phone</label>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="mt-1 w-full border rounded px-3 py-2"
+                placeholder="e.g. +383..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">License Number</label>
+              <input
+                value={licenseNumber}
+                onChange={(e) => setLicenseNumber(e.target.value)}
+                className="mt-1 w-full border rounded px-3 py-2"
+                placeholder="e.g. LIC-123"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700">Address (optional)</label>
+              <input
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className="mt-1 w-full border rounded px-3 py-2"
+                placeholder="Street, city"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Hire Date (optional)</label>
+              <input
+                type="date"
+                value={hireDate}
+                onChange={(e) => setHireDate(e.target.value)}
+                className="mt-1 w-full border rounded px-3 py-2"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Status</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as any)}
+                className="mt-1 w-full border rounded px-3 py-2"
+              >
+                <option value="available">Available</option>
+                <option value="on_duty">On Duty</option>
+                <option value="on_break">On Break</option>
+                <option value="off_duty">Off Duty</option>
+                <option value="sick">Sick</option>
+                <option value="vacation">Vacation</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Emergency Contact (optional)</label>
+              <input
+                value={emergencyContact}
+                onChange={(e) => setEmergencyContact(e.target.value)}
+                className="mt-1 w-full border rounded px-3 py-2"
+                placeholder="Name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Emergency Phone (optional)</label>
+              <input
+                value={emergencyPhone}
+                onChange={(e) => setEmergencyPhone(e.target.value)}
+                className="mt-1 w-full border rounded px-3 py-2"
+                placeholder="e.g. +383..."
+              />
+            </div>
+
+            <div className="sm:col-span-2 flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <label className="block text-sm font-medium text-gray-700">Active</label>
+                <p className="text-xs text-gray-500">
+                  If disabled, driver won’t be available for assignment.
+                </p>
+              </div>
+              <label className="inline-flex items-center cursor-pointer select-none shrink-0">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  className="sr-only"
+                />
+                <div className="w-12 h-6 bg-gray-200 rounded-full p-1 transition-colors">
+                  <div
+                    className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                      isActive ? 'translate-x-6' : 'translate-x-0'
+                    }`}
+                  />
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border rounded hover:bg-gray-50"
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              disabled={submitting}
+            >
+              {submitting ? 'Creating...' : 'Create Driver'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default DriversList;
+

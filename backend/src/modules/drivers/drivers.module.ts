@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Driver } from './driver.entity';
 import { DriversService } from './drivers.service';
 import { DriversController } from './drivers.controller';
-import { UsersModule } from '../users/users.module'; 
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Driver]), UsersModule],
