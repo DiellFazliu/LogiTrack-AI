@@ -1,3 +1,4 @@
+// frontend/src/services/shipments.service.ts
 import api from './api';
 
 export interface Shipment {
@@ -54,6 +55,46 @@ export const shipmentsService = {
     return response.data;
   },
 
+  // ✅ Merr dërgesat e përdoruesit të logguar (për customer dashboard)
+  async getMyShipments(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+  }): Promise<ShipmentsResponse> {
+    const response = await api.get('/shipments/customer/my', { params });
+    return response.data;
+  },
+
+  // ✅ Merr dërgesat sipas customer ID
+  async getByCustomer(customerId: string, params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+  }): Promise<ShipmentsResponse> {
+    const response = await api.get('/shipments', { 
+      params: { customerId, ...params } 
+    });
+    return response.data;
+  },
+
+async getDriverShipments(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+  }): Promise<ShipmentsResponse> {
+    const response = await api.get('/shipments/my', { params });
+    // Sigurohu që response ka strukturën e duhur
+    if (response.data.items) {
+      return {
+        data: response.data.items,
+        total: response.data.total,
+        page: response.data.page,
+        limit: response.data.limit,
+      };
+    }
+    return response.data;
+  },
+
   // Merr dërgesën sipas ID
   async getById(id: string): Promise<Shipment> {
     const response = await api.get(`/shipments/${id}`);
@@ -81,6 +122,18 @@ export const shipmentsService = {
   // Përditëso statusin e dërgesës
   async updateStatus(id: string, status: string): Promise<Shipment> {
     const response = await api.patch(`/shipments/${id}/status`, { status });
+    return response.data;
+  },
+
+  // Cakto shofer për dërgesë
+  async assignDriver(id: string, driverId: string): Promise<Shipment> {
+    const response = await api.patch(`/shipments/${id}/assign-driver/${driverId}`);
+    return response.data;
+  },
+
+  // Cakto automjet për dërgesë
+  async assignVehicle(id: string, vehicleId: string): Promise<Shipment> {
+    const response = await api.patch(`/shipments/${id}/assign-vehicle/${vehicleId}`);
     return response.data;
   },
 
