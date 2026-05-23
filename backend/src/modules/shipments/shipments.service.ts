@@ -65,6 +65,23 @@ export class ShipmentsService {
       throw new InternalServerErrorException('Failed to create shipment');
     }
   }
+async findByCustomer(customerId: string, query: ShipmentQueryDto) {
+  const { page = 1, limit = 10, status } = query;
+  const skip = (page - 1) * limit;
+
+  const where: any = { customerId };
+  if (status) where.status = status;
+
+  const [data, total] = await this.shipmentRepository.findAndCount({
+    where,
+    relations: ['driver', 'vehicle'],
+    skip,
+    take: limit,
+    order: { createdAt: 'DESC' },
+  });
+
+  return { data, total, page, limit };
+}
 
   async findAll(query: ShipmentQueryDto, organizationId: string, userRole: string, userId: string) {
     const { status, search, driverId, page = 1, limit = 10 } = query;
@@ -219,34 +236,22 @@ async assignDriver(id: string, driverId: string, organizationId: string): Promis
     return this.findOne(id, organizationId, 'admin', '');
   }
 
-// src/modules/shipments/shipments.service.ts
+// backend/src/modules/shipments/shipments.service.ts
 
 async getMyShipments(userId: string, organizationId: string, query: ShipmentQueryDto) {
-  // Gjej driver-in për këtë user
   const driver = await this.driverRepository.findOne({
     where: { userId: userId }
   });
   
   if (!driver) {
-    console.log('No driver found for user:', userId);
     return { items: [], total: 0, page: 1, limit: 10, totalPages: 0 };
   }
   
-  console.log('Found driver:', driver.id, 'for user:', userId);
-  
-  // ✅ Kthe edhe driver.id në response që të përdoret në frontend
+  // Përdor driver.id për të gjetur shipment-et
   const result = await this.findAll(query, organizationId, 'driver', driver.id);
   
-  // Shto driverId në çdo shipment për referencë
-  return {
-    ...result,
-    items: result.items.map(shipment => ({
-      ...shipment,
-      driverId: driver.id
-    }))
-  };
+  return result;  // Kthe direkt result, pa modifikim shtesë
 }
-
 
   async getTracking(trackingNumber: string): Promise<Shipment> {
     const shipment = await this.shipmentRepository.findOne({
