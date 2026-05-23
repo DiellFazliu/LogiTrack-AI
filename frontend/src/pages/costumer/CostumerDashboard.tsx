@@ -37,8 +37,8 @@ export const CustomerDashboard: React.FC = () => {
 
   const fetchDashboardData = async () => {
     try {
-      setLoading(true);
-      setError('');
+      const response = await api.get('/shipments/my?limit=5');
+      const shipments = response.data.items;
       
     const response = await api.get('/shipments/customer/my', {
       params: {

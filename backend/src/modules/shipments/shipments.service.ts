@@ -65,23 +65,7 @@ export class ShipmentsService {
       throw new InternalServerErrorException('Failed to create shipment');
     }
   }
-async findByCustomer(customerId: string, query: ShipmentQueryDto) {
-  const { page = 1, limit = 10, status } = query;
-  const skip = (page - 1) * limit;
-
-  const where: any = { customerId };
-  if (status) where.status = status;
-
-  const [data, total] = await this.shipmentRepository.findAndCount({
-    where,
-    relations: ['driver', 'vehicle'],
-    skip,
-    take: limit,
-    order: { createdAt: 'DESC' },
-  });
-
-  return { data, total, page, limit };
-}
+  
 
   async findAll(query: ShipmentQueryDto, organizationId: string, userRole: string, userId: string) {
     const { status, search, driverId, page = 1, limit = 10 } = query;

@@ -30,6 +30,7 @@ export class ShipmentsController {
     return this.shipmentsService.create(createDto, req.user.id, organizationId);
   }
 
+  
   @Get()
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get all shipments with filters' })
@@ -38,10 +39,19 @@ export class ShipmentsController {
   }
 
   @Get('my')
-  @Roles(UserRole.DRIVER)
-  @ApiOperation({ summary: 'Get my assigned shipments (for drivers)' })
-  getMyShipments(@Query() query: ShipmentQueryDto, @Request() req) {
-    return this.shipmentsService.getMyShipments(req.user.id, req.user.organizationId, query);
+  @Roles(UserRole.CUSTOMER, UserRole.DRIVER)
+  @ApiOperation({ summary: 'Get my shipments (for customers and drivers)' })
+  async getMyShipments(@Query() query: ShipmentQueryDto, @Request() req) {
+    if (req.user.role === UserRole.CUSTOMER) {
+    // Për customer, kalo userId direkt
+      return this.shipmentsService.getMyShipments(req.user.id, req.user.organizationId, query);
+    } else if (req.user.role === UserRole.DRIVER) {
+    // Për driver, kalo userId për të gjetur driver-in
+      return this.shipmentsService.getMyShipments(req.user.id, req.user.organizationId, query);
+    }
+  
+  // Për rolet e tjera, përdor findAll
+    return this.shipmentsService.findAll(query, req.user.organizationId, req.user.role, req.user.id);
   }
 
   @Get('track/:trackingNumber')
