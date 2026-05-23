@@ -98,55 +98,91 @@ async getHistory(id: string, organizationId: string, userRole: string, userId: s
   return [];
 }
 
-async findOne(id: string, organizationId: string, userRole: string, userId: string): Promise<Shipment> {
+async findOne(id: string, organizationId: string, userRole: string, userId: string): Promise<any> {
+  // Fetch shipment with all necessary relations
   const shipment = await this.shipmentRepository.findOne({
     where: { id },
-    relations: ['driver', 'vehicle', 'customer', 'organization'],
+    relations: ['driver', 'driver.user', 'vehicle', 'customer', 'organization'],
   });
-  
-  if (!shipment) throw new NotFoundException('Shipment not found');
-  
-  if (shipment.organizationId !== organizationId && userRole !== 'super_admin') {
-    throw new ForbiddenException('Access denied');
+
+  if (!shipment) {
+    throw new NotFoundException('Shipment not found');
   }
-  
-  if (userRole === 'driver') {
-    const driver = await this.driverRepository.findOne({
-      where: { userId: userId }
-    });
-    
-    console.log('Driver check - userId:', userId);
-    console.log('Found driver:', driver);
-    console.log('Shipment driverId:', shipment.driverId);
-    
-    if (!driver || shipment.driverId !== driver.id) {
-      throw new ForbiddenException('Access denied - This shipment is not assigned to you');
+
+  // Super admin can access any shipment
+  if (userRole !== 'super_admin') {
+    // Check organization access
+    if (shipment.organizationId !== organizationId) {
+      throw new ForbiddenException('Access denied - This shipment belongs to a different organization');
     }
 
-console.log('=== FIND ONE DEBUG ===');
-console.log('User role:', userRole);
-console.log('User ID passed:', userId);
-console.log('Shipment driverId:', shipment.driverId);
-console.log('Shipment organizationId:', shipment.organizationId);
-console.log('Organization ID from request:', organizationId);
+    // Driver-specific check
+    if (userRole === 'driver') {
+      const driver = await this.driverRepository.findOne({
+        where: { userId: userId },
+      });
 
-if (userRole === 'driver') {
-  const driver = await this.driverRepository.findOne({
-    where: { userId: userId }
-  });
-  
-  console.log('Found driver:', driver?.id);
-  console.log('Comparing:', shipment.driverId, '===', driver?.id);
-  
-  if (!driver || shipment.driverId !== driver.id) {
-    console.log('ACCESS DENIED - IDs do not match');
-    throw new ForbiddenException('Access denied - This shipment is not assigned to you');
+      if (!driver || shipment.driverId !== driver.id) {
+        throw new ForbiddenException('Access denied - This shipment is not assigned to you');
+      }
+    }
   }
-  console.log('ACCESS GRANTED');
-}
-  }
-  
-  return shipment;
+
+  // Return a flattened DTO for frontend convenience
+  return {
+    // Core shipment fields (spread)
+    id: shipment.id,
+    trackingNumber: shipment.trackingNumber,
+    pickupAddress: shipment.pickupAddress,
+    pickupLatitude: shipment.pickupLatitude,
+    pickupLongitude: shipment.pickupLongitude,
+    deliveryAddress: shipment.deliveryAddress,
+    deliveryLatitude: shipment.deliveryLatitude,
+    deliveryLongitude: shipment.deliveryLongitude,
+    weightKg: shipment.weightKg,
+    volumeM3: shipment.volumeM3,
+    priority: shipment.priority,
+    isExpress: shipment.isExpress,
+    notes: shipment.notes,
+    status: shipment.status,
+    estimatedDistanceKm: shipment.estimatedDistanceKm,
+    estimatedDurationMin: shipment.estimatedDurationMin,
+    estimatedDelivery: shipment.estimatedDelivery,
+    actualDelivery: shipment.actualDelivery,
+    pickedUpAt: shipment.pickedUpAt,
+    deliveryPhoto: shipment.deliveryPhoto,
+    deliverySignature: shipment.deliverySignature,
+    createdAt: shipment.createdAt,
+    updatedAt: shipment.updatedAt,
+
+    // Flattened relations
+    customerId: shipment.customerId,
+    customerName: shipment.customer?.name || null,
+    customerEmail: shipment.customer?.email || null,
+    
+    driverId: shipment.driverId,
+    driverName: shipment.driver?.user?.name || null,
+    driverLicenseNumber: shipment.driver?.licenseNumber || null,
+    driverPhone: shipment.driver?.phone || null,
+    
+    vehicleId: shipment.vehicleId,
+    vehiclePlate: shipment.vehicle?.licensePlate || null,
+    vehicleType: shipment.vehicle?.type || null,
+    vehicleBrand: shipment.vehicle?.brand || null,
+    vehicleModel: shipment.vehicle?.model || null,
+
+    organizationId: shipment.organizationId,
+    organizationName: shipment.organization?.name || null,
+
+    createdBy: shipment.createdBy,
+
+    // Keep original nested objects for flexibility (optional, can be removed)
+    // but frontend can rely on flattened fields above.
+    driver: shipment.driver,
+    vehicle: shipment.vehicle,
+    customer: shipment.customer,
+    organization: shipment.organization,
+  };
 }
 
   async update(id: string, updateDto: UpdateShipmentDto, organizationId: string): Promise<Shipment> {

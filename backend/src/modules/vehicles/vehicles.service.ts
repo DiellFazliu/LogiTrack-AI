@@ -20,11 +20,16 @@ export class VehiclesService {
     return this.vehicleRepository.save(vehicle);
   }
 
-  async findAll(organizationId: string, status?: string): Promise<Vehicle[]> {
-    const where: any = { organizationId };
-    if (status) where.status = status;
-    
-    return this.vehicleRepository.find({ where, relations: ['organization'] });
+  async findAll(organizationId: string, status?: string, page = 1, limit = 20) {
+  const where: any = { organizationId };
+  if (status) where.status = status;
+  const [data, total] = await this.vehicleRepository.findAndCount({
+    where,
+    skip: (page - 1) * limit,
+    take: limit,
+    order: { createdAt: 'DESC' },
+  });
+  return { data, total, page, limit };
   }
 
   async findOne(id: string, organizationId: string): Promise<Vehicle> {

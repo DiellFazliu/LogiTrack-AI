@@ -151,6 +151,16 @@ export class ReportsService {
 
   }
 
+  async getDashboardStats(organizationId: string) {
+  const [shipments, drivers, vehicles] = await Promise.all([
+    this.shipmentRepository.find({ where: { organizationId } }),
+    this.driverRepository.find({ where: { organizationId, isActive: true } }),
+    this.vehicleRepository.find({ where: { organizationId, isActive: true } }),
+  ]);
+  // ... calculate stats
+  return { totalShipments, completedShipments, ... };
+}
+
   async getReport(
     id:string,
   ): Promise<Report | null> {
