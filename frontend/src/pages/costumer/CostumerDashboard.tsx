@@ -37,24 +37,23 @@ export const CustomerDashboard: React.FC = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await api.get('/shipments/my?limit=5');
-      const shipments = response.data.items;
-      
-    const response = await api.get('/shipments/customer/my', {
-      params: {
-        limit: 5,
-        page: 1,
-      },
-    });
-      
-const shipments = response.data.data || [];      
+      const response = await api.get('/shipments/customer/my', {
+        params: {
+          limit: 5,
+          page: 1,
+        },
+      });
+
+      const shipments: Shipment[] = response.data?.items ?? response.data?.data ?? [];
+
       setRecentShipments(shipments);
       setStats({
-        total: response.data.total || 0,
+        total: response.data?.total ?? shipments.length ?? 0,
         delivered: shipments.filter((s: Shipment) => s.status === 'delivered').length,
         inTransit: shipments.filter((s: Shipment) => s.status === 'in_transit').length,
         pending: shipments.filter((s: Shipment) => s.status === 'pending').length,
       });
+
     } catch (err: any) {
       console.error('Failed to fetch dashboard data:', err);
       if (err.response?.status === 403) {

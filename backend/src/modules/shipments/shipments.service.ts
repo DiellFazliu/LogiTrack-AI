@@ -111,7 +111,6 @@ async findOne(id: string, organizationId: string, userRole: string, userId: stri
   }
   
   if (userRole === 'driver') {
-    // ✅ Gjej driver-in nga userId
     const driver = await this.driverRepository.findOne({
       where: { userId: userId }
     });
@@ -120,7 +119,6 @@ async findOne(id: string, organizationId: string, userRole: string, userId: stri
     console.log('Found driver:', driver);
     console.log('Shipment driverId:', shipment.driverId);
     
-    // ✅ Krahaso me driver.id
     if (!driver || shipment.driverId !== driver.id) {
       throw new ForbiddenException('Access denied - This shipment is not assigned to you');
     }
@@ -190,7 +188,6 @@ async assignDriver(id: string, driverId: string, organizationId: string): Promis
   
   let finalDriverId = driverId;
   
-  // Kontrollo nëse driverId është user_id
   const driverByUser = await this.driverRepository.findOne({
     where: { userId: driverId }
   });
@@ -205,7 +202,6 @@ await this.shipmentRepository.update(id, {
     status: ShipmentStatus.IN_TRANSIT
   });
 
-  // If vehicle already assigned on this shipment, sync driver license_number from vehicle.license_plate
   const updated = await this.shipmentRepository.findOne({
     where: { id },
     relations: ['driver', 'vehicle'],
@@ -251,7 +247,28 @@ await this.shipmentRepository.update(id, {
 
 // backend/src/modules/shipments/shipments.service.ts
 
-async getMyShipments(userId: string, organizationId: string, query: ShipmentQueryDto) {
+  async findByCustomer(customerId: string, organizationId: string, query: ShipmentQueryDto) {
+    const { status, search, driverId, page = 1, limit = 10 } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = { organizationId, customerId };
+    if (status) where.status = status;
+    if (search) where.trackingNumber = Like(`%${search}%`);
+    if (driverId) where.driverId = driverId;
+
+    const [items, total] = await this.shipmentRepository.findAndCount({
+      where,
+      relations: ['driver', 'vehicle', 'customer'],
+      skip,
+      take: limit,
+      order: { createdAt: 'DESC' },
+    });
+
+    return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  async getMyShipments(userId: string, organizationId: string, query: ShipmentQueryDto) {
+
   const driver = await this.driverRepository.findOne({
     where: { userId: userId }
   });

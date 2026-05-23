@@ -76,8 +76,9 @@ export class ShipmentsController {
     @Roles(UserRole.CUSTOMER)
     @ApiOperation({ summary: 'Get my shipments (for customers)' })
     async getCustomerShipments(@Query() query: ShipmentQueryDto, @Request() req) {
-      return this.shipmentsService.findByCustomer(req.user.id, query);
+      return this.shipmentsService.findByCustomer(req.user.id, req.user.organizationId, query);
     }
+
 
     @Get(':id/history')
     @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.CUSTOMER)
