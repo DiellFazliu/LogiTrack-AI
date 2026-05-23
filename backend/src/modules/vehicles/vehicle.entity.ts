@@ -7,7 +7,15 @@ export enum VehicleType {
   VAN = 'van',
   MOTORCYCLE = 'motorcycle',
   CAR = 'car',
-  TRAILER = 'trailer'
+  TRAILER = 'trailer',
+}
+
+export enum FuelType {
+  DIESEL = 'diesel',
+  PETROL = 'petrol',
+  ELECTRIC = 'electric',
+  HYBRID = 'hybrid',
+  LPG = 'lpg',
 }
 
 export enum VehicleStatus {
@@ -15,9 +23,8 @@ export enum VehicleStatus {
   IN_USE = 'in_use',
   MAINTENANCE = 'maintenance',
   REPAIR = 'repair',
-  OUT_OF_SERVICE = 'out_of_service'
+  OUT_OF_SERVICE = 'out_of_service',
 }
-
 @Entity('vehicles')
 export class Vehicle {
   @PrimaryGeneratedColumn('uuid')

@@ -1,8 +1,8 @@
-// frontend/src/pages/company/CompanyVehiclesList.tsx
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Truck, Wrench, Fuel, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { VehicleFormModal } from '../../components/formModal/VehicleFormModal';
 
 interface Vehicle {
   id: string;
@@ -28,26 +28,47 @@ export const CompanyVehiclesList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<Vehicle | undefined>(undefined);
 
   useEffect(() => {
     fetchVehicles();
   }, []);
 
-  const fetchVehicles = async () => {
-    try {
-      const response = await api.get('/vehicles');
-      setVehicles(Array.isArray(response.data) ? response.data : []);
-    } catch (error: any) {
-      console.error('Error:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch vehicles');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const toSnakeCase = (str: string): string => {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+};
+
+const transformKeysToSnakeCase = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(v => transformKeysToSnakeCase(v));
+  } else if (obj !== null && typeof obj === 'object') {
+    return Object.keys(obj).reduce((acc, key) => {
+      const snakeKey = toSnakeCase(key);
+      acc[snakeKey] = transformKeysToSnakeCase(obj[key]);
+      return acc;
+    }, {} as any);
+  }
+  return obj;
+};
+
+const fetchVehicles = async () => {
+  try {
+    const response = await api.get('/vehicles');
+    // Extract the data array (paginated response)
+    const rawVehicles = response.data?.data || (Array.isArray(response.data) ? response.data : []);
+    // Transform to snake_case
+    const vehiclesSnake = transformKeysToSnakeCase(rawVehicles);
+    setVehicles(vehiclesSnake);
+  } catch (error: any) {
+    console.error('Error:', error);
+    toast.error(error.response?.data?.message || 'Failed to fetch vehicles');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const deleteVehicle = async (id: string) => {
     if (!confirm('Are you sure you want to delete this vehicle?')) return;
-    
     try {
       await api.delete(`/vehicles/${id}`);
       toast.success('Vehicle deleted successfully');
@@ -65,6 +86,16 @@ export const CompanyVehiclesList: React.FC = () => {
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to update status');
     }
+  };
+
+  const handleEdit = (vehicle: Vehicle) => {
+    setEditingVehicle(vehicle);
+    setShowCreateModal(true);
+  };
+
+  const handleModalClose = () => {
+    setShowCreateModal(false);
+    setEditingVehicle(undefined);
   };
 
   const getStatusColor = (status: string) => {
@@ -89,9 +120,7 @@ export const CompanyVehiclesList: React.FC = () => {
     return icons[type] || '🚚';
   };
 
-  const filteredVehicles = vehicles.filter(v => 
-    statusFilter === 'all' || v.status === statusFilter
-  );
+  const filteredVehicles = vehicles.filter(v => statusFilter === 'all' || v.status === statusFilter);
 
   if (loading) {
     return (
@@ -121,7 +150,6 @@ export const CompanyVehiclesList: React.FC = () => {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Filter */}
         <div className="mb-6">
           <select
             value={statusFilter}
@@ -158,13 +186,10 @@ export const CompanyVehiclesList: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button className="text-blue-600 hover:text-blue-800">
+                    <button onClick={() => handleEdit(vehicle)} className="text-blue-600 hover:text-blue-800">
                       <Edit className="w-4 h-4" />
                     </button>
-                    <button 
-                      onClick={() => deleteVehicle(vehicle.id)}
-                      className="text-red-600 hover:text-red-800"
-                    >
+                    <button onClick={() => deleteVehicle(vehicle.id)} className="text-red-600 hover:text-red-800">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -181,9 +206,7 @@ export const CompanyVehiclesList: React.FC = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Fuel:</span>
-                    <span className="flex items-center gap-1">
-                      <Fuel className="w-3 h-3" /> {vehicle.fuel_type}
-                    </span>
+                    <span className="flex items-center gap-1"><Fuel className="w-3 h-3" /> {vehicle.fuel_type}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Mileage:</span>
@@ -205,9 +228,7 @@ export const CompanyVehiclesList: React.FC = () => {
                   </div>
                   {vehicle.next_maintenance && (
                     <div className="flex justify-between">
-                      <span className="text-gray-500 flex items-center gap-1">
-                        <Calendar className="w-3 h-3" /> Next Maintenance:
-                      </span>
+                      <span className="text-gray-500 flex items-center gap-1"><Calendar className="w-3 h-3" /> Next Maintenance:</span>
                       <span className="text-sm">{new Date(vehicle.next_maintenance).toLocaleDateString()}</span>
                     </div>
                   )}
@@ -218,23 +239,12 @@ export const CompanyVehiclesList: React.FC = () => {
         )}
       </div>
 
-      {/* Create Vehicle Modal - Simplified */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h2 className="text-xl font-bold mb-4">Add New Vehicle</h2>
-            <p className="text-gray-500 mb-4">Vehicle creation form would go here</p>
-            <div className="flex justify-end gap-2">
-              <button 
-                onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 border rounded hover:bg-gray-50"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <VehicleFormModal
+        isOpen={showCreateModal}
+        onClose={handleModalClose}
+        onSuccess={fetchVehicles}
+        vehicle={editingVehicle}
+      />
     </div>
   );
 };

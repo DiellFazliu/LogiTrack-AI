@@ -60,6 +60,12 @@ export class ReportsController {
    );
  }
 
+ // In reports.controller.ts
+  @Get('dashboard/:organizationId')
+  async getDashboardStats(@Param('organizationId') organizationId: string) {
+    return this.reportsService.getDashboardStats(organizationId);
+  }
+
  @Get(':id')
 
  @ApiOperation({

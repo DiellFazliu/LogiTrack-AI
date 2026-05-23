@@ -1,6 +1,6 @@
 // frontend/src/pages/company/CompanyReports.tsx
 import React, { useState, useEffect } from 'react';
-import { FileText, Download, Calendar, TrendingUp, Truck, Package, DollarSign } from 'lucide-react';
+import { Download, Calendar, TrendingUp, Truck, Package, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 
@@ -39,37 +39,49 @@ export const CompanyReports: React.FC = () => {
 
   const fetchReports = async () => {
     try {
+      // Helper: extract array from paginated response or direct array
+      const extractData = (res: any) => {
+        if (res.data?.data) return res.data.data;     // paginated: { data: [...] }
+        if (Array.isArray(res.data)) return res.data; // direct array
+        return [];
+      };
+
       const [shipmentsRes, driversRes, vehiclesRes] = await Promise.all([
         api.get('/shipments'),
         api.get('/drivers'),
         api.get('/vehicles')
       ]);
       
-      const shipments = shipmentsRes.data.items || shipmentsRes.data || [];
-      const drivers = driversRes.data || [];
-      const vehicles = vehiclesRes.data || [];
+      const shipments = extractData(shipmentsRes);
+      const drivers = extractData(driversRes);
+      const vehicles = extractData(vehiclesRes);
       
-      const completed = shipments.filter((s: any) => s.status === 'delivered').length;
-      const pending = shipments.filter((s: any) => s.status === 'pending').length;
-      const inTransit = shipments.filter((s: any) => s.status === 'in_transit').length;
+      const completedShipments = shipments.filter((s: any) => s.status === 'delivered').length;
+      const pendingShipments = shipments.filter((s: any) => s.status === 'pending').length;
+      const inTransitShipments = shipments.filter((s: any) => s.status === 'in_transit').length;
+      const totalShipments = shipments.length;
+      
+      const totalDrivers = drivers.length;
       const activeDrivers = drivers.filter((d: any) => d.status === 'available' || d.status === 'on_duty').length;
+      
+      const totalVehicles = vehicles.length;
       const availableVehicles = vehicles.filter((v: any) => v.status === 'available').length;
       
       setStats({
-        totalShipments: shipments.length,
-        completedShipments: completed,
-        pendingShipments: pending,
-        inTransitShipments: inTransit,
-        totalDrivers: drivers.length,
-        activeDrivers: activeDrivers,
-        totalVehicles: vehicles.length,
-        availableVehicles: availableVehicles,
-        avgDeliveryTime: 2.5,
-        onTimeDelivery: 94,
+        totalShipments,
+        completedShipments,
+        pendingShipments,
+        inTransitShipments,
+        totalDrivers,
+        activeDrivers,
+        totalVehicles,
+        availableVehicles,
+        avgDeliveryTime: 2.5,      // TODO: calculate from actual data
+        onTimeDelivery: 94,        // TODO: calculate from actual data
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching reports:', error);
-      toast.error('Failed to load reports');
+      toast.error(error.response?.data?.message || 'Failed to load reports');
     } finally {
       setLoading(false);
     }
@@ -114,7 +126,10 @@ export const CompanyReports: React.FC = () => {
             className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-        <button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+        <button 
+          onClick={fetchReports}
+          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+        >
           Apply Filter
         </button>
         <button 
@@ -163,7 +178,7 @@ export const CompanyReports: React.FC = () => {
           <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
             <div 
               className="bg-purple-500 h-1.5 rounded-full" 
-              style={{ width: `${(stats.activeDrivers / stats.totalDrivers) * 100}%` }}
+              style={{ width: `${stats.totalDrivers ? (stats.activeDrivers / stats.totalDrivers) * 100 : 0}%` }}
             ></div>
           </div>
         </div>
@@ -179,7 +194,7 @@ export const CompanyReports: React.FC = () => {
           <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
             <div 
               className="bg-yellow-500 h-1.5 rounded-full" 
-              style={{ width: `${(stats.availableVehicles / stats.totalVehicles) * 100}%` }}
+              style={{ width: `${stats.totalVehicles ? (stats.availableVehicles / stats.totalVehicles) * 100 : 0}%` }}
             ></div>
           </div>
         </div>
@@ -221,7 +236,7 @@ export const CompanyReports: React.FC = () => {
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-4">Driver Performance</h2>
+          <h2 className="text-lg font-semibold mb-4">Driver & Vehicle Performance</h2>
           <div className="space-y-3">
             <div>
               <div className="flex justify-between text-sm mb-1">
@@ -235,10 +250,10 @@ export const CompanyReports: React.FC = () => {
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span>Vehicle Utilization</span>
-                <span>{Math.round((stats.availableVehicles / stats.totalVehicles) * 100)}%</span>
+                <span>{Math.round(((stats.totalVehicles - stats.availableVehicles) / stats.totalVehicles) * 100)}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-purple-500 h-2 rounded-full" style={{ width: `${(stats.availableVehicles / stats.totalVehicles) * 100}%` }}></div>
+                <div className="bg-purple-500 h-2 rounded-full" style={{ width: `${((stats.totalVehicles - stats.availableVehicles) / stats.totalVehicles) * 100}%` }}></div>
               </div>
             </div>
             <div>
