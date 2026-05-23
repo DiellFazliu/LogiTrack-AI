@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name:  Dokumentacioni i Projektit
+    url: https://github.com/username/LogiTrack-AI/blob/main/README.md
+    about: Lexo dokumentacionin para se të hapësh issue
+  - name:  Discord/Teams Support
+    url: https://discord.gg/your-server
+    about: Pyetje të shpejta ose ndihmë nga grupi
