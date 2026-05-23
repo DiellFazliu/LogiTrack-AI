@@ -10,7 +10,6 @@ export interface Waybill {
   signature: string | null;
   isSigned: boolean;
   signedAt: string | null;
-  signedBy: string | null;
   generatedBy: string | null;
   isPrinted: boolean;
   printedAt: string | null;
@@ -37,7 +36,6 @@ export interface WaybillResponse {
   signature: string | null;
   isSigned: boolean;
   signedAt: string | null;
-  signedBy: string | null;
   generatedBy: string | null;
   isPrinted: boolean;
   printedAt: string | null;

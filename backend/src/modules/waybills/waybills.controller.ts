@@ -1,3 +1,4 @@
+// waybills.controller.ts
 import {
   Controller,
   Get,
@@ -6,21 +7,21 @@ import {
   Delete,
   Body,
   Param,
-  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
   Req,
   Res,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiBearerAuth,
   ApiOperation,
-  ApiResponse,
-  ApiQuery,
 } from '@nestjs/swagger';
-import { Response } from 'express';
+import type { Response } from 'express'; // ✅ Përdor 'import type' në vend të 'import'
+import * as path from 'path';
+import * as fs from 'fs';
 import { WaybillsService } from './waybills.service';
 import { CreateWaybillDto } from './dto/create-waybill.dto';
 import { UpdateWaybillDto } from './dto/update-waybill.dto';
@@ -68,7 +69,6 @@ export class WaybillsController {
     return this.waybillsService.findByWaybillNumber(waybillNumber);
   }
 
-
   @Get(':id')
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get waybill by ID' })
@@ -88,12 +88,27 @@ export class WaybillsController {
     return this.waybillsService.sign(id, signWaybillDto, req.user.id, req.user.organizationId);
   }
 
-  @Post(':id/print')
-  @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.SUPER_ADMIN)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Mark waybill as printed' })
-  async markAsPrinted(@Param('id') id: string, @Req() req: any): Promise<WaybillResponseDto> {
-    return this.waybillsService.markAsPrinted(id, req.user.organizationId);
+  @Get(':id/download')
+  @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.SUPER_ADMIN, UserRole.CUSTOMER)
+  @ApiOperation({ summary: 'Download waybill PDF' })
+  async download(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const waybill = await this.waybillsService.findOne(id, req.user.organizationId);
+    
+    if (!waybill.pdfUrl) {
+      throw new NotFoundException('PDF not generated yet');
+    }
+    
+    const pdfPath = path.join(process.cwd(), 'uploads', 'waybills', `${waybill.waybillNumber}.pdf`);
+    
+    if (!fs.existsSync(pdfPath)) {
+      throw new NotFoundException('PDF file not found');
+    }
+    
+    return res.download(pdfPath, `waybill_${waybill.waybillNumber}.pdf`);
   }
 
   @Put(':id')
