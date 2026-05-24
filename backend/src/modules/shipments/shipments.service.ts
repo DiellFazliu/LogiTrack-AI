@@ -110,25 +110,6 @@ async create(createDto: CreateShipmentDto, userId: string, organizationId: strin
       status: ShipmentStatus.PENDING,
     });
 
-      const shipment = this.shipmentRepository.create({
-        trackingNumber,
-        pickupAddress: createDto.pickupAddress,
-        pickupLatitude: createDto.pickupLatitude,
-        pickupLongitude: createDto.pickupLongitude,
-        deliveryAddress: createDto.deliveryAddress,
-        deliveryLatitude: createDto.deliveryLatitude,
-        deliveryLongitude: createDto.deliveryLongitude,
-        weightKg: createDto.weightKg,
-        volumeM3: createDto.volumeM3,
-        priority: createDto.priority || ShipmentPriority.NORMAL,
-        isExpress: createDto.isExpress || false,
-        notes: createDto.notes,
-        customerId: userId,
-        organizationId: organizationId,
-        createdBy: userId,
-        status: ShipmentStatus.PENDING,
-      });
-
       const savedShipment = await this.shipmentRepository.save(shipment);
 
       await this.auditService.log({

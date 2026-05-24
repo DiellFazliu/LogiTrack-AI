@@ -49,7 +49,6 @@ export const Sidebar: React.FC = () => {
         { path: '/dispatcher/assign-driver', icon: Truck, label: 'Assign Driver' },
         { path: '/dispatcher/driver-locations', icon: Navigation, label: 'Driver Locations' },
         { path: '/dispatcher/reports', icon: FileText, label: 'Reports' },
-        { path: '/dispatcher/profile', icon: User, label: 'Profile' },
       ];
     }
     
