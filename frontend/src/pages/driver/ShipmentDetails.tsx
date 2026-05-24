@@ -74,37 +74,44 @@ export const DriverShipmentDetails: React.FC = () => {
     fetchShipment();
     fetchHistory();
     autoGenerateAndFetchWaybill();
+  
   }, [id]);
 
-  // Auto-generate waybill if not exists
-  const autoGenerateAndFetchWaybill = async () => {
-    setLoadingWaybill(true);
-    try {
-      // First try to get existing waybill
-      const waybillData = await waybillsService.getByShipment(id!);
+// frontend/src/pages/driver/ShipmentDetails.tsx
+// Zëvendëso këtë funksion:
+
+const autoGenerateAndFetchWaybill = async () => {
+  console.log('=== autoGenerateAndFetchWaybill START ===');
+  setLoadingWaybill(true);
+  try {
+    // First try to get existing waybill
+    const waybillData = await waybillsService.getByShipment(id!);
+    console.log('getByShipment result:', waybillData);
+    
+    if (waybillData) {
       setWaybill(waybillData);
-    } catch (error: any) {
-      // If 404, waybill doesn't exist - generate it automatically
-      if (error.response?.status === 404) {
-        console.log('No waybill found, auto-generating...');
-        setIsGeneratingWaybill(true);
-        try {
-          const newWaybill = await waybillsService.generate(id!);
-          setWaybill(newWaybill);
-          toast.success('Waybill generated automatically');
-        } catch (genError: any) {
-          console.error('Error auto-generating waybill:', genError);
-          toast.error('Failed to generate waybill');
-        } finally {
-          setIsGeneratingWaybill(false);
-        }
-      } else {
-        console.error('Error fetching waybill:', error);
-      }
-    } finally {
+      console.log('Waybill found');
       setLoadingWaybill(false);
+      return;
     }
-  };
+    
+    // If no waybill, generate one
+    console.log('No waybill found, generating...');
+    setIsGeneratingWaybill(true);
+    const newWaybill = await waybillsService.generate(id!);
+    console.log('Generate result:', newWaybill);
+    setWaybill(newWaybill);
+    toast.success('Waybill generated successfully');
+  } catch (error: any) {
+    console.error('Error in autoGenerateAndFetchWaybill:', error);
+    console.error('Error response:', error.response);
+    toast.error(error.response?.data?.message || 'Failed to generate waybill');
+  } finally {
+    setIsGeneratingWaybill(false);
+    setLoadingWaybill(false);
+  }
+  console.log('=== autoGenerateAndFetchWaybill END ===');
+};
 
   // Check if coming from route optimizer to open signature modal
   useEffect(() => {
