@@ -1,4 +1,3 @@
-// src/modules/users/users.service.ts
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -43,7 +42,6 @@ export class UsersService {
       throw new ForbiddenException('Cannot change organization');
     }
     
-    // ✅ Përditëso last_updated_by
     if (updatedBy) {
       updateData.lastUpdatedBy = updatedBy;
     }
@@ -70,14 +68,28 @@ export class UsersService {
       where: { id: userId },
       relations: ['roles', 'roles.permissions'],
     });
-    
+
     const permissions: string[] = [];
     user?.roles?.forEach(role => {
       role.permissions?.forEach(permission => {
         permissions.push(`${permission.resource}:${permission.action}`);
       });
     });
-    
+
     return [...new Set(permissions)];
   }
+
+  async toggleStatus(
+    id: string,
+    isActive: boolean,
+    organizationId?: string,
+    userRole?: string,
+  ): Promise<User> {
+    // Reuse existing multi-tenancy logic
+    const user = await this.findById(id, organizationId, userRole);
+
+    await this.userRepository.update(id, { isActive });
+    return this.findById(id, organizationId, userRole);
+  }
 }
+

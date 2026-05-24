@@ -5,7 +5,7 @@ import { SuperAdminDashboard } from './super-admin/SuperAdminDashboard';
 import { CompanyDashboard } from './company-admin/CompanyDashboard';
 import { DispatcherDashboard } from './dispatcher/DispatcherDashboard';
 import { DriverDashboard } from './driver/DriverDashboard';
-import { CustomerDashboard } from './costumer/CostumerDashboard';
+import { CustomerDashboard } from './customer/CustomerDashboard';
 
 export const DashboardPage: React.FC = () => {
   const { user, loading: isLoading } = useAuth();
