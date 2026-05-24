@@ -1,4 +1,4 @@
-// waybills.controller.ts
+// backend/src/modules/waybills/waybills.controller.ts
 import {
   Controller,
   Get,
@@ -19,7 +19,7 @@ import {
   ApiBearerAuth,
   ApiOperation,
 } from '@nestjs/swagger';
-import type { Response } from 'express'; // ✅ Përdor 'import type' në vend të 'import'
+import type { Response } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
 import { WaybillsService } from './waybills.service';
@@ -53,36 +53,29 @@ export class WaybillsController {
     return this.waybillsService.findAll(req.user.organizationId);
   }
 
-// backend/src/modules/waybills/waybills.controller.ts
-// Sigurohu që ke këtë endpoint:
-
-// backend/src/modules/waybills/waybills.controller.ts
-// Ndrysho këtë pjesë:
-
-@Get('shipment/:shipmentId')
-@Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.SUPER_ADMIN, UserRole.CUSTOMER)
-@ApiOperation({ summary: 'Get waybill by shipment ID' })
-async findByShipment(
-  @Param('shipmentId') shipmentId: string,
-  @Req() req: any,
-): Promise<WaybillResponseDto> {
-  // Për customer, nuk kemi organizationId
-  if (req.user.role === UserRole.CUSTOMER) {
-    return this.waybillsService.findByShipmentPublic(shipmentId);
+  // ✅ MODIFIKUAR - Kthen 204 No Content në vend të 404
+  @Get('shipment/:shipmentId')
+  @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.SUPER_ADMIN, UserRole.CUSTOMER)
+  @ApiOperation({ summary: 'Get waybill by shipment ID' })
+  async findByShipment(
+    @Param('shipmentId') shipmentId: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    let organizationId = null;
+    if (req.user.role !== UserRole.CUSTOMER) {
+      organizationId = req.user.organizationId;
+    }
+    
+    const waybill = await this.waybillsService.findByShipment(shipmentId, organizationId);
+    
+    if (!waybill) {
+      // Kthe 204 No Content në vend të 404 - pa error
+      return res.status(HttpStatus.NO_CONTENT).send();
+    }
+    
+    return res.status(HttpStatus.OK).json(waybill);
   }
-  return this.waybillsService.findByShipment(shipmentId, req.user.organizationId);
-}
-@Post(':id/print')
-@Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.SUPER_ADMIN, UserRole.CUSTOMER)
-@HttpCode(HttpStatus.OK)
-@ApiOperation({ summary: 'Mark waybill as printed' })
-async markAsPrinted(
-  @Param('id') id: string,
-  @Req() req: any,
-): Promise<WaybillResponseDto> {
-  return this.waybillsService.markAsPrinted(id, req.user.organizationId);
-}
-
 
   @Get('number/:waybillNumber')
   @ApiOperation({ summary: 'Get waybill by waybill number (public)' })

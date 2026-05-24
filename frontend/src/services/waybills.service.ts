@@ -1,4 +1,4 @@
-// src/services/waybills.service.ts
+// frontend/src/services/waybills.service.ts
 import api from './api';
 
 export interface Waybill {
@@ -44,10 +44,20 @@ export interface WaybillResponse {
 }
 
 export const waybillsService = {
-  // Merr waybill sipas dërgesës
-  async getByShipment(shipmentId: string): Promise<WaybillResponse> {
-    const response = await api.get(`/waybills/shipment/${shipmentId}`);
-    return response.data;
+  // Merr waybill sipas dërgesës - Kthen null nëse nuk ekziston (pa error)
+  async getByShipment(shipmentId: string): Promise<WaybillResponse | null> {
+    try {
+      const response = await api.get(`/waybills/shipment/${shipmentId}`);
+      return response.data;
+    } catch (error: any) {
+      // Nëse është 404 (not found) ose 403 (forbidden), kthe null pa error
+      if (error.response?.status === 404 || error.response?.status === 403) {
+        console.log('ℹ️ No waybill found for shipment:', shipmentId);
+        return null;
+      }
+      // Për gabime të tjera, hidhe
+      throw error;
+    }
   },
 
   // Gjenero waybill të ri

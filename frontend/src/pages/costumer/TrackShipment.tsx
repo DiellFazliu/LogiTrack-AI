@@ -15,7 +15,8 @@ import {
   FileText,
   Printer,
   Eye,
-  X
+  X,
+  Info
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
@@ -66,42 +67,39 @@ export const TrackShipment: React.FC = () => {
     }
   }, [urlTrackingNumber]);
 
-  const performSearch = async (trackNum: string) => {
-    setLoading(true);
-    try {
-      const shipmentResponse = await api.get(`/shipments/track/${trackNum}`);
-      setShipment(shipmentResponse.data);
+// frontend/src/pages/customer/TrackShipment.tsx
+// Ndrysho pjesën e performSearch:
 
-      try {
-        const waybillResponse = await waybillsService.getByShipment(shipmentResponse.data.id);
-        setWaybill(waybillResponse);
-      } catch (waybillError: any) {
-        console.log('No waybill found for this shipment');
-        setWaybill(null);
-      }
+const performSearch = async (trackNum: string) => {
+  setLoading(true);
+  try {
+    const shipmentResponse = await api.get(`/shipments/track/${trackNum}`);
+    setShipment(shipmentResponse.data);
 
-      toast.success('Shipment found!');
-    } catch (error: any) {
-      console.error('Error:', error);
-      if (error.response?.status === 404) {
-        toast.error('Shipment not found. Please check the tracking number.');
-      } else {
-        toast.error(error.response?.data?.message || 'Failed to track shipment');
-      }
-      setShipment(null);
-      setWaybill(null);
-    } finally {
-      setLoading(false);
+    // getByShipment tash kthen null nëse nuk ka waybill, jo error
+    const waybillData = await waybillsService.getByShipment(shipmentResponse.data.id);
+    setWaybill(waybillData);
+
+    toast.success('Shipment found!');
+  } catch (error: any) {
+    console.error('Error:', error);
+    if (error.response?.status === 404) {
+      toast.error('Shipment not found. Please check the tracking number.');
+    } else {
+      toast.error(error.response?.data?.message || 'Failed to track shipment');
     }
-  };
-
+    setShipment(null);
+    setWaybill(null);
+  } finally {
+    setLoading(false);
+  }
+};
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!trackingNumber.trim()) {
       toast.error('Please enter a tracking number');
       return;
     }
-    // Navigate to URL with tracking number
     navigate(`/customer/track/${trackingNumber.toUpperCase()}`);
   };
 
@@ -422,6 +420,22 @@ export const TrackShipment: React.FC = () => {
                 <FileText className="h-5 w-5 text-blue-500" />
                 Waybill / Delivery Document
               </h3>
+              
+              {/* Info Box kur nuk ka waybill */}
+              {!waybill && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-blue-500 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-blue-700">Waybill not yet available</p>
+                      <p className="text-xs text-blue-600 mt-0.5">
+                        The waybill will be generated once a driver is assigned to your shipment.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="flex flex-wrap gap-4">
                 {waybill ? (
                   <button

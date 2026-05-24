@@ -1,4 +1,4 @@
-// src/modules/drivers/drivers.service.ts
+// backend/src/modules/drivers/drivers.service.ts
 import {
   Injectable,
   NotFoundException,
@@ -12,12 +12,15 @@ import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
 import { User } from '../users/user.entity';
 import { UsersService } from '../users/users.service';
+import { DriverLocation } from './location.entity';
 
 @Injectable()
 export class DriversService {
   constructor(
     @InjectRepository(Driver)
     private driverRepository: Repository<Driver>,
+    @InjectRepository(DriverLocation)
+    private locationRepository: Repository<DriverLocation>,
     private usersService: UsersService,
     private dataSource: DataSource,
   ) {}
@@ -28,10 +31,6 @@ export class DriversService {
     await queryRunner.startTransaction();
 
     try {
-      // Create user (if needed) and link Driver.
-      // Modes:
-      // - if createDto.userId => link existing user.
-      // - else => create a new user using createDto.{name,email,password,phone}
       let savedUser: User | null = null;
 
       if (createDto.userId) {
@@ -82,7 +81,6 @@ export class DriversService {
         }
       }
 
-      // Ensure driver role is present (idempotent)
       await queryRunner.manager.query(
         `
         INSERT INTO user_roles (user_id, role_id)
@@ -91,7 +89,6 @@ export class DriversService {
         [savedUser!.id],
       );
 
-      // Create driver linked to the user
       const driver = queryRunner.manager.create(Driver, {
         userId: savedUser!.id,
         organizationId,
@@ -189,5 +186,73 @@ export class DriversService {
       licenseNumber: driver.licenseNumber,
     }));
   }
+
+  // ==================== LOCATION METHODS ====================
+
+// backend/src/modules/drivers/drivers.service.ts
+async updateLocation(
+  driverId: string,  // kjo është driver.id, jo userId
+  latitude: number,
+  longitude: number,
+  address?: string,
+): Promise<DriverLocation> {
+  console.log('updateLocation called with driverId:', driverId);
+  
+  // Gjej driver-in duke përdorur ID direkte
+  const driver = await this.driverRepository.findOne({
+    where: { id: driverId, isActive: true }
+  });
+  
+  if (!driver) {
+    throw new NotFoundException('Driver not found');
+  }
+
+  const location = this.locationRepository.create({
+    driverId: driver.id,
+    latitude,
+    longitude,
+    address,
+  });
+
+  const saved = await this.locationRepository.save(location);
+  console.log('Location saved:', saved);
+  
+  return saved;
 }
 
+  async getLocationHistory(
+    userId: string,
+    limit: number = 50,
+    offset: number = 0,
+  ): Promise<{ items: DriverLocation[]; total: number }> {
+    const driver = await this.findByUserId(userId);
+    
+    if (!driver) {
+      throw new NotFoundException('Driver not found');
+    }
+
+    const [items, total] = await this.locationRepository.findAndCount({
+      where: { driverId: driver.id },
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: offset,
+    });
+
+    return { items, total };
+  }
+
+  async getLastLocation(userId: string): Promise<DriverLocation | null> {
+    const driver = await this.findByUserId(userId);
+    
+    if (!driver) {
+      throw new NotFoundException('Driver not found');
+    }
+
+    const lastLocation = await this.locationRepository.findOne({
+      where: { driverId: driver.id },
+      order: { createdAt: 'DESC' },
+    });
+
+    return lastLocation;
+  }
+}
