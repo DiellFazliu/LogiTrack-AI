@@ -155,6 +155,30 @@ export class DriversController {
   updateStatus(@Param('id') id: string, @Body('status') status: DriverStatus, @Request() req) {
     return this.driversService.updateStatus(id, status, req.user.organizationId);
   }
+  // backend/src/modules/drivers/drivers.controller.ts
+@Get(':id/location/last')
+@Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
+@ApiOperation({ summary: 'Get driver last known location by driver ID' })
+async getDriverLastLocation(@Param('id') id: string) {
+  const lastLocation = await this.driversService.getLastLocationByDriverId(id);
+  if (!lastLocation) {
+    return { message: 'No location updates yet' };
+  }
+  return lastLocation;
+}
+// backend/src/modules/drivers/drivers.controller.ts
+// Shto këtë endpoint:
+
+@Get(':id/location/last')
+@Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.SUPER_ADMIN)
+@ApiOperation({ summary: 'Get driver last known location by driver ID' })
+async getDriverLastLocationById(@Param('id') id: string) {
+  const lastLocation = await this.driversService.getLastLocationByDriverId(id);
+  if (!lastLocation) {
+    return { message: 'No location updates yet' };
+  }
+  return lastLocation;
+}
 
   @Delete(':id')
   @Roles(UserRole.COMPANY_ADMIN)

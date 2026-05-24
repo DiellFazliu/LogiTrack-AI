@@ -4,9 +4,8 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Package, Truck, Users, MapPin, FileText, 
   Settings, History, Route, Warehouse, Box, Building2,
-  Target, Clock, TrendingUp, AlertCircle, CheckCircle,
-  UserPlus, Shield, DollarSign, Calendar, Phone, Mail,
-  Home, Navigation, Award, Star, CreditCard
+  Target, CheckCircle, UserPlus, DollarSign, CreditCard, 
+  Navigation, Eye
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -46,7 +45,7 @@ export const Sidebar: React.FC = () => {
         { path: '/dispatcher/shipments', icon: Package, label: 'Shipments' },
         { path: '/dispatcher/create-shipment', icon: Target, label: 'Create Shipment' },
         { path: '/dispatcher/assign-driver', icon: Truck, label: 'Assign Driver' },
-        { path: '/ai/optimize-route', icon: Route, label: 'AI Optimizer' },
+        { path: '/dispatcher/driver-locations', icon: Navigation, label: 'Driver Locations' },
         { path: '/dispatcher/reports', icon: FileText, label: 'Reports' },
       ];
     }

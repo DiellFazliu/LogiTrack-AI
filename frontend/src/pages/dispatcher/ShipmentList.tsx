@@ -1,19 +1,19 @@
+// frontend/src/pages/dispatcher/ShipmentList.tsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, Eye, Edit, Truck, Search, Filter, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 
-
 interface Shipment {
   id: string;
   trackingNumber: string;
   customerName?: string;
-  customer?: { name: string };
+  customer?: { name: string; email: string };
   pickupAddress: string;
   deliveryAddress: string;
   status: string;
-  driver?: { name: string };
+  driver?: { name: string; id: string };
   driverName?: string;
   createdAt: string;
 }
@@ -31,13 +31,10 @@ export const ShipmentList: React.FC = () => {
   const fetchShipments = async () => {
     setLoading(true);
     try {
-      // Cache busting removed to avoid CORS preflight failing on custom headers.
       const response = await api.get('/shipments');
       
-      console.log('Response status:', response.status);
       console.log('Response data:', response.data);
       
-      // ShipmentsService kthen { items, total, page, limit, totalPages }
       let shipmentsList = [];
       if (response.data && response.data.items) {
         shipmentsList = response.data.items;
@@ -46,6 +43,9 @@ export const ShipmentList: React.FC = () => {
       } else {
         shipmentsList = [];
       }
+      
+      console.log('Shipments list:', shipmentsList);
+      console.log('First shipment driver:', shipmentsList[0]?.driver);
       
       setShipments(shipmentsList);
     } catch (error: any) {
@@ -73,7 +73,15 @@ export const ShipmentList: React.FC = () => {
   };
 
   const getDriverName = (shipment: Shipment) => {
-    return shipment.driver?.name || shipment.driverName || 'Not assigned';
+    // Përpiqet të marrë emrin nga objekti driver
+    if (shipment.driver?.name) {
+      return shipment.driver.name;
+    }
+    // Nëse ka driverName direkt
+    if (shipment.driverName) {
+      return shipment.driverName;
+    }
+    return 'Not assigned';
   };
 
   const filteredShipments = shipments.filter(shipment => {
@@ -84,7 +92,11 @@ export const ShipmentList: React.FC = () => {
   });
 
   if (loading) {
-    return <div className="min-h-screen bg-gray-100 flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
   }
 
   return (
@@ -146,62 +158,62 @@ export const ShipmentList: React.FC = () => {
               <p className="text-sm text-gray-400 mt-1">Create your first shipment to get started</p>
             </div>
           ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tracking #</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pickup</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Delivery</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Driver</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredShipments.map((shipment) => (
-                  <tr key={shipment.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium">{shipment.trackingNumber}</td>
-                    <td className="px-6 py-4">{getCustomerName(shipment)}</td>
-                    <td className="px-6 py-4 max-w-xs truncate">
-                      {shipment.pickupAddress?.split(',')?.[0] || ''}
-                      {!shipment.pickupAddress?.split(',')?.[0] && shipment.pickupAddress}
-                      {shipment.pickupAddress && shipment.pickupAddress.includes(',')
-                        ? ''
-                        : shipment.pickupAddress?.split(',')?.[1] || ''}
-                    </td>
-                    <td className="px-6 py-4 max-w-xs truncate">
-                      {shipment.deliveryAddress?.split(',')?.[0] || ''}
-                      {!shipment.deliveryAddress?.split(',')?.[0] && shipment.deliveryAddress}
-                      {shipment.deliveryAddress && shipment.deliveryAddress.includes(',')
-                        ? ''
-                        : shipment.deliveryAddress?.split(',')?.[1] || ''}
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(shipment.status)}`}>
-                        {shipment.status?.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">{getDriverName(shipment)}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-2">
-                        <Link to={`/dispatcher/shipments/${shipment.id}`}>
-                          <button className="text-blue-600 hover:text-blue-800">
-                            <Eye className="w-4 h-4" />
-                          </button>
-                        </Link>
-                        <Link to={`/dispatcher/assign-driver?shipment=${shipment.id}`}>
-                          <button className="text-green-600 hover:text-green-800">
-                            <Truck className="w-4 h-4" />
-                          </button>
-                        </Link>
-                      </div>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tracking #</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pickup</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Delivery</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Driver</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredShipments.map((shipment) => (
+                    <tr key={shipment.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 font-medium text-sm">{shipment.trackingNumber}</td>
+                      <td className="px-6 py-4 text-sm">{getCustomerName(shipment)}</td>
+                      <td className="px-6 py-4 text-sm max-w-xs truncate">
+                        {shipment.pickupAddress?.split(',')[0] || shipment.pickupAddress || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 text-sm max-w-xs truncate">
+                        {shipment.deliveryAddress?.split(',')[0] || shipment.deliveryAddress || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(shipment.status)}`}>
+                          {shipment.status?.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Truck className="w-3 h-3 text-gray-400" />
+                          <span>{getDriverName(shipment)}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex gap-3">
+                          <Link to={`/dispatcher/shipments/${shipment.id}`}>
+                            <button className="text-blue-600 hover:text-blue-800" title="View Details">
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          </Link>
+                          {shipment.status === 'pending' && (
+                            <Link to={`/dispatcher/assign-driver?shipment=${shipment.id}`}>
+                              <button className="text-green-600 hover:text-green-800" title="Assign Driver">
+                                <Truck className="w-4 h-4" />
+                              </button>
+                            </Link>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -210,5 +222,3 @@ export const ShipmentList: React.FC = () => {
 };
 
 export default ShipmentList;
-
-

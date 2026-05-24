@@ -1,9 +1,10 @@
 // frontend/src/components/common/NotificationBell.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check, X, Info, AlertCircle, Truck, FileText } from 'lucide-react';
+import { Bell, Check, Info, AlertCircle, Truck, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 interface Notification {
   id: string;
@@ -16,13 +17,14 @@ interface Notification {
 }
 
 export const NotificationBell: React.FC = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const navigate = useNavigate();
 
   useEffect(() => {
     fetchNotifications();
@@ -49,11 +51,9 @@ export const NotificationBell: React.FC = () => {
   const fetchNotifications = async () => {
     setLoading(true);
     try {
-      // ✅ Pa query params për të shmangur 400
       const response = await api.get('/notifications');
       console.log('Notifications response:', response.data);
       
-      // Përshtat strukturën e response
       const items = response.data.items || response.data || [];
       setNotifications(items);
     } catch (error: any) {
@@ -98,17 +98,47 @@ export const NotificationBell: React.FC = () => {
     }
   };
 
-  const handleNotificationClick = (notification: Notification) => {
-    markAsRead(notification.id);
-    
-    if (notification.data?.shipmentId) {
-      navigate(`/company/shipments/${notification.data.shipmentId}`);
-    } else if (notification.data?.reportId) {
-      navigate('/company/reports');
+// frontend/src/components/common/NotificationBell.tsx
+// Zëvendëso funksionin handleNotificationClick me këtë:
+
+const handleNotificationClick = (notification: Notification) => {
+  markAsRead(notification.id);
+  
+  console.log('Notification clicked:', {
+    role: user?.role,
+    notificationType: notification.type,
+    data: notification.data
+  });
+  
+  if (notification.data?.shipmentId) {
+    // Dërgo në rrugën e duhur bazuar në rolin e përdoruesit
+    switch (user?.role) {
+      case 'driver':
+        navigate(`/driver/shipments/${notification.data.shipmentId}`);
+        break;
+      case 'company_admin':
+        navigate(`/company/shipments/${notification.data.shipmentId}`);
+        break;
+      case 'dispatcher':
+        navigate(`/dispatcher/shipments/${notification.data.shipmentId}`);
+        break;
+      case 'customer':
+        navigate(`/customer/track/${notification.data.trackingNumber || notification.data.shipmentId}`);
+        break;
+      default:
+        navigate(`/company/shipments/${notification.data.shipmentId}`);
+        break;
     }
-    
+  } else if (notification.data?.reportId) {
+    navigate('/company/reports');
+  } else {
+    // Nëse nuk ka shipmentId, thjesht mbyll dropdown-in
     setIsOpen(false);
-  };
+    return;
+  }
+  
+  setIsOpen(false);
+};
 
   const toggleDropdown = () => {
     console.log('Toggling dropdown, current state:', isOpen);

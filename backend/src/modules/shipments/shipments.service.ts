@@ -10,7 +10,8 @@ import { ShipmentQueryDto } from './dto/shipment-query.dto';
 import { Driver } from '../drivers/driver.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { User } from '../users/user.entity';
-
+// Në fillim të shipments.controller.ts, shto importin:
+import { UpdateCoordinatesDto } from './dto/update-coordinates.dto';
 @Injectable()
 export class ShipmentsService {
   constructor(
@@ -88,27 +89,95 @@ export class ShipmentsService {
       throw new InternalServerErrorException('Failed to create shipment');
     }
   }
+// src/modules/shipments/shipments.service.ts
+// Shto këtë metodë pas assignVehicle ose në fund
 
-  async findAll(query: ShipmentQueryDto, organizationId: string, userRole: string, userId: string) {
-    const { status, search, driverId, page = 1, limit = 10 } = query;
-    const skip = (page - 1) * limit;
-    const where: any = { organizationId };
+async updateCoordinates(id: string, updateCoordinatesDto: UpdateCoordinatesDto, organizationId: string): Promise<any> {
+  // Verifiko që shipment-i ekziston dhe i përket organizatës
+  const shipment = await this.shipmentRepository.findOne({
+    where: { id, organizationId },
+  });
 
-    if (status) where.status = status;
-    if (driverId) where.driverId = driverId;
-    if (search) where.trackingNumber = Like(`%${search}%`);
-    if (userRole === 'driver') where.driverId = userId;
-
-    const [items, total] = await this.shipmentRepository.findAndCount({
-      where,
-      relations: ['driver', 'vehicle', 'customer'],
-      skip,
-      take: limit,
-      order: { createdAt: 'DESC' },
-    });
-
-    return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
+  if (!shipment) {
+    throw new NotFoundException('Shipment not found');
   }
+
+  // Përgatit të dhënat për përditësim
+  const updates: any = {};
+  
+  if (updateCoordinatesDto.pickupLatitude !== undefined) {
+    updates.pickupLatitude = updateCoordinatesDto.pickupLatitude;
+  }
+  if (updateCoordinatesDto.pickupLongitude !== undefined) {
+    updates.pickupLongitude = updateCoordinatesDto.pickupLongitude;
+  }
+  if (updateCoordinatesDto.deliveryLatitude !== undefined) {
+    updates.deliveryLatitude = updateCoordinatesDto.deliveryLatitude;
+  }
+  if (updateCoordinatesDto.deliveryLongitude !== undefined) {
+    updates.deliveryLongitude = updateCoordinatesDto.deliveryLongitude;
+  }
+
+  // Përditëso shipment-in
+  await this.shipmentRepository.update(id, updates);
+
+  // Kthe shipment-in e përditësuar
+  const updatedShipment = await this.findOne(id, organizationId, 'admin', '');
+
+  // ✅ Notifikatë për dispatchers kur përditësohen koordinatat
+  await this.notificationsService.createForRole(
+    'dispatcher',
+    'Shipment Coordinates Updated',
+    `Coordinates for shipment ${shipment.trackingNumber} have been updated.`,
+    { shipmentId: id, trackingNumber: shipment.trackingNumber }
+  );
+
+  return updatedShipment;
+}
+// backend/src/modules/shipments/shipments.service.ts
+async findAll(query: ShipmentQueryDto, organizationId: string, userRole: string, userId: string) {
+  const { status, search, driverId, page = 1, limit = 10 } = query;
+  const skip = (page - 1) * limit;
+  const where: any = { organizationId };
+
+  if (status) where.status = status;
+  if (driverId) where.driverId = driverId;
+  if (search) where.trackingNumber = Like(`%${search}%`);
+  if (userRole === 'driver') where.driverId = userId;
+
+  const [items, total] = await this.shipmentRepository.findAndCount({
+    where,
+    relations: ['driver', 'driver.user', 'vehicle', 'customer'],
+    skip,
+    take: limit,
+    order: { createdAt: 'DESC' },
+  });
+
+  // Transformo të dhënat për frontend (pa select)
+  const transformedItems = items.map(shipment => ({
+    id: shipment.id,
+    trackingNumber: shipment.trackingNumber,
+    status: shipment.status,
+    pickupAddress: shipment.pickupAddress,
+    deliveryAddress: shipment.deliveryAddress,
+    createdAt: shipment.createdAt,
+    customer: shipment.customer ? {
+      name: shipment.customer.name,
+      email: shipment.customer.email
+    } : null,
+    driver: shipment.driver ? {
+      name: shipment.driver.user?.name || 'Driver',
+      id: shipment.driver.id,
+      phone: shipment.driver.phone
+    } : null,
+    vehicle: shipment.vehicle ? {
+      licensePlate: shipment.vehicle.licensePlate,
+      type: shipment.vehicle.type
+    } : null
+  }));
+
+  return { items: transformedItems, total, page, limit, totalPages: Math.ceil(total / limit) };
+}
 
   async getHistory(id: string, organizationId: string, userRole: string, userId: string): Promise<any[]> {
     await this.findOne(id, organizationId, userRole, userId);
@@ -232,6 +301,7 @@ export class ShipmentsService {
 
     return updatedShipment;
   }
+  
 
   async assignDriver(id: string, driverId: string, organizationId: string): Promise<Shipment> {
     const shipment = await this.findOne(id, organizationId, 'admin', '');
@@ -269,6 +339,7 @@ export class ShipmentsService {
         driver.licenseNumber = vehicle.licensePlate;
         await this.driverRepository.save(driver);
       }
+      
     }
 
     // ✅ Notifikatë për driver-in e assignuar

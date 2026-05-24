@@ -30,6 +30,7 @@ import { AssignDriver } from './pages/dispatcher/AssignDriver';
 import { CreateShipment as DispatcherCreateShipment } from './pages/dispatcher/CreateShipment';
 import { ShipmentDetails as DispatcherShipmentDetails } from './pages/dispatcher/ShipmentDetails';
 import { DispatcherReports } from './pages/dispatcher/DispatcherReports';
+import { DriverLocationMap } from './pages/dispatcher/DriverLocationMap';
 
 // Company Admin Pages
 import { CompanyDashboard } from './pages/company-admin/CompanyDashboard';
@@ -195,6 +196,11 @@ function AppRoutes() {
           <ProtectedRoute roles={['dispatcher', 'company_admin']}>
             <DispatcherReports />
           </ProtectedRoute>
+        } />
+        <Route path="/dispatcher/driver-locations" element={
+        <ProtectedRoute roles={['dispatcher', 'company_admin']}>
+          <DriverLocationMap />
+        </ProtectedRoute>
         } />
 
         {/* Company Admin Routes */}

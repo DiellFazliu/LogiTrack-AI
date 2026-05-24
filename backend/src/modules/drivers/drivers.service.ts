@@ -132,12 +132,23 @@ export class DriversService {
     if (!driver) throw new NotFoundException('Driver not found');
     return driver;
   }
+// backend/src/modules/drivers/drivers.service.ts
+// Shto këtë metodë:
+
+async getLastLocationByDriverId(driverId: string): Promise<DriverLocation | null> {
+  const lastLocation = await this.locationRepository.findOne({
+    where: { driverId },
+    order: { createdAt: 'DESC' },
+  });
+  return lastLocation;
+}
 
   async findByUserId(userId: string): Promise<Driver | null> {
     return this.driverRepository.findOne({
       where: { userId: userId, isActive: true },
     });
   }
+  
 
   async update(
     id: string,
