@@ -1,5 +1,5 @@
 // src/modules/organizations/organizations.controller.ts
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { OrganizationsService } from './organizations.service';
 import { Organization, PlanType, SubscriptionStatus } from './organization.entity';
@@ -9,13 +9,29 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/roles.enum';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from '../users/user.entity';
+import { Driver } from '../drivers/driver.entity';
+import { Vehicle } from '../vehicles/vehicle.entity';
+import { Shipment, ShipmentStatus } from '../shipments/shipment.entity';
 
 @ApiTags('Organizations')
 @ApiBearerAuth()
 @Controller('organizations')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class OrganizationsController {
-  constructor(private orgService: OrganizationsService) {}
+  constructor(
+    private orgService: OrganizationsService,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+    @InjectRepository(Driver)
+    private driverRepository: Repository<Driver>,
+    @InjectRepository(Vehicle)
+    private vehicleRepository: Repository<Vehicle>,
+    @InjectRepository(Shipment)
+    private shipmentRepository: Repository<Shipment>,
+  ) {}
 
   @Post()
   @Roles(UserRole.SUPER_ADMIN)
@@ -26,7 +42,6 @@ export class OrganizationsController {
     return this.orgService.create(createDto);
   }
 
-  // ✅ Endpoint për admin-at për të parë të gjitha organizatat
   @Get()
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
   @ApiOperation({ summary: 'Get all organizations (Admin only)' })
@@ -36,7 +51,6 @@ export class OrganizationsController {
     return this.orgService.findAll();
   }
 
-  // ✅ Endpoint për customer-at për të parë organizatat aktive
   @Get('available')
   @Roles(UserRole.CUSTOMER, UserRole.DRIVER, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Get available organizations for customers/drivers/dispatchers' })
@@ -45,7 +59,6 @@ export class OrganizationsController {
     return this.orgService.findAvailableOrganizations();
   }
 
-  // ✅ Endpoint për të marrë organizatën e përdoruesit aktual
   @Get('my-organization')
   @ApiOperation({ summary: 'Get current user organization' })
   @ApiResponse({ status: 200, description: 'Organization retrieved successfully' })
@@ -58,15 +71,13 @@ export class OrganizationsController {
     return this.orgService.findById(organizationId);
   }
 
-  // Shto pas importeve, para metodave ekzistuese
-
   @Get('me')
   @Roles(UserRole.COMPANY_ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get current user\'s organization' })
   async getMyOrganizationByMe(@Request() req) {
     const organizationId = req.user.organizationId;
     if (!organizationId) {
-      return {message: 'User is not associated with an organization' };
+      return { message: 'User is not associated with an organization' };
     }
     return this.orgService.findById(organizationId);
   }
@@ -77,7 +88,7 @@ export class OrganizationsController {
   async updateMyOrganizationByMe(@Request() req, @Body() updateDto: UpdateOrganizationDto) {
     const organizationId = req.user.organizationId;
     if (!organizationId) {
-      return {message: 'User is not associated with an organization'};
+      return { message: 'User is not associated with an organization' };
     }
     return this.orgService.update(organizationId, updateDto);
   }
@@ -116,12 +127,43 @@ export class OrganizationsController {
     return this.orgService.updateSubscription(id, status);
   }
 
+  // ✅ ENDPOINT I PËRDITËSUAR PËR STATISTIKA
   @Get(':id/stats')
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
   @ApiOperation({ summary: 'Get organization statistics' })
   @ApiResponse({ status: 200, description: 'Statistics retrieved successfully' })
-  getStats(@Param('id') id: string) {
-    return this.orgService.getOrganizationStats(id);
+  async getStats(@Param('id') id: string, @Request() req) {
+    // Verifiko që përdoruesi ka të drejtë për këtë organizatë
+    if (req.user.role !== UserRole.SUPER_ADMIN && req.user.organizationId !== id) {
+      throw new ForbiddenException('You do not have access to this organization');
+    }
+
+    const [totalUsers, totalDrivers, totalVehicles, totalShipments, completedShipments, pendingShipments] = await Promise.all([
+      this.userRepository.count({ where: { organizationId: id, isActive: true } }),
+      this.driverRepository.count({ where: { organizationId: id, isActive: true } }),
+      this.vehicleRepository.count({ where: { organizationId: id, isActive: true } }),
+      this.shipmentRepository.count({ where: { organizationId: id } }),
+      this.shipmentRepository.count({ where: { organizationId: id, status: ShipmentStatus.DELIVERED } }),
+      this.shipmentRepository.count({ where: { organizationId: id, status: ShipmentStatus.PENDING } }),
+    ]);
+
+    // Llogarit shipment-et në transit
+    const inTransitShipments = await this.shipmentRepository.count({ 
+      where: { 
+        organizationId: id, 
+        status: ShipmentStatus.IN_TRANSIT 
+      } 
+    });
+
+    return {
+      totalUsers,
+      totalDrivers,
+      totalVehicles,
+      totalShipments,
+      completedShipments,
+      pendingShipments,
+      inTransitShipments,
+    };
   }
 
   @Get(':id/users')

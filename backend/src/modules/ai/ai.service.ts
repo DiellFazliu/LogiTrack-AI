@@ -1,7 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+// backend/src/modules/ai/ai.service.ts
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import OpenAI from 'openai';
 import { OptimizeRouteDto } from './dto/optimize-route.dto';
+import { CreateAiOptimizationDto, UpdateAiOptimizationDto } from './dto/ai-optimization.dto';
+import { AiOptimization } from './ai-optimization.entity';
 import { z } from 'zod';
 
 export const OptimizeRouteSchema = z.object({
@@ -18,7 +23,11 @@ export class AiService {
   private readonly logger = new Logger(AiService.name);
   private groq: OpenAI | null = null;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    @InjectRepository(AiOptimization)
+    private aiOptimizationRepository: Repository<AiOptimization>,
+  ) {
     const apiKey = this.configService.get<string>('GROQ_API_KEY');
 
     if (apiKey) {
@@ -78,7 +87,6 @@ Format:
       });
 
       const content = response.choices[0].message.content;
-
       return this.parseAndValidate(content, dto);
     } catch (error) {
       this.logger.error('Groq optimizeRoute error:', error);
@@ -93,15 +101,12 @@ Format:
     if (!content) return this.getMockOptimization(dto);
 
     try {
-      // 🔥 fix common AI issue: remove markdown fences
       const cleaned = content
         .replace(/```json/g, '')
         .replace(/```/g, '')
         .trim();
 
       const parsed = JSON.parse(cleaned);
-
-      // 🔥 Zod validation (REAL usage)
       const result = OptimizeRouteSchema.safeParse(parsed);
 
       if (!result.success) {
@@ -153,6 +158,57 @@ Format:
       reasons: ['Normal traffic conditions expected'],
     };
   }
+
+  // ==================== AI OPTIMIZATION CRUD ====================
+
+  async createOptimization(createDto: CreateAiOptimizationDto): Promise<AiOptimization> {
+    const optimization = new AiOptimization();
+    optimization.shipmentId = createDto.shipmentId;
+    optimization.originalRoute = createDto.originalRoute;
+    optimization.savedDistanceKm = null as any;
+    optimization.savedTimeMin = null as any;
+    optimization.confidenceScore = null as any;
+    
+    return this.aiOptimizationRepository.save(optimization);
+  }
+
+  async updateOptimization(id: string, updateDto: UpdateAiOptimizationDto): Promise<AiOptimization> {
+    const optimization = await this.aiOptimizationRepository.findOne({ where: { id } });
+    if (!optimization) {
+      throw new NotFoundException(`AI Optimization with ID ${id} not found`);
+    }
+    
+    if (updateDto.optimizedRoute !== undefined) {
+      optimization.optimizedRoute = updateDto.optimizedRoute;
+    }
+    if (updateDto.savedDistanceKm !== undefined) {
+      optimization.savedDistanceKm = updateDto.savedDistanceKm;
+    }
+    if (updateDto.savedTimeMin !== undefined) {
+      optimization.savedTimeMin = updateDto.savedTimeMin;
+    }
+    if (updateDto.confidenceScore !== undefined) {
+      optimization.confidenceScore = updateDto.confidenceScore;
+    }
+    
+    return this.aiOptimizationRepository.save(optimization);
+  }
+
+  async findOptimizationByShipment(shipmentId: string): Promise<AiOptimization | null> {
+    return this.aiOptimizationRepository.findOne({
+      where: { shipmentId },
+      relations: ['shipment'],
+    });
+  }
+
+  async findAllOptimizations(): Promise<AiOptimization[]> {
+    return this.aiOptimizationRepository.find({
+      relations: ['shipment'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  // ==================== MOCK METHODS ====================
 
   private getMockOptimization(dto: OptimizeRouteDto): OptimizeRouteResult {
     return {

@@ -16,12 +16,14 @@ import {
   Printer,
   Eye,
   X,
-  Info
+  Info,
+  Star
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { waybillsService, type WaybillResponse } from '../../services/waybills.service';
+import { ReviewModal } from '../../components/customer/ReviewModal';
 
 interface Shipment {
   id: string;
@@ -36,6 +38,7 @@ interface Shipment {
   volume_m3?: number;
   notes?: string;
   driver?: {
+    id: string;
     name: string;
     phone: string;
   };
@@ -58,6 +61,8 @@ export const TrackShipment: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showWaybillModal, setShowWaybillModal] = useState(false);
   const [generatingWaybill, setGeneratingWaybill] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [hasReview, setHasReview] = useState(false);
 
   // Auto-search kur ka tracking number në URL
   useEffect(() => {
@@ -67,33 +72,48 @@ export const TrackShipment: React.FC = () => {
     }
   }, [urlTrackingNumber]);
 
-// frontend/src/pages/customer/TrackShipment.tsx
-// Ndrysho pjesën e performSearch:
-
-const performSearch = async (trackNum: string) => {
-  setLoading(true);
-  try {
-    const shipmentResponse = await api.get(`/shipments/track/${trackNum}`);
-    setShipment(shipmentResponse.data);
-
-    // getByShipment tash kthen null nëse nuk ka waybill, jo error
-    const waybillData = await waybillsService.getByShipment(shipmentResponse.data.id);
-    setWaybill(waybillData);
-
-    toast.success('Shipment found!');
-  } catch (error: any) {
-    console.error('Error:', error);
-    if (error.response?.status === 404) {
-      toast.error('Shipment not found. Please check the tracking number.');
-    } else {
-      toast.error(error.response?.data?.message || 'Failed to track shipment');
+  // Kontrollo nëse ka review për shipment-in e dorëzuar
+  useEffect(() => {
+    if (shipment?.id && shipment.status === 'delivered') {
+      checkExistingReview();
     }
-    setShipment(null);
-    setWaybill(null);
-  } finally {
-    setLoading(false);
-  }
-};
+  }, [shipment]);
+
+  const checkExistingReview = async () => {
+    try {
+      const response = await api.get(`/reviews/shipment/${shipment?.id}`);
+      if (response.data) {
+        setHasReview(true);
+      }
+    } catch (error) {
+      setHasReview(false);
+    }
+  };
+
+  const performSearch = async (trackNum: string) => {
+    setLoading(true);
+    try {
+      const shipmentResponse = await api.get(`/shipments/track/${trackNum}`);
+      setShipment(shipmentResponse.data);
+
+      const waybillData = await waybillsService.getByShipment(shipmentResponse.data.id);
+      setWaybill(waybillData);
+
+      toast.success('Shipment found!');
+    } catch (error: any) {
+      console.error('Error:', error);
+      if (error.response?.status === 404) {
+        toast.error('Shipment not found. Please check the tracking number.');
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to track shipment');
+      }
+      setShipment(null);
+      setWaybill(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!trackingNumber.trim()) {
@@ -128,6 +148,12 @@ const performSearch = async (trackNum: string) => {
     if (waybill) {
       setShowWaybillModal(true);
     }
+  };
+
+  const handleReviewSubmitted = () => {
+    setHasReview(true);
+    setShowReviewModal(false);
+    toast.success('Thank you for your review!');
   };
 
   const getStatusIcon = (status: string) => {
@@ -483,6 +509,41 @@ const performSearch = async (trackNum: string) => {
                 </p>
               )}
             </div>
+
+            {/* Review Section - Only for delivered shipments */}
+            {shipment.status === 'delivered' && (
+              <div className="bg-white rounded-lg shadow mt-6 p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                  <Star className="h-5 w-5 text-yellow-500" />
+                  Rate Your Delivery Experience
+                </h3>
+                
+                {hasReview ? (
+                  <div className="text-center py-4">
+                    <div className="flex justify-center gap-1 mb-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star key={star} className="w-6 h-6 fill-yellow-400 text-yellow-400" />
+                      ))}
+                    </div>
+                    <p className="text-green-600">Thank you for your feedback!</p>
+                    <p className="text-sm text-gray-500 mt-1">Your review helps us improve our service.</p>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-gray-600 mb-4">
+                      How was your delivery experience with {shipment.driver?.name || 'our driver'}?
+                    </p>
+                    <button
+                      onClick={() => setShowReviewModal(true)}
+                      className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition flex items-center gap-2 mx-auto"
+                    >
+                      <Star className="w-4 h-4" />
+                      Write a Review
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
 
@@ -578,6 +639,18 @@ const performSearch = async (trackNum: string) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Review Modal */}
+      {shipment && (
+        <ReviewModal
+          isOpen={showReviewModal}
+          onClose={() => setShowReviewModal(false)}
+          shipmentId={shipment.id}
+          shipmentTrackingNumber={shipment.trackingNumber}
+          driverName={shipment.driver?.name}
+          onReviewSubmitted={handleReviewSubmitted}
+        />
       )}
     </div>
   );
