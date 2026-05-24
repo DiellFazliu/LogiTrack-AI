@@ -55,23 +55,26 @@ export const CompanySettings: React.FC = () => {
   };
 
   const handleSave = async () => {
-    setSaving(true);
-    try {
-      
-    await api.put('/organizations/my-organization', {
-        name: settings.name,
-        email: settings.email,
-        phone: settings.phone,
-        address: settings.address,
-        logo_url: settings.logo_url,
-      });
-      toast.success('Settings saved successfully');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to save settings');
-    } finally {
-      setSaving(false);
-    }
-  };
+  setSaving(true);
+  try {
+    // Përdor endpoint-in e saktë: /organizations/me
+    await api.put('/organizations/me', {
+      name: settings.name,
+      email: settings.email,
+      phone: settings.phone,
+      address: settings.address,
+      logo_url: settings.logo_url,
+    });
+    toast.success('Settings saved successfully');
+    // Rifresko të dhënat pas ruajtjes
+    fetchSettings();
+  } catch (error: any) {
+    console.error('Save error:', error);
+    toast.error(error.response?.data?.message || 'Failed to save settings');
+  } finally {
+    setSaving(false);
+  }
+};
 
   if (loading) {
     return (
