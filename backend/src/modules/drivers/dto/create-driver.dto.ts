@@ -33,7 +33,7 @@ export class CreateDriverDto {
   @IsString()
   password?: string;
 
-  @ApiProperty({ example: 'AB123456' })
+  @ApiProperty({ required: false, example: 'AB123456' })
   @IsString()
   licenseNumber!: string;
 

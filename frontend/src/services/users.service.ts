@@ -53,6 +53,17 @@ export const usersService = {
     return response.data;
   },
 
+  async create(data: { 
+    name: string; 
+    email: string; 
+    password: string; 
+    role: string; 
+    phone?: string;
+  }) {
+    const response = await api.post('/auth/users', data);
+    return response.data;
+  },
+
   async getAll(params?: {
     page?: number;
     limit?: number;

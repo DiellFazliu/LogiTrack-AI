@@ -38,11 +38,13 @@ export class DriversController {
     return this.driversService.create(createDto, req.user.organizationId);
   }
 
+
   @Get()
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Get all drivers' })
-  findAll(@Query('status') status: DriverStatus, @Request() req) {
-    return this.driversService.findAll(req.user.organizationId, status);
+  findAll(@Query('status') status: string, @Request() req) {
+    const driverStatus = (status && status !== 'all') ? status as DriverStatus : undefined;
+    return this.driversService.findAll(req.user.organizationId, driverStatus);
   }
 
   @Get('available')

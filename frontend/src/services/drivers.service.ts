@@ -8,11 +8,14 @@ export interface Driver {
   licenseNumber: string;
   phone: string;
   address?: string;
+  emergencyContact?: string;
+  emergencyPhone?: string;
   status: 'available' | 'on_duty' | 'on_break' | 'off_duty' | 'sick' | 'vacation';
   rating: number;
   totalDeliveries: number;
   hireDate: string;
   user?: {
+    id: string;
     name: string;
     email: string;
   };
@@ -22,13 +25,14 @@ export interface Driver {
 }
 
 export interface CreateDriverDto {
+  userId: string;
   licenseNumber: string;
   phone: string;
   address?: string;
   hireDate?: string;
 }
 
-export interface UpdateDriverDto extends Partial<CreateDriverDto> {
+export interface UpdateDriverDto extends Partial<Omit<CreateDriverDto, 'userId'>> {
   status?: string;
   isActive?: boolean;
 }
@@ -38,10 +42,10 @@ export interface DriversResponse {
   total: number;
   page: number;
   limit: number;
+  totalPages?: number;
 }
 
 export const driversService = {
-  // Merr të gjithë shoferët
   async getAll(params?: {
     page?: number;
     limit?: number;
@@ -49,6 +53,19 @@ export const driversService = {
     search?: string;
   }): Promise<DriversResponse> {
     const response = await api.get('/drivers', { params });
+    // Normalizojmë përgjigjen në rast se vjen si { data: [...], total, page, limit }
+    if (response.data && response.data.data !== undefined) {
+      return response.data;
+    }
+    // Nëse API kthen vetëm array, e mbështjellim
+    if (Array.isArray(response.data)) {
+      return {
+        data: response.data,
+        total: response.data.length,
+        page: params?.page || 1,
+        limit: params?.limit || 10,
+      };
+    }
     return response.data;
   },
 
@@ -64,7 +81,7 @@ export const driversService = {
     return response.data;
   },
 
-  // Krijo shofer të ri
+  // Krijo shofer të ri (kërkon userId të një përdoruesi ekzistues me rolin driver)
   async create(data: CreateDriverDto): Promise<Driver> {
     const response = await api.post('/drivers', data);
     return response.data;
@@ -82,7 +99,7 @@ export const driversService = {
     return response.data;
   },
 
-  // Fshij shoferin
+  // Fshij shoferin (soft-delete)
   async delete(id: string): Promise<void> {
     await api.delete(`/drivers/${id}`);
   },

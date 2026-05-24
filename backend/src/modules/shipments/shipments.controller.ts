@@ -54,6 +54,14 @@ export class ShipmentsController {
     return this.shipmentsService.findAll(query, req.user.organizationId, req.user.role, req.user.id);
   }
 
+  @Get('stats')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
+  @ApiOperation({ summary: 'Get shipment statistics for the caller organization' })
+  async getStats(@Request() req) {
+    // Scope to organization; super_admin is also treated as allowed to any organization through role/guard
+    return this.shipmentsService.getStats(req.user.organizationId);
+  }
+
   @Get('track/:trackingNumber')
   @ApiOperation({ summary: 'Track shipment by tracking number (public)' })
   async trackShipment(@Param('trackingNumber') trackingNumber: string) {
