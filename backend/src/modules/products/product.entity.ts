@@ -20,30 +20,30 @@ export class Product {
   name!: string;
 
   @Column({ type: 'text', nullable: true })
-  description?: string;
+  description?: string | null;
 
-  @Column({ nullable: true })
-  category?: string;
+  @Column({ type: 'varchar', nullable: true })  // ✅ Specifiko tipin 'varchar'
+  category?: string | null;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true, default: 0 })
-  price!: number;  // ✅ Shto këtë fushë
+  price?: number | null;
 
   @Column({ name: 'weight_kg', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  weightKg?: number;
+  weight_kg?: number | null;
 
   @Column({ name: 'volume_m3', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  volumeM3?: number;
+  volume_m3?: number | null;
 
-  @Column({ default: false })
+  @Column({ type: 'boolean', default: false })
   hazardous!: boolean;
 
-  @Column({ default: false })
+  @Column({ type: 'boolean', default: false })
   fragile!: boolean;
 
-  @Column({ name: 'image_url', nullable: true })
-  imageUrl?: string;
+  @Column({ name: 'image_url', type: 'varchar', nullable: true })
+  imageUrl?: string | null;
 
-  @Column({ name: 'is_active', default: true })
+  @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
