@@ -1,6 +1,5 @@
-// frontend/src/pages/company/CompanyProductsList.tsx
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Package, Tag, Weight, Box, AlertTriangle, X, Search } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, Tag, Weight, Box, AlertTriangle, X, Search, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 
@@ -10,8 +9,9 @@ interface Product {
   name: string;
   description: string;
   category: string;
-  weight_kg: number;
-  volume_m3: number;
+  weight_kg: number | null;
+  volume_m3: number | null;
+  price: number | null;
   hazardous: boolean;
   fragile: boolean;
   is_active: boolean;
@@ -25,6 +25,7 @@ interface ProductFormData {
   category: string;
   weight_kg: number;
   volume_m3: number;
+  price: number;
   hazardous: boolean;
   fragile: boolean;
 }
@@ -45,6 +46,7 @@ export const CompanyProductsList: React.FC = () => {
     category: '',
     weight_kg: 0,
     volume_m3: 0,
+    price: 0,
     hazardous: false,
     fragile: false,
   });
@@ -57,7 +59,23 @@ export const CompanyProductsList: React.FC = () => {
   const fetchProducts = async () => {
     try {
       const response = await api.get('/products');
-      const data = Array.isArray(response.data) ? response.data : [];
+      let data = Array.isArray(response.data) ? response.data : [];
+      
+      data = data.map((product: any) => ({
+        id: product.id,
+        sku: product.sku,
+        name: product.name,
+        description: product.description || '',
+        category: product.category || '',
+        weight_kg: product.weight_kg !== null && product.weight_kg !== undefined ? Number(product.weight_kg) : 0,
+        volume_m3: product.volume_m3 !== null && product.volume_m3 !== undefined ? Number(product.volume_m3) : 0,
+        price: product.price !== null && product.price !== undefined ? Number(product.price) : 0,
+        hazardous: product.hazardous === true || product.hazardous === 'true',
+        fragile: product.fragile === true || product.fragile === 'true',
+        is_active: product.is_active === true || product.is_active === 'true',
+        created_at: product.created_at,
+      }));
+      
       setProducts(data);
       
       const uniqueCategories = [...new Set(data.map((p: Product) => p.category).filter(Boolean))];
@@ -74,10 +92,20 @@ export const CompanyProductsList: React.FC = () => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
     
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+    setFormData(prev => {
+      let newValue: any = value;
+      
+      if (type === 'checkbox') {
+        newValue = checked;
+      } else if (name === 'weight_kg' || name === 'volume_m3' || name === 'price') {
+        newValue = value === '' ? 0 : parseFloat(value) || 0;
+      }
+      
+      return {
+        ...prev,
+        [name]: newValue,
+      };
+    });
   };
 
   const resetForm = () => {
@@ -88,6 +116,7 @@ export const CompanyProductsList: React.FC = () => {
       category: '',
       weight_kg: 0,
       volume_m3: 0,
+      price: 0,
       hazardous: false,
       fragile: false,
     });
@@ -98,8 +127,20 @@ export const CompanyProductsList: React.FC = () => {
     e.preventDefault();
     setSubmitting(true);
     
+    const createData = {
+      sku: formData.sku,
+      name: formData.name,
+      description: formData.description,
+      category: formData.category || null,
+      weight_kg: formData.weight_kg || null,
+      volume_m3: formData.volume_m3 || null,
+      price: formData.price || null,
+      hazardous: formData.hazardous,
+      fragile: formData.fragile,
+    };
+    
     try {
-      await api.post('/products', formData);
+      await api.post('/products', createData);
       toast.success('Product created successfully');
       setShowCreateModal(false);
       resetForm();
@@ -118,8 +159,22 @@ export const CompanyProductsList: React.FC = () => {
     
     setSubmitting(true);
     
+    const updateData = {
+      sku: formData.sku,
+      name: formData.name,
+      description: formData.description || null,
+      category: formData.category || null,
+      weight_kg: formData.weight_kg ? Number(formData.weight_kg) : null,
+      volume_m3: formData.volume_m3 ? Number(formData.volume_m3) : null,
+      price: formData.price ? Number(formData.price) : null,
+      hazardous: formData.hazardous,
+      fragile: formData.fragile,
+    };
+    
+    console.log('📤 Updating product:', selectedProduct.id, updateData);
+    
     try {
-      await api.put(`/products/${selectedProduct.id}`, formData);
+      await api.put(`/products/${selectedProduct.id}`, updateData);
       toast.success('Product updated successfully');
       setShowEditModal(false);
       resetForm();
@@ -151,10 +206,11 @@ export const CompanyProductsList: React.FC = () => {
       name: product.name,
       description: product.description || '',
       category: product.category || '',
-      weight_kg: product.weight_kg || 0,
-      volume_m3: product.volume_m3 || 0,
-      hazardous: product.hazardous,
-      fragile: product.fragile,
+      weight_kg: product.weight_kg ? Number(product.weight_kg) : 0,
+      volume_m3: product.volume_m3 ? Number(product.volume_m3) : 0,
+      price: product.price ? Number(product.price) : 0,
+      hazardous: product.hazardous === true,
+      fragile: product.fragile === true,
     });
     setShowEditModal(true);
   };
@@ -202,7 +258,6 @@ export const CompanyProductsList: React.FC = () => {
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
@@ -213,8 +268,6 @@ export const CompanyProductsList: React.FC = () => {
                 className="w-full pl-9 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            
-            {/* Category Filter */}
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
@@ -289,6 +342,14 @@ export const CompanyProductsList: React.FC = () => {
                     </span>
                     <span>{product.volume_m3 || 0} m³</span>
                   </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 flex items-center gap-1">
+                      <DollarSign className="w-3 h-3" /> Price:
+                    </span>
+                    <span className="font-semibold text-green-600">
+                      {product.price ? `€${product.price.toFixed(2)}` : '€0.00'}
+                    </span>
+                  </div>
                   <div className="flex gap-2 mt-2">
                     {product.hazardous && (
                       <span className="flex items-center gap-1 text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
@@ -317,7 +378,6 @@ export const CompanyProductsList: React.FC = () => {
           </div>
         )}
 
-        {/* Stats Footer */}
         <div className="mt-6 text-center text-sm text-gray-500">
           Showing {filteredProducts.length} of {products.length} products
         </div>
@@ -386,7 +446,7 @@ export const CompanyProductsList: React.FC = () => {
                   />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
                     <input
@@ -409,6 +469,19 @@ export const CompanyProductsList: React.FC = () => {
                       step="0.01"
                       min="0"
                       className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Price (€)</label>
+                    <input
+                      type="number"
+                      name="price"
+                      value={formData.price}
+                      onChange={handleInputChange}
+                      step="0.01"
+                      min="0"
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="0.00"
                     />
                   </div>
                 </div>
@@ -517,7 +590,7 @@ export const CompanyProductsList: React.FC = () => {
                   />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
                     <input
@@ -540,6 +613,19 @@ export const CompanyProductsList: React.FC = () => {
                       step="0.01"
                       min="0"
                       className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Price (€)</label>
+                    <input
+                      type="number"
+                      name="price"
+                      value={formData.price}
+                      onChange={handleInputChange}
+                      step="0.01"
+                      min="0"
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="0.00"
                     />
                   </div>
                 </div>

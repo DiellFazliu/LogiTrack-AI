@@ -10,6 +10,10 @@ import { UpdateCoordinatesDto } from './dto/update-coordinates.dto';
 import { Driver } from '../drivers/driver.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { User } from '../users/user.entity';
+import * as bcrypt from 'bcrypt';
+
+
+
 import { AuditService } from '../audit/audit.service';
 import { ReportProblemDto } from './dto/report-problem.dto';
 
@@ -33,20 +37,78 @@ export class ShipmentsService {
     return `${prefix}${timestamp}${random}`;
   }
 
-  async create(createDto: CreateShipmentDto, userId: string, organizationId: string): Promise<Shipment> {
-    try {
-      if (!organizationId) {
-        throw new ForbiddenException('Organization ID is required. Please select a company first.');
-      }
 
-      let trackingNumber = createDto.trackingNumber;
+// Gjej metodën create dhe zëvendësoje me këtë version:
+// Gjej metodën create dhe zëvendësoje me këtë version:
+
+async create(createDto: CreateShipmentDto, userId: string, organizationId: string): Promise<Shipment> {
+  try {
+    if (!organizationId) {
+      throw new ForbiddenException('Organization ID is required. Please select a company first.');
+    }
+
+    let customerId = userId; // Default to current user
+
+    // ✅ Nëse ka customerName dhe customerEmail, krijo përdorues të ri customer
+    if (createDto.customerName && createDto.customerEmail) {
+      // Kontrollo nëse ekziston përdoruesi
+      let existingCustomer = await this.userRepository.findOne({
+        where: { email: createDto.customerEmail }
+      });
+
+      if (!existingCustomer) {
+        // Krijo përdorues të ri customer
+        const tempPassword = Math.random().toString(36).substring(2, 10);
+        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+        
+        existingCustomer = this.userRepository.create({
+          email: createDto.customerEmail,
+          name: createDto.customerName,
+          password: hashedPassword,
+          organizationId: organizationId,
+          isActive: true,
+        });
+        
+        await this.userRepository.save(existingCustomer);
+        
+        console.log(`Created new customer: ${existingCustomer.id} - ${existingCustomer.name}`);
+      } else {
+        console.log(`Found existing customer: ${existingCustomer.id} - ${existingCustomer.name}`);
+      }
+      
+      customerId = existingCustomer.id;
+    }
+
+    let trackingNumber = createDto.trackingNumber;
+    if (!trackingNumber) {
+      trackingNumber = this.generateUniqueTrackingNumber();
+    } else {
       const existingShipment = await this.shipmentRepository.findOne({
         where: { trackingNumber }
       });
-      
       if (existingShipment) {
         trackingNumber = this.generateUniqueTrackingNumber();
       }
+    }
+
+    const shipment = this.shipmentRepository.create({
+      trackingNumber,
+      pickupAddress: createDto.pickupAddress,
+      pickupLatitude: createDto.pickupLatitude,
+      pickupLongitude: createDto.pickupLongitude,
+      deliveryAddress: createDto.deliveryAddress,
+      deliveryLatitude: createDto.deliveryLatitude,
+      deliveryLongitude: createDto.deliveryLongitude,
+      weightKg: createDto.weightKg,
+      volumeM3: createDto.volumeM3,
+      priority: createDto.priority || ShipmentPriority.NORMAL,
+      isExpress: createDto.isExpress || false,
+      notes: createDto.notes,
+      customerId: customerId,
+      organizationId: organizationId,
+      createdBy: userId,
+      status: ShipmentStatus.PENDING,
+    });
 
       const shipment = this.shipmentRepository.create({
         trackingNumber,
@@ -125,6 +187,7 @@ export class ShipmentsService {
       throw new InternalServerErrorException('Failed to create shipment');
     }
   }
+
 
   async updateCoordinates(id: string, updateCoordinatesDto: UpdateCoordinatesDto, organizationId: string, userId: string): Promise<any> {
     const shipment = await this.shipmentRepository.findOne({
