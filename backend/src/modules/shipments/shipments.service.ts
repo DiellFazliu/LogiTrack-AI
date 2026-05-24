@@ -549,6 +549,33 @@ async create(createDto: CreateShipmentDto, userId: string, organizationId: strin
     return result;
   }
 
+  async getStats(organizationId: string): Promise<{
+    total: number;
+    pending: number;
+    inTransit: number;
+    delivered: number;
+    cancelled: number;
+    failed: number;
+  }> {
+    const [total, delivered, pending, inTransit, cancelled, failed] = await Promise.all([
+      this.shipmentRepository.count({ where: { organizationId } }),
+      this.shipmentRepository.count({ where: { organizationId, status: ShipmentStatus.DELIVERED } }),
+      this.shipmentRepository.count({ where: { organizationId, status: ShipmentStatus.PENDING } }),
+      this.shipmentRepository.count({ where: { organizationId, status: ShipmentStatus.IN_TRANSIT } }),
+      this.shipmentRepository.count({ where: { organizationId, status: ShipmentStatus.CANCELLED } }),
+      this.shipmentRepository.count({ where: { organizationId, status: ShipmentStatus.FAILED } }),
+    ]);
+
+    return {
+      total,
+      pending,
+      inTransit,
+      delivered,
+      cancelled,
+      failed,
+    };
+  }
+
   async getTracking(trackingNumber: string) {
     console.log('getTracking called for:', trackingNumber);
     

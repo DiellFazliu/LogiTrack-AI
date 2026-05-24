@@ -38,6 +38,7 @@ export class DriversController {
     return this.driversService.create(createDto, req.user.organizationId, req.user.id);
   }
 
+
   @Get()
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Get all drivers' })

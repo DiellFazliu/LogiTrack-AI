@@ -1,11 +1,17 @@
-// frontend/src/pages/company-admin/CompanyDashboard.tsx
+// src/pages/company/CompanyDashboard.tsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Truck, Package, FileText, TrendingUp, MapPin, Star, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Users, Truck, Package, FileText, TrendingUp, MapPin, AlertCircle, Eye } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
-import api from '../../services/api';
+import { shipmentsService } from '../../services/shipments.service';
+import { driversService } from '../../services/drivers.service';
+import { vehiclesService } from '../../services/vehicles.service';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { ErrorAlert } from '../../components/common/ErrorAlert';
+import { Pagination } from '../../components/common/Pagination';
 
-interface CompanyStats {
+interface DashboardStats {
   totalUsers: number;
   totalDrivers: number;
   totalVehicles: number;
@@ -13,23 +19,11 @@ interface CompanyStats {
   completedShipments: number;
   pendingShipments: number;
   inTransitShipments: number;
-  averageDriverRating: number;
-  totalReviews: number;
-  monthlyShipments: number;
-}
-
-interface RecentActivity {
-  id: string;
-  type: 'shipment' | 'driver' | 'user' | 'review';
-  title: string;
-  description: string;
-  timestamp: string;
-  status?: string;
 }
 
 export const CompanyDashboard: React.FC = () => {
   const { user } = useAuth();
-  const [stats, setStats] = useState<CompanyStats>({
+  const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     totalDrivers: 0,
     totalVehicles: 0,
@@ -37,323 +31,259 @@ export const CompanyDashboard: React.FC = () => {
     completedShipments: 0,
     pendingShipments: 0,
     inTransitShipments: 0,
-    averageDriverRating: 0,
-    totalReviews: 0,
-    monthlyShipments: 0,
   });
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [recentShipments, setRecentShipments] = useState<any[]>([]);
+  const [shipmentsPage, setShipmentsPage] = useState(1);
+  const [shipmentsTotalPages, setShipmentsTotalPages] = useState(1);
+  const [shipmentsTotal, setShipmentsTotal] = useState(0);
 
   useEffect(() => {
-    fetchStats();
-    fetchRecentActivities();
+    fetchDashboardData();
   }, []);
 
-// frontend/src/pages/company-admin/CompanyDashboard.tsx
-// Ndrysho fetchStats dhe fetchRecentActivities
-
-const fetchStats = async () => {
-  try {
-    const orgId = user?.organizationId;
-    
-    const [orgStats, driverRatings, shipmentsRes] = await Promise.all([
-      api.get(`/organizations/${orgId}/stats`),
-      api.get('/reviews/driver/average/all'),
-      api.get('/shipments', { params: { organizationId: orgId, limit: 100 } })
-    ]);
-    
-    const data = orgStats.data;
-    const shipments = shipmentsRes.data?.items || shipmentsRes.data || [];
-    const inTransit = shipments.filter((s: any) => s.status === 'in_transit' || s.status === 'picked_up').length;
-    const monthlyShipments = shipments.filter((s: any) => {
-      const date = new Date(s.createdAt);
-      const now = new Date();
-      return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    }).length;
-    
-    setStats({
-      totalUsers: data.totalUsers || 0,
-      totalDrivers: data.totalDrivers || 0,
-      totalVehicles: data.totalVehicles || 0,
-      totalShipments: data.totalShipments || 0,
-      completedShipments: data.completedShipments || 0,
-      pendingShipments: data.pendingShipments || 0,
-      inTransitShipments: inTransit,
-      averageDriverRating: driverRatings.data?.average || 0,
-      totalReviews: driverRatings.data?.total || 0,
-      monthlyShipments: monthlyShipments,
-    });
-  } catch (error) {
-    console.error('Error fetching stats:', error);
-  } finally {
-    setLoading(false);
-  }
-};
-
-const fetchRecentActivities = async () => {
-  try {
-    const orgId = user?.organizationId;
-    
-    const [shipmentsRes, reviewsRes] = await Promise.all([
-      api.get('/shipments', { params: { organizationId: orgId, limit: 5 } }),
-      api.get('/reviews/recent', { params: { organizationId: orgId, limit: 5 } })
-    ]);
-    
-    const shipments = shipmentsRes.data?.items || shipmentsRes.data || [];
-    const reviews = reviewsRes.data || [];
-    
-    const activities: RecentActivity[] = [
-      ...shipments.map((s: any) => ({
-        id: s.id,
-        type: 'shipment' as const,
-        title: `Shipment ${s.trackingNumber}`,
-        description: `${s.pickupAddress} → ${s.deliveryAddress}`,
-        timestamp: s.createdAt,
-        status: s.status,
-      })),
-      ...reviews.map((r: any) => ({
-        id: r.id,
-        type: 'review' as const,
-        title: `New Review`,
-        description: `Rating: ${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)} - ${r.comment?.substring(0, 50) || 'No comment'}`,
-        timestamp: r.createdAt,
-      }))
-    ];
-    
-    activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    setRecentActivities(activities.slice(0, 5));
-  } catch (error) {
-    console.error('Error fetching activities:', error);
-  }
-};
-
-  const getStatusBadge = (status: string) => {
-    const badges: Record<string, string> = {
-      delivered: 'bg-green-100 text-green-800',
-      in_transit: 'bg-blue-100 text-blue-800',
-      picked_up: 'bg-purple-100 text-purple-800',
-      pending: 'bg-yellow-100 text-yellow-800',
-      cancelled: 'bg-red-100 text-red-800',
-    };
-    return badges[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'delivered': return <CheckCircle className="w-3 h-3" />;
-      case 'in_transit': return <Truck className="w-3 h-3" />;
-      case 'picked_up': return <Truck className="w-3 h-3" />;
-      case 'pending': return <Clock className="w-3 h-3" />;
-      default: return <AlertCircle className="w-3 h-3" />;
+  const fetchShipmentsPage = async (page: number) => {
+    try {
+      const res = await shipmentsService.getAll({ page, limit: 10 });
+      setRecentShipments(res.data || []);
+      setShipmentsTotalPages(res.totalPages || 1);
+      setShipmentsTotal(res.total || 0);
+      return res;
+    } catch (err) {
+      console.error('Error fetching shipments page:', err);
+      setRecentShipments([]);
+      return null;
     }
   };
 
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      // 1. Merr statistikat nga endpoint-i i ri
+      const statsData = await shipmentsService.getStats();
+
+      // 2. Merr listën e dërgesave për tabelën e fundit
+      await fetchShipmentsPage(1);
+
+      // 3. Merr të dhënat e shoferëve dhe automjeteve
+      const [driversRes, vehiclesRes] = await Promise.all([
+        driversService.getAll().catch(() => ({ data: [] })),
+        vehiclesService.getAll().catch(() => ({ data: [] })),
+      ]);
+
+      const drivers = driversRes.data || [];
+      const vehicles = vehiclesRes.data || [];
+
+      setStats({
+        totalUsers: 0,
+        totalDrivers: drivers.length,
+        totalVehicles: vehicles.length,
+        totalShipments: statsData.total,
+        completedShipments: statsData.delivered,
+        pendingShipments: statsData.pending,
+        inTransitShipments: statsData.inTransit,
+      });
+    } catch (err: any) {
+      console.error('Error fetching dashboard data:', err);
+      setError(err.message || 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleShipmentsPageChange = async (page: number) => {
+    setShipmentsPage(page);
+    await fetchShipmentsPage(page);
+  };
+
   const cards = [
-    { title: 'Users', value: stats.totalUsers, icon: Users, color: 'bg-blue-500', path: '/company/users' },
-    { title: 'Drivers', value: stats.totalDrivers, icon: Truck, color: 'bg-green-500', path: '/company/drivers' },
-    { title: 'Vehicles', value: stats.totalVehicles, icon: MapPin, color: 'bg-purple-500', path: '/company/vehicles' },
-    { title: 'Shipments', value: stats.totalShipments, icon: Package, color: 'bg-yellow-500', path: '/company/shipments' },
+    { title: 'Users', value: stats.totalUsers, icon: Users, color: 'bg-blue-800', path: '/company/users', description: 'Total registered users' },
+    { title: 'Drivers', value: stats.totalDrivers, icon: Truck, color: 'bg-green-800', path: '/company/drivers', description: 'Active drivers' },
+    { title: 'Vehicles', value: stats.totalVehicles, icon: MapPin, color: 'bg-purple-800', path: '/company/vehicles', description: 'Fleet vehicles' },
+    { title: 'Shipments', value: stats.totalShipments, icon: Package, color: 'bg-yellow-800', path: '/company/shipments', description: 'Total shipments' },
   ];
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Company Dashboard</h1>
-        <p className="text-gray-600 mt-1">Welcome back, {user?.name}</p>
-      </div>
-      
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {cards.map((card) => (
-          <Link key={card.title} to={card.path}>
-            <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-500 text-sm">{card.title}</p>
-                  <p className="text-2xl font-bold mt-2">{card.value}</p>
+    <div className="min-h-screen bg-gray-100">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
+        {error && (
+          <div className="mb-6">
+            <ErrorAlert message={error} onClose={() => setError('')} />
+          </div>
+        )}
+
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-6 bg-blue-700 rounded-full" />
+                <h1 className="text-2xl font-extrabold text-gray-900">Company Dashboard</h1>
+              </div>
+              <p className="text-sm text-gray-600 pl-3 mt-0.5">Welcome back, {user?.name}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {cards.map((card) => (
+            <motion.div key={card.title} whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
+              <Link to={card.path}>
+                <div className={`${card.color} rounded-xl shadow-md p-4 border border-black/10 hover:shadow-lg transition`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-white/80">{card.title}</p>
+                      <p className="text-2xl font-extrabold text-white mt-1">{card.value}</p>
+                      <p className="text-[10px] text-white/70 mt-1">{card.description}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center">
+                      <card.icon className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
                 </div>
-                <div className={`${card.color} p-3 rounded-full`}>
-                  <card.icon className="w-6 h-6 text-white" />
-                </div>
+              </Link>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Shipment Overview & Quick Actions */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-blue-700" />
+              Shipment Overview
+            </h2>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-gray-600">Total Shipments</span>
+                <span className="font-bold text-gray-900 text-lg">{stats.totalShipments}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-gray-600">Completed</span>
+                <span className="font-bold text-green-700">{stats.completedShipments}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-gray-600">In Transit</span>
+                <span className="font-bold text-blue-700">{stats.inTransitShipments}</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-gray-600">Pending</span>
+                <span className="font-bold text-yellow-700">{stats.pendingShipments}</span>
               </div>
             </div>
-          </Link>
-        ))}
-      </div>
+            <div className="mt-4 pt-3 text-center text-xs text-gray-500">
+              Detailed statistics will appear here after implementing /shipments/stats endpoint.
+            </div>
+          </div>
 
-      {/* Additional Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Completed Shipments</p>
-              <p className="text-2xl font-bold text-green-600">{stats.completedShipments}</p>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-700" />
+              Quick Actions
+            </h2>
+            <div className="space-y-2">
+              <Link to="/company/users/create" className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition group">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200">
+                  <Users className="w-4 h-4 text-blue-700" />
+                </div>
+                <span className="text-gray-800 font-medium">Create New User</span>
+              </Link>
+              <Link to="/company/drivers/create" className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition group">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center group-hover:bg-green-200">
+                  <Truck className="w-4 h-4 text-green-700" />
+                </div>
+                <span className="text-gray-800 font-medium">Add New Driver</span>
+              </Link>
+              <Link to="/company/shipments/create" className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition group">
+                <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center group-hover:bg-yellow-200">
+                  <Package className="w-4 h-4 text-yellow-700" />
+                </div>
+                <span className="text-gray-800 font-medium">Create New Shipment</span>
+              </Link>
             </div>
-            <CheckCircle className="w-8 h-8 text-green-500" />
-          </div>
-          <div className="mt-2 text-sm text-gray-500">
-            {stats.totalShipments > 0 ? Math.round((stats.completedShipments / stats.totalShipments) * 100) : 0}% completion rate
           </div>
         </div>
-        
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">In Transit</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.inTransitShipments}</p>
-            </div>
-            <Truck className="w-8 h-8 text-blue-500" />
-          </div>
-          <div className="mt-2 text-sm text-gray-500">
-            {stats.pendingShipments} pending
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Driver Rating</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.averageDriverRating.toFixed(1)} ★</p>
-            </div>
-            <Star className="w-8 h-8 text-yellow-500" />
-          </div>
-          <div className="mt-2 text-sm text-gray-500">
-            Based on {stats.totalReviews} reviews
-          </div>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Shipment Overview */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5" /> Shipment Overview
+        {/* Recent Shipments */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+          <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <Package className="w-5 h-5 text-blue-700" />
+            Recent Shipments
           </h2>
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span>Completion Rate</span>
-                <span className="font-medium">
-                  {stats.totalShipments > 0 ? Math.round((stats.completedShipments / stats.totalShipments) * 100) : 0}%
-                </span>
+
+          {recentShipments.length === 0 ? (
+            <div className="text-center py-8">
+              <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No shipments yet.</p>
+              <Link to="/company/shipments/create" className="text-blue-700 hover:underline text-sm font-medium">
+                Create your first shipment →
+              </Link>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Tracking #</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Pickup</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Delivery</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {recentShipments.map((shipment) => (
+                      <tr key={shipment.id} className="hover:bg-gray-50 transition">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {shipment.trackingNumber}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold uppercase ${
+                            shipment.status === 'delivered' ? 'bg-green-700 text-white' :
+                            shipment.status === 'in_transit' ? 'bg-blue-700 text-white' : 'bg-yellow-700 text-white'
+                          }`}>
+                            {shipment.status === 'delivered' ? 'Delivered' : shipment.status === 'in_transit' ? 'In Transit' : 'Pending'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                          {shipment.pickupAddress?.substring(0, 35)}...
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                          {shipment.deliveryAddress?.substring(0, 35)}...
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm">
+                          <Link to={`/company/shipments/${shipment.id}`} className="text-blue-700 hover:text-blue-900 font-medium inline-flex items-center gap-1">
+                            <Eye className="w-4 h-4" /> View
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-green-500 rounded-full h-2 transition-all duration-500"
-                  style={{ width: `${stats.totalShipments > 0 ? (stats.completedShipments / stats.totalShipments) * 100 : 0}%` }}
+              <div className="mt-4">
+                <Pagination
+                  currentPage={shipmentsPage}
+                  totalPages={shipmentsTotalPages}
+                  onPageChange={handleShipmentsPageChange}
+                  totalItems={shipmentsTotal}
+                  itemsPerPage={10}
                 />
               </div>
-            </div>
-            
-            <div className="flex justify-between pt-2">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-green-600">{stats.completedShipments}</p>
-                <p className="text-xs text-gray-500">Completed</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-blue-600">{stats.inTransitShipments}</p>
-                <p className="text-xs text-gray-500">In Transit</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-yellow-600">{stats.pendingShipments}</p>
-                <p className="text-xs text-gray-500">Pending</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-purple-600">{stats.monthlyShipments}</p>
-                <p className="text-xs text-gray-500">This Month</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <FileText className="w-5 h-5" /> Quick Actions
-          </h2>
-          <div className="space-y-2">
-            <Link to="/company/users/create" className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <Users className="w-4 h-4 text-blue-600" />
-              </div>
-              <div>
-                <p className="font-medium">Create New User</p>
-                <p className="text-xs text-gray-500">Add a new user to your organization</p>
-              </div>
-            </Link>
-            <Link to="/company/drivers/create" className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                <Truck className="w-4 h-4 text-green-600" />
-              </div>
-              <div>
-                <p className="font-medium">Add New Driver</p>
-                <p className="text-xs text-gray-500">Register a new driver</p>
-              </div>
-            </Link>
-            <Link to="/company/shipments/create" className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                <Package className="w-4 h-4 text-purple-600" />
-              </div>
-              <div>
-                <p className="font-medium">Create Shipment</p>
-                <p className="text-xs text-gray-500">Create a new shipment order</p>
-              </div>
-            </Link>
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <Clock className="w-5 h-5" /> Recent Activity
-          </h2>
-          {recentActivities.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No recent activity</p>
-          ) : (
-            <div className="space-y-3">
-              {recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="flex-shrink-0">
-                    {activity.type === 'shipment' ? (
-                      <Package className="w-5 h-5 text-blue-500" />
-                    ) : (
-                      <Star className="w-5 h-5 text-yellow-500" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-medium text-gray-800">{activity.title}</p>
-                      {activity.status && (
-                        <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 ${getStatusBadge(activity.status)}`}>
-                          {getStatusIcon(activity.status)}
-                          {activity.status.replace('_', ' ')}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600">{activity.description}</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {new Date(activity.timestamp).toLocaleString()}
-                    </p>
-                  </div>
-                  {activity.type === 'shipment' && (
-                    <Link 
-                      to={`/company/shipments/${activity.id}`}
-                      className="text-blue-600 hover:text-blue-800 text-sm"
-                    >
-                      View →
-                    </Link>
-                  )}
-                </div>
-              ))}
-            </div>
+            </>
           )}
         </div>
       </div>

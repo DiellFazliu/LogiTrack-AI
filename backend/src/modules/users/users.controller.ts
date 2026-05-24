@@ -76,21 +76,37 @@ export class UsersController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
   @ApiOperation({ summary: 'Delete user' })
   @ApiResponse({ status: 200, description: 'User deleted successfully' })
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(id);
+  remove(@Param('id') id: string, @Request() req) {
+    const organizationId = req.user.role === 'super_admin' ? undefined : req.user.organizationId;
+    return this.usersService.remove(id, organizationId, req.user.role);
   }
+
+  @Patch(':id/status')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
+  @ApiOperation({ summary: 'Update user active status' })
+  @ApiResponse({ status: 200, description: 'Status updated successfully' })
+  toggleStatus(
+    @Param('id') id: string,
+    @Body('isActive') isActive: boolean,
+    @Request() req,
+  ) {
+    const organizationId = req.user.role === 'super_admin' ? undefined : req.user.organizationId;
+    return this.usersService.toggleStatus(id, isActive, organizationId, req.user.role);
+  }
+
   // Në users.controller.ts, shto:
-@Patch('me')
-@ApiOperation({ summary: 'Update current user profile' })
-async updateMe(@Request() req, @Body() updateData: Partial<User>) {
-  const allowedUpdates: Partial<User> = {};
-  if (updateData.name !== undefined) allowedUpdates.name = updateData.name;
-  if (updateData.phone !== undefined) allowedUpdates.phone = updateData.phone;
-  if (updateData.organizationId !== undefined) allowedUpdates.organizationId = updateData.organizationId;
-  
-  return this.usersService.update(req.user.id, allowedUpdates);
+  @Patch('me')
+  @ApiOperation({ summary: 'Update current user profile' })
+  async updateMe(@Request() req, @Body() updateData: Partial<User>) {
+    const allowedUpdates: Partial<User> = {};
+    if (updateData.name !== undefined) allowedUpdates.name = updateData.name;
+    if (updateData.phone !== undefined) allowedUpdates.phone = updateData.phone;
+    if (updateData.organizationId !== undefined) allowedUpdates.organizationId = updateData.organizationId;
+
+    return this.usersService.update(req.user.id, allowedUpdates);
+  }
 }
-}
+

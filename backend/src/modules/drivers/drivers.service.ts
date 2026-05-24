@@ -17,6 +17,7 @@ import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class DriversService {
+
   constructor(
     @InjectRepository(Driver)
     private driverRepository: Repository<Driver>,
@@ -96,6 +97,8 @@ export class DriversService {
         organizationId,
         licenseNumber: createDto.licenseNumber,
         phone: createDto.phone,
+        emergencyContact: createDto.emergencyContact ?? undefined,
+        emergencyPhone: createDto.emergencyPhone ?? undefined,
         status: DriverStatus.AVAILABLE,
         isActive: true,
         totalDeliveries: 0,
