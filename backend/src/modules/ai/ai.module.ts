@@ -7,6 +7,7 @@ import { AiService } from './ai.service';
 import { AiController } from './ai.controller';
 import { UsersModule } from '../users/users.module';
 import { AiOptimization } from './ai-optimization.entity';
+import { VectorStoreService } from './vector-store.service';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { AiOptimization } from './ai-optimization.entity';
     UsersModule,
     TypeOrmModule.forFeature([AiOptimization]),
   ],
-  providers: [AiService],
+  providers: [AiService, VectorStoreService],
   controllers: [AiController],
   exports: [AiService],
 })

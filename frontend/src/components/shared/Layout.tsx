@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar';
 import { Navbar } from './Navbar';
 import { useAuth } from '../../context/AuthContext';
 import { NotificationBell } from '../common/NotificationBell';
+import { AiChatbot } from '../ai/AiChatbot'; // ✅ Import the AI chatbot
 
 export const Layout: React.FC = () => {
   const { user } = useAuth();
@@ -31,6 +32,7 @@ export const Layout: React.FC = () => {
           </div>
         </main>
       </div>
+      <AiChatbot />
     </div>
   );
 };
