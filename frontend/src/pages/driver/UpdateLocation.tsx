@@ -437,25 +437,27 @@ export const UpdateLocation: React.FC = () => {
           </div>
 
           {/* Right Column - Mini Map */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="p-3 border-b bg-gray-50">
-              <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-blue-500" />
-                Click on map to select location
-              </h2>
+          {!showHistory && (
+            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+              <div className="p-3 border-b bg-gray-50">
+                <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-blue-500" />
+                  Click on map to select location
+                </h2>
+              </div>
+              <div className="h-96">
+                <RouteMap
+                  points={mapPoints}
+                  routeCoordinates={undefined}
+                  onMapClick={handleMapClick}
+                  selectedPointType="warehouse"
+                />
+              </div>
+              <div className="p-3 border-t bg-gray-50 text-xs text-gray-500 text-center">
+                <p>Click anywhere on the map to set your location</p>
+              </div>
             </div>
-            <div className="h-96">
-              <RouteMap
-                points={mapPoints}
-                routeCoordinates={undefined}
-                onMapClick={handleMapClick}
-                selectedPointType="warehouse"
-              />
-            </div>
-            <div className="p-3 border-t bg-gray-50 text-xs text-gray-500 text-center">
-              <p>Click anywhere on the map to set your location</p>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
