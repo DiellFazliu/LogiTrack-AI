@@ -25,7 +25,7 @@ export const LoginPage: React.FC = () => {
 
       // Redirect based on role
       if (user.role === 'super_admin') navigate('/super-admin/dashboard');
-      else if (user.role === 'company_admin') navigate('/company-admin/dashboard');
+      else if (user.role === 'company_admin') navigate('/company/dashboard');
       else if (user.role === 'dispatcher') navigate('/dispatcher/dashboard');
       else if (user.role === 'driver') navigate('/driver/dashboard');
       else navigate('/dashboard');
