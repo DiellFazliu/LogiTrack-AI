@@ -76,5 +76,6 @@ export class CreateShipmentDto {
   @IsOptional()
   @IsString()
   customerEmail?: string;
+ 
   
 }

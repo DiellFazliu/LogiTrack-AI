@@ -10,6 +10,8 @@ import { UpdateCoordinatesDto } from './dto/update-coordinates.dto';
 import { Driver } from '../drivers/driver.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { User } from '../users/user.entity';
+import * as bcrypt from 'bcrypt';
+
 
 
 import { AuditService } from '../audit/audit.service';
@@ -34,19 +36,58 @@ export class ShipmentsService {
     return `${prefix}${timestamp}${random}`;
   }
 
+
+// Gjej metodën create dhe zëvendësoje me këtë version:
+// Gjej metodën create dhe zëvendësoje me këtë version:
+
 async create(createDto: CreateShipmentDto, userId: string, organizationId: string): Promise<Shipment> {
   try {
     if (!organizationId) {
       throw new ForbiddenException('Organization ID is required. Please select a company first.');
     }
 
+    let customerId = userId; // Default to current user
+
+    // ✅ Nëse ka customerName dhe customerEmail, krijo përdorues të ri customer
+    if (createDto.customerName && createDto.customerEmail) {
+      // Kontrollo nëse ekziston përdoruesi
+      let existingCustomer = await this.userRepository.findOne({
+        where: { email: createDto.customerEmail }
+      });
+
+      if (!existingCustomer) {
+        // Krijo përdorues të ri customer
+        const tempPassword = Math.random().toString(36).substring(2, 10);
+        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+        
+        existingCustomer = this.userRepository.create({
+          email: createDto.customerEmail,
+          name: createDto.customerName,
+          password: hashedPassword,
+          organizationId: organizationId,
+          isActive: true,
+        });
+        
+        await this.userRepository.save(existingCustomer);
+        
+        console.log(`Created new customer: ${existingCustomer.id} - ${existingCustomer.name}`);
+      } else {
+        console.log(`Found existing customer: ${existingCustomer.id} - ${existingCustomer.name}`);
+      }
+      
+      customerId = existingCustomer.id;
+    }
+
     let trackingNumber = createDto.trackingNumber;
-    const existingShipment = await this.shipmentRepository.findOne({
-      where: { trackingNumber }
-    });
-    
-    if (existingShipment) {
+    if (!trackingNumber) {
       trackingNumber = this.generateUniqueTrackingNumber();
+    } else {
+      const existingShipment = await this.shipmentRepository.findOne({
+        where: { trackingNumber }
+      });
+      if (existingShipment) {
+        trackingNumber = this.generateUniqueTrackingNumber();
+      }
     }
 
     const shipment = this.shipmentRepository.create({
@@ -62,37 +103,13 @@ async create(createDto: CreateShipmentDto, userId: string, organizationId: strin
       priority: createDto.priority || ShipmentPriority.NORMAL,
       isExpress: createDto.isExpress || false,
       notes: createDto.notes,
-      customerId: userId,
+      customerId: customerId,
       organizationId: organizationId,
       createdBy: userId,
       status: ShipmentStatus.PENDING,
     });
 
     const savedShipment = await this.shipmentRepository.save(shipment);
-
-    // ✅ Shto audit log për krijimin e shipment-it
-    await this.auditService.log({
-      organizationId,
-      userId,
-      action: 'CREATE',
-      method: 'POST',
-      url: '/shipments',
-      entityType: 'shipment',
-      entityId: savedShipment.id,
-      newValues: {
-        trackingNumber: savedShipment.trackingNumber,
-        pickupAddress: savedShipment.pickupAddress,
-        deliveryAddress: savedShipment.deliveryAddress,
-        weightKg: savedShipment.weightKg,
-        volumeM3: savedShipment.volumeM3,
-        priority: savedShipment.priority,
-        isExpress: savedShipment.isExpress,
-        notes: savedShipment.notes,
-      },
-      statusCode: 201,
-    });
-
-    console.log(`✅ Audit log created for shipment ${savedShipment.id} by user ${userId}`);
 
     // Notifikatat
     await this.notificationsService.createForRole(
@@ -112,23 +129,10 @@ async create(createDto: CreateShipmentDto, userId: string, organizationId: strin
     return savedShipment;
   } catch (error) {
     console.error('Error creating shipment:', error);
-    
-    // ✅ Log error në audit
-    const err = error as Error;
-    await this.auditService.log({
-      organizationId,
-      userId,
-      action: 'CREATE_ERROR',
-      method: 'POST',
-      url: '/shipments',
-      entityType: 'shipment',
-      errorMessage: err.message,
-      statusCode: 500,
-    });
-    
     throw new InternalServerErrorException('Failed to create shipment');
   }
 }
+
 
   async updateCoordinates(id: string, updateCoordinatesDto: UpdateCoordinatesDto, organizationId: string, userId: string): Promise<any> {
     const shipment = await this.shipmentRepository.findOne({
