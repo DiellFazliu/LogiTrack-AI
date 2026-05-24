@@ -1,9 +1,9 @@
-// waybills.service.ts
+// backend/src/modules/waybills/waybills.service.ts
 import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ForbiddenException,  // ✅ Shto këtë
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -24,7 +24,6 @@ export class WaybillsService {
     private shipmentRepository: Repository<Shipment>,
   ) {}
 
-// waybills.service.ts - Pjesa e toResponseDto
   private toResponseDto(waybill: Waybill): WaybillResponseDto {
     let driverName: string | undefined;
     if (waybill.shipment?.driver) {
@@ -51,10 +50,10 @@ export class WaybillsService {
       signedAt: waybill.signedAt,
       generatedBy: waybill.generatedBy,
       createdAt: waybill.createdAt,
-      isSigned: !!waybill.signature, // Shto këtë rresht
-      
+      isSigned: !!waybill.signature,
     };
   }
+
   private generateWaybillNumber(): string {
     const date = new Date();
     const year = date.getFullYear();
@@ -124,64 +123,45 @@ export class WaybillsService {
     return waybills.map(w => this.toResponseDto(w));
   }
 
-// backend/src/modules/waybills/waybills.service.ts
-async findByShipment(shipmentId: string, organizationId: string): Promise<WaybillResponseDto> {
-  console.log('findByShipment called with:', { shipmentId, organizationId });
-  
-  const waybill = await this.waybillRepository.findOne({
-    where: {
-      shipmentId: shipmentId,  // Përdor shipmentId direkt
-    },
-    relations: ['shipment', 'shipment.driver', 'shipment.driver.user', 'shipment.vehicle'],
-  });
-  
-  console.log('Found waybill:', waybill);
-  
-  if (!waybill) {
-    throw new NotFoundException(`Waybill for shipment ${shipmentId} not found`);
-  }
-  
-  // Kontrollo që shipment i përket organizatës së duhur
-  if (waybill.shipment.organizationId !== organizationId) {
-    throw new ForbiddenException('Access denied to this waybill');
-  }
-  
-  return this.toResponseDto(waybill);
-}
-// backend/src/modules/waybills/waybills.service.ts
-// Shto këtë metodë pas metodës findByShipment:
-async markAsPrinted(id: string, organizationId: string): Promise<WaybillResponseDto> {
-  const waybill = await this.waybillRepository.findOne({
-    where: {
-      id,
-      shipment: { organizationId },
-    },
-  });
-  if (!waybill) {
-    throw new NotFoundException(`Waybill with ID ${id} not found`);
+  // ✅ MODIFIKUAR - Kthen null në vend të error 404
+  async findByShipment(shipmentId: string, organizationId: string | null): Promise<WaybillResponseDto | null> {
+    console.log('findByShipment called with:', { shipmentId, organizationId });
+    
+    const waybill = await this.waybillRepository.findOne({
+      where: {
+        shipmentId: shipmentId,
+      },
+      relations: ['shipment', 'shipment.driver', 'shipment.driver.user', 'shipment.vehicle'],
+    });
+    
+    console.log('Found waybill:', waybill);
+    
+    if (!waybill) {
+      console.log('No waybill found for shipment:', shipmentId);
+      return null;
+    }
+    
+    // Kontrollo që shipment i përket organizatës së duhur (vetëm nëse organizationId është dhënë)
+    if (organizationId && waybill.shipment.organizationId !== organizationId) {
+      console.log('Organization mismatch');
+      return null;
+    }
+    
+    return this.toResponseDto(waybill);
   }
 
-  // Nëse nuk ke kolonat isPrinted dhe printedAt, thjesht kthe waybill-in
-  // Ose shto këto kolona në migration
-  
-  return this.toResponseDto(waybill);
-}
-async findByShipmentPublic(shipmentId: string): Promise<WaybillResponseDto> {
-  console.log('findByShipmentPublic called with shipmentId:', shipmentId);
-  
-  const waybill = await this.waybillRepository.findOne({
-    where: { shipmentId },
-    relations: ['shipment', 'shipment.driver', 'shipment.driver.user', 'shipment.vehicle'],
-  });
-  
-  console.log('Found waybill:', waybill);
-  
-  if (!waybill) {
-    throw new NotFoundException(`Waybill for shipment ${shipmentId} not found`);
+  async markAsPrinted(id: string, organizationId: string): Promise<WaybillResponseDto> {
+    const waybill = await this.waybillRepository.findOne({
+      where: {
+        id,
+        shipment: { organizationId },
+      },
+    });
+    if (!waybill) {
+      throw new NotFoundException(`Waybill with ID ${id} not found`);
+    }
+    return this.toResponseDto(waybill);
   }
-  
-  return this.toResponseDto(waybill);
-}
 
   async findOne(id: string, organizationId: string): Promise<WaybillResponseDto> {
     const waybill = await this.waybillRepository.findOne({
@@ -225,7 +205,6 @@ async findByShipmentPublic(shipmentId: string): Promise<WaybillResponseDto> {
       throw new NotFoundException(`Waybill with ID ${id} not found`);
     }
 
-    // Kontrollo nëse tashmë është nënshkruar (nëse signature ekziston)
     if (waybill.signature) {
       throw new BadRequestException('Waybill is already signed');
     }
@@ -233,7 +212,6 @@ async findByShipmentPublic(shipmentId: string): Promise<WaybillResponseDto> {
     waybill.signature = signWaybillDto.signature;
     waybill.signedAt = new Date();
 
-    // Update shipment status if needed
     if (waybill.shipment && waybill.shipment.status === ShipmentStatus.PENDING) {
       waybill.shipment.status = ShipmentStatus.PICKED_UP;
       waybill.shipment.pickedUpAt = new Date();
@@ -259,7 +237,6 @@ async findByShipmentPublic(shipmentId: string): Promise<WaybillResponseDto> {
       throw new NotFoundException(`Waybill with ID ${id} not found`);
     }
 
-    // Update only fields that exist
     if (updateDto.pdfUrl !== undefined) waybill.pdfUrl = updateDto.pdfUrl;
     if (updateDto.qrCode !== undefined) waybill.qrCode = updateDto.qrCode;
     if (updateDto.signature !== undefined) waybill.signature = updateDto.signature;
@@ -278,7 +255,6 @@ async findByShipmentPublic(shipmentId: string): Promise<WaybillResponseDto> {
     if (!waybill) {
       throw new NotFoundException(`Waybill with ID ${id} not found`);
     }
-
     await this.waybillRepository.remove(waybill);
   }
 }

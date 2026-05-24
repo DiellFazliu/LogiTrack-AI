@@ -48,10 +48,22 @@ import { OrganizationsList } from './pages/super-admin/OrganizationsList';
 import { UsersList } from './pages/super-admin/UsersList';
 import { SystemSettings } from './pages/super-admin/SystemSettings';
 import { PlansManagement } from './pages/super-admin/PlansManagement';
+import { CreateOrganization } from './pages/super-admin/CreateOrganization';
+import { CreateUser } from './pages/super-admin/CreateUser';
+import { SuperAdminShipments } from './pages/super-admin/SuperAdminShipments';
+import { SuperAdminShipmentDetails } from './pages/super-admin/SuperAdminShipmentDetails';
+import { SubscriptionsPage } from './pages/super-admin/SubscriptionsPage';
+import { EditOrganizationPage } from './pages/super-admin/EditOrganizationPage';
+import { BillingPage } from './pages/super-admin/BillingPage';
+import SuperAdminDrivers from './pages/super-admin/SuperAdminDrivers';
+import SuperAdminVehicles from './pages/super-admin/SuperAdminVehicles';
+import { OrganizationDetails } from './pages/super-admin/OrganizationDetails';
 
 // Shared/Common Pages
 import { ProfilePage } from './pages/common/ProfilePage';
 import { NotFoundPage } from './pages/common/NotFoundPage';
+import { SettingsPage } from './pages/common/SettingsPage';
+
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -77,9 +89,10 @@ function AppRoutes() {
         {/* Dashboard */}
         <Route path="/dashboard" element={<RoleBasedDashboard />} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        
+
         {/* Common Routes */}
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
 
         {/* Customer Routes */}
         <Route path="/customer/dashboard" element={
@@ -172,12 +185,12 @@ function AppRoutes() {
             <AssignDriver />
           </ProtectedRoute>
         } />
-                <Route path="/dispatcher/users" element={
+        <Route path="/dispatcher/users" element={
           <ProtectedRoute roles={['dispatcher', 'company_admin']}>
             <CompanyUsersList />
           </ProtectedRoute>
         } />
-        
+
         <Route path="/dispatcher/reports" element={
           <ProtectedRoute roles={['dispatcher', 'company_admin']}>
             <DispatcherReports />
@@ -257,7 +270,57 @@ function AppRoutes() {
             <SystemSettings />
           </ProtectedRoute>
         } />
+        <Route path="/super-admin/organizations/create" element={
+          <ProtectedRoute roles={['super_admin']}>
+            <CreateOrganization />
+          </ProtectedRoute>
+        } />
+        <Route path="/super-admin/users/create" element={
+          <ProtectedRoute roles={['super_admin']}>
+            <CreateUser />
+          </ProtectedRoute>
+        } />
+        <Route path="/super-admin/shipments" element={
+          <ProtectedRoute roles={['super_admin']}>
+            <SuperAdminShipments />
+          </ProtectedRoute>
+        } />
+        <Route path="/super-admin/shipments/:id" element={
+          <ProtectedRoute roles={['super_admin']}>
+            <SuperAdminShipmentDetails />
+          </ProtectedRoute>
+        } />
+        <Route path="/super-admin/subscriptions" element={
+          <ProtectedRoute roles={['super_admin']}>
+            <SubscriptionsPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/super-admin/organizations/:id/edit" element={
+          <ProtectedRoute roles={['super_admin']}>
+            <EditOrganizationPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/super-admin/organizations/:id/billing" element={
+          <ProtectedRoute roles={['super_admin']}>
+            <BillingPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/super-admin/drivers" element={
+          <ProtectedRoute roles={['super_admin']}>
+            <SuperAdminDrivers />
+          </ProtectedRoute>
+        } />
 
+        <Route path="/super-admin/vehicles" element={
+          <ProtectedRoute roles={['super_admin']}>
+            <SuperAdminVehicles />
+          </ProtectedRoute>
+        } />
+        <Route path="/super-admin/organizations/:id" element={
+          <ProtectedRoute roles={['super_admin']}>
+            <OrganizationDetails />
+          </ProtectedRoute>
+        } />
         {/* AI Routes */}
         <Route path="/ai/optimize-route" element={
           <ProtectedRoute roles={['company_admin', 'dispatcher']}>
@@ -282,7 +345,7 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <Toaster 
+        <Toaster
           position="top-right"
           toastOptions={{
             duration: 4000,

@@ -1,6 +1,4 @@
 // frontend/src/pages/driver/RouteOptimizerPage.tsx
-// Zëvendëso të gjithë kodin me këtë:
-
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -10,14 +8,15 @@ import routeService from '../../services/route.service';
 import type { Coordinate, RouteResponse } from '../../types/route.types';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
-import { ArrowLeft, CheckCircle, Truck, Search, Navigation } from 'lucide-react';
+import { locationService } from '../../services/location.service';
+import { ArrowLeft, CheckCircle, Truck, Search, Navigation, LocateFixed, MapPin, Save } from 'lucide-react';
+import SimpleErrorBoundary from '../../components/common/SimpleErrorBoundary';
 
 export const RouteOptimizerPage: React.FC = () => {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   
-  // Lexo të dhënat nga URL query parameters
   const queryParams = new URLSearchParams(location.search);
   
   const shipmentData = {
@@ -32,16 +31,16 @@ export const RouteOptimizerPage: React.FC = () => {
     deliveryLng: parseFloat(queryParams.get('deliveryLng') || '0'),
   };
 
-  console.log('RouteOptimizerPage - Data from URL:', shipmentData);
-
   const [points, setPoints] = useState<Coordinate[]>([]);
   const [pointLabels, setPointLabels] = useState<string[]>([]);
   const [routeData, setRouteData] = useState<RouteResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isRouteStarted, setIsRouteStarted] = useState(false);
   const [addressInput, setAddressInput] = useState('');
-  const [selectedType, setSelectedType] = useState<'pickup' | 'delivery'>('pickup');
+  const [selectedType, setSelectedType] = useState<'pickup' | 'delivery' | 'warehouse'>('pickup');
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [isGettingCurrentLocation, setIsGettingCurrentLocation] = useState(false);
+  const [showSavedLocationSection, setShowSavedLocationSection] = useState(true);
 
   // Initialize points from shipment data
   useEffect(() => {
@@ -61,32 +60,58 @@ export const RouteOptimizerPage: React.FC = () => {
     setPoints(initialPoints);
     setPointLabels(labels);
     
-    if (initialPoints.length === 2) {
-      setTimeout(() => handleOptimizeRoute(initialPoints), 500);
-    }
+    // Auto-fetch saved location
+    loadSavedLocation();
   }, [shipmentData.shipmentId]);
 
-  const geocodeAddress = async (address: string, type: 'pickup' | 'delivery') => {
-    setIsGeocoding(true);
+  const loadSavedLocation = async () => {
+    setIsGettingCurrentLocation(true);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`
-      );
-      const data = await response.json();
-      if (data && data[0]) {
-        const lat = parseFloat(data[0].lat);
-        const lon = parseFloat(data[0].lon);
-        setPoints(prev => [...prev, { latitude: lat, longitude: lon }]);
-        setPointLabels(prev => [...prev, type]);
-        toast.success(`${type} address located on map`);
-      } else {
-        toast.error(`Could not locate ${type} address`);
+      const savedLocation = await locationService.getLastSavedLocation();
+      if (savedLocation && savedLocation.latitude && savedLocation.longitude) {
+        const currentPoint = { 
+          latitude: Number(savedLocation.latitude), 
+          longitude: Number(savedLocation.longitude) 
+        };
+        setPoints(prev => [currentPoint, ...prev]);
+        setPointLabels(prev => ['warehouse', ...prev]);
+        toast.success('Using your saved location as starting point');
       }
     } catch (error) {
-      console.error('Geocoding error:', error);
-      toast.error(`Could not locate address`);
+      console.error('Failed to get saved location:', error);
     } finally {
-      setIsGeocoding(false);
+      setIsGettingCurrentLocation(false);
+    }
+  };
+
+  const addCurrentLocation = async () => {
+    setIsGettingCurrentLocation(true);
+    try {
+      const position = await locationService.getCurrentLocation();
+      const newPoint = { 
+        latitude: position.coords.latitude, 
+        longitude: position.coords.longitude 
+      };
+      // Replace first point if it's a saved location, otherwise add
+      if (points.length > 0 && pointLabels[0] === 'warehouse') {
+        setPoints([newPoint, ...points.slice(1)]);
+        setPointLabels(['warehouse', ...pointLabels.slice(1)]);
+      } else {
+        setPoints([newPoint, ...points]);
+        setPointLabels(['warehouse', ...pointLabels]);
+      }
+      setRouteData(null);
+      toast.success('Current location added as starting point');
+      setShowSavedLocationSection(false);
+    } catch (error: any) {
+      console.error('Error getting current location:', error);
+      if (error.code === 1) {
+        toast.error('Location access denied. Please enable location services in browser settings.');
+      } else {
+        toast.error('Could not get your current location');
+      }
+    } finally {
+      setIsGettingCurrentLocation(false);
     }
   };
 
@@ -136,7 +161,7 @@ export const RouteOptimizerPage: React.FC = () => {
   const handleOptimizeRoute = async (customPoints?: Coordinate[]) => {
     const pointsToUse = customPoints || points;
     if (pointsToUse.length < 2) {
-      toast.error('Please add pickup and delivery points');
+      toast.error('Please add at least 2 points (starting point + pickup/delivery)');
       return;
     }
 
@@ -210,6 +235,24 @@ export const RouteOptimizerPage: React.FC = () => {
 
   const emptyHandler = () => {};
 
+  const getPointIcon = (label: string) => {
+    switch (label) {
+      case 'warehouse': return '📍';
+      case 'pickup': return '🟢';
+      case 'delivery': return '🔴';
+      default: return '📍';
+    }
+  };
+
+  const getPointColor = (label: string) => {
+    switch (label) {
+      case 'warehouse': return 'text-blue-600';
+      case 'pickup': return 'text-green-600';
+      case 'delivery': return 'text-red-600';
+      default: return 'text-gray-600';
+    }
+  };
+
   if (!shipmentData.shipmentId) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -269,12 +312,53 @@ export const RouteOptimizerPage: React.FC = () => {
               <p className="text-sm"><span className="font-medium">Delivery:</span> {shipmentData.deliveryAddress}</p>
             </div>
 
+            {/* Use Saved Location Button */}
+            {!isRouteStarted && showSavedLocationSection && (
+              <div className="bg-white rounded-lg shadow p-4 border border-blue-200">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Save className="w-4 h-4 text-green-500" />
+                  Saved Location
+                </h3>
+                <button
+                  onClick={loadSavedLocation}
+                  className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 flex items-center justify-center gap-2 mb-2"
+                >
+                  <MapPin className="w-4 h-4" />
+                  Use Saved Location from Profile
+                </button>
+                <p className="text-xs text-gray-500 text-center">
+                  Use the location you saved in your profile
+                </p>
+              </div>
+            )}
+
+            {/* Current Location Button */}
+            {!isRouteStarted && (
+              <div className="bg-white rounded-lg shadow p-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <LocateFixed className="w-4 h-4 text-blue-500" />
+                  Starting Point
+                </h3>
+                <button
+                  onClick={addCurrentLocation}
+                  disabled={isGettingCurrentLocation}
+                  className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center gap-2 mb-2"
+                >
+                  <Navigation className="w-4 h-4" />
+                  {isGettingCurrentLocation ? 'Getting location...' : 'Use My Current Location (GPS)'}
+                </button>
+                <p className="text-xs text-gray-500 text-center">
+                  Get your real-time GPS location
+                </p>
+              </div>
+            )}
+
             {/* Add by Address */}
             {!isRouteStarted && (
               <div className="bg-white rounded-lg shadow p-4">
                 <h3 className="font-semibold mb-3 flex items-center gap-2">
                   <Search className="w-4 h-4" />
-                  Add by Address
+                  Add Point by Address
                 </h3>
                 <div className="flex gap-2 mb-3">
                   <button
@@ -292,6 +376,14 @@ export const RouteOptimizerPage: React.FC = () => {
                     }`}
                   >
                     🔴 Delivery
+                  </button>
+                  <button
+                    onClick={() => setSelectedType('warehouse')}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-sm transition ${
+                      selectedType === 'warehouse' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
+                    }`}
+                  >
+                    📍 Waypoint
                   </button>
                 </div>
                 <div className="flex gap-2">
@@ -317,7 +409,7 @@ export const RouteOptimizerPage: React.FC = () => {
             {/* Add by Map Click */}
             {!isRouteStarted && (
               <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="font-semibold mb-3">Add by Map Click</h3>
+                <h3 className="font-semibold mb-3">Add Point by Map Click</h3>
                 <div className="flex gap-2 mb-2">
                   <button
                     onClick={() => setSelectedType('pickup')}
@@ -335,8 +427,16 @@ export const RouteOptimizerPage: React.FC = () => {
                   >
                     🔴 Delivery
                   </button>
+                  <button
+                    onClick={() => setSelectedType('warehouse')}
+                    className={`flex-1 py-2 px-3 rounded-lg transition ${
+                      selectedType === 'warehouse' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
+                    }`}
+                  >
+                    📍 Waypoint
+                  </button>
                 </div>
-                <p className="text-xs text-gray-500">Click directly on the map</p>
+                <p className="text-xs text-gray-500">Click directly on the map to add points</p>
               </div>
             )}
 
@@ -350,14 +450,14 @@ export const RouteOptimizerPage: React.FC = () => {
                   {points.map((point, index) => (
                     <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                       <div className="flex items-center gap-2">
-                        <span className={pointLabels[index] === 'pickup' ? 'text-green-600' : 'text-red-600'}>
-                          {pointLabels[index] === 'pickup' ? '🟢' : '🔴'}
+                        <span className={getPointColor(pointLabels[index])}>
+                          {getPointIcon(pointLabels[index])}
                         </span>
                         <span className="text-sm">
-                          {point.latitude.toFixed(4)}, {point.longitude.toFixed(4)}
+                          {Number(point.latitude).toFixed(4)}, {Number(point.longitude).toFixed(4)}
                         </span>
                       </div>
-                      <span className="text-xs text-gray-400 capitalize">{pointLabels[index]}</span>
+                      <span className="text-xs text-gray-400 capitalize">{pointLabels[index] || 'waypoint'}</span>
                     </div>
                   ))}
                 </div>
@@ -426,12 +526,14 @@ export const RouteOptimizerPage: React.FC = () => {
                   </span>
                 )}
               </div>
-              <RouteMap
-                points={points}
-                routeCoordinates={routeData?.features[0]?.geometry.coordinates}
-                onMapClick={!isRouteStarted ? handleMapClick : emptyHandler}
-                selectedPointType={selectedType}
-              />
+              <SimpleErrorBoundary>
+                <RouteMap
+                  points={points}
+                  routeCoordinates={routeData?.features[0]?.geometry.coordinates}
+                  onMapClick={!isRouteStarted ? handleMapClick : emptyHandler}
+                  selectedPointType={selectedType}
+                />
+              </SimpleErrorBoundary>
             </div>
           </div>
         </div>
