@@ -1,14 +1,20 @@
+// src/modules/warehouses/warehouses.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Warehouse } from './warehouse.entity';
-import { WarehousesService } from './warehouses.service';
 import { WarehousesController } from './warehouses.controller';
-import { UsersModule } from '../users/users.module'; 
+import { WarehousesService } from './warehouses.service';
+import { Warehouse } from './warehouse.entity';
+import { UsersModule } from '../users/users.module'; // ✅ Shto këtë
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Warehouse]), UsersModule],
-  providers: [WarehousesService],
+  imports: [
+    TypeOrmModule.forFeature([Warehouse]),
+    UsersModule, // ✅ Shto këtë
+    AuditModule,
+  ],
   controllers: [WarehousesController],
-  exports: [TypeOrmModule, WarehousesService],
+  providers: [WarehousesService],
+  exports: [WarehousesService],
 })
 export class WarehousesModule {}
