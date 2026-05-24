@@ -185,6 +185,13 @@ export const CreateShipment: React.FC = () => {
     }
   };
 
+  const generateTrackingNumber = () => {
+    const prefix = 'TRK';
+    const timestamp = Date.now().toString().slice(-8);
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `${prefix}${timestamp}${random}`;
+  };
+
   const calculateEstimatedDelivery = () => {
     setCalculating(true);
     // Simulate AI calculation
@@ -217,22 +224,26 @@ export const CreateShipment: React.FC = () => {
     setLoading(true);
     
     try {
+      const trackingNumber = generateTrackingNumber();
+
+      const pickupAddress = (formData.pickup_address || (formData.pickup_warehouse_id
+        ? warehouses.find(w => w.id === formData.pickup_warehouse_id)?.address
+        : ''))?.toString() || '';
+
       const shipmentData = {
-        pickup_address: formData.pickup_address || (formData.pickup_warehouse_id ? 
-          warehouses.find(w => w.id === formData.pickup_warehouse_id)?.address : ''),
-        pickup_warehouse_id: formData.pickup_warehouse_id || undefined,
-        delivery_address: formData.delivery_address,
-        weight_kg: formData.weight_kg,
-        volume_m3: formData.volume_m3,
+        trackingNumber,
+        // backend will also fall back to req.user.organizationId if omitted, but we send it explicitly
+        organizationId: user?.organizationId || undefined,
+        pickupAddress: pickupAddress.toString(),
+        deliveryAddress: formData.delivery_address.toString(),
+        weightKg: formData.weight_kg || undefined,
+        volumeM3: formData.volume_m3 || undefined,
         priority: formData.priority,
-        is_express: formData.is_express,
-        notes: formData.notes,
-        driver_id: formData.driver_id || undefined,
-        vehicle_id: formData.vehicle_id || undefined,
-        estimated_delivery: formData.estimated_delivery || undefined,
-        // Customer info (if creating for customer)
-        customer_email: isNewCustomer ? customerEmail : undefined,
-        customer_name: isNewCustomer ? customerName : undefined,
+        isExpress: formData.is_express,
+        notes: formData.notes || undefined,
+        driverId: formData.driver_id || undefined,
+        vehicleId: formData.vehicle_id || undefined,
+        estimatedDelivery: formData.estimated_delivery || undefined,
       };
       
       const response = await api.post('/shipments', shipmentData);
