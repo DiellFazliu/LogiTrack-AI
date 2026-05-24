@@ -41,6 +41,7 @@ export const RouteOptimizerPage: React.FC = () => {
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [isGettingCurrentLocation, setIsGettingCurrentLocation] = useState(false);
   const [showSavedLocationSection, setShowSavedLocationSection] = useState(true);
+  const [optimizationId, setOptimizationId] = useState<string | null>(null);
 
   // Initialize points from shipment data
   useEffect(() => {
@@ -60,9 +61,101 @@ export const RouteOptimizerPage: React.FC = () => {
     setPoints(initialPoints);
     setPointLabels(labels);
     
-    // Auto-fetch saved location
     loadSavedLocation();
   }, [shipmentData.shipmentId]);
+
+const calculateDistance = (routePoints: Coordinate[]): number => {
+  if (routePoints.length < 2) return 0;
+  let total = 0;
+  for (let i = 1; i < routePoints.length; i++) {
+    // ✅ Sigurohu që latitude dhe longitude janë numra
+    const lat1 = Number(routePoints[i-1].latitude);
+    const lon1 = Number(routePoints[i-1].longitude);
+    const lat2 = Number(routePoints[i].latitude);
+    const lon2 = Number(routePoints[i].longitude);
+    
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    total += R * c;
+  }
+  return total;
+};
+
+  // Ruaj rrugën origjinale para optimizimit
+const saveOriginalRoute = async (routePoints: Coordinate[]) => {
+  console.log('=== saveOriginalRoute START ===');
+  console.log('shipmentId:', shipmentData.shipmentId);
+  
+  try {
+    const totalDistance = calculateDistance(routePoints);
+    console.log('totalDistance:', totalDistance);
+    
+    const response = await api.post('/ai/optimizations', {
+      shipmentId: shipmentData.shipmentId,
+      originalRoute: {
+        points: routePoints,
+        pointLabels: pointLabels,
+        totalDistance: totalDistance
+      },
+      originalDistanceKm: totalDistance
+    });
+    
+    console.log('Response status:', response.status);
+    console.log('Response data:', response.data);
+    setOptimizationId(response.data.id);
+    toast.success('Original route saved!');
+  } catch (error: any) {
+    console.error('Error saving original route:', error.response?.data || error);
+    toast.error(error.response?.data?.message || 'Failed to save route');
+  }
+};
+
+// frontend/src/pages/driver/RouteOptimizerPage.tsx
+const saveOptimizedRoute = async (optimizedData: RouteResponse, originalPoints: Coordinate[]) => {
+  if (!optimizationId) return;
+  
+  try {
+    // ✅ Konverto koordinatat nga [lng, lat] në {lat, lng}
+    const optimizedCoordinates = optimizedData?.features?.[0]?.geometry?.coordinates || [];
+    const convertedPoints = optimizedCoordinates.map((coord: number[]) => ({
+      latitude: coord[1],  // coord[1] është latitude
+      longitude: coord[0]  // coord[0] është longitude
+    }));
+    
+    // Llogarit distancën origjinale
+    const originalDistance = calculateDistance(originalPoints);
+    
+    // Llogarit distancën e optimizuar nga koordinatat e konvertuara
+    const optimizedDistance = calculateDistance(convertedPoints);
+    
+    const savedDistance = originalDistance - optimizedDistance;
+    
+    console.log('Original distance:', originalDistance.toFixed(2), 'km');
+    console.log('Optimized distance:', optimizedDistance.toFixed(2), 'km');
+    console.log('Saved distance:', savedDistance.toFixed(2), 'km');
+    
+    const updateData = {
+      optimizedRoute: {
+        points: convertedPoints,
+        totalDistance: Number(optimizedDistance.toFixed(2)),
+      },
+      savedDistanceKm: Number(savedDistance.toFixed(2)),
+      confidenceScore: originalDistance > 0 
+        ? Number((Math.min(0.95, Math.max(0, (savedDistance / originalDistance) + 0.5))).toFixed(2))
+        : 0.5
+    };
+    
+    await api.patch(`/ai/optimizations/${optimizationId}`, updateData);
+    console.log('Optimized route saved, savings:', updateData.savedDistanceKm, 'km');
+  } catch (error) {
+    console.error('Failed to save optimized route:', error);
+  }
+};
 
   const loadSavedLocation = async () => {
     setIsGettingCurrentLocation(true);
@@ -92,7 +185,6 @@ export const RouteOptimizerPage: React.FC = () => {
         latitude: position.coords.latitude, 
         longitude: position.coords.longitude 
       };
-      // Replace first point if it's a saved location, otherwise add
       if (points.length > 0 && pointLabels[0] === 'warehouse') {
         setPoints([newPoint, ...points.slice(1)]);
         setPointLabels(['warehouse', ...pointLabels.slice(1)]);
@@ -106,7 +198,7 @@ export const RouteOptimizerPage: React.FC = () => {
     } catch (error: any) {
       console.error('Error getting current location:', error);
       if (error.code === 1) {
-        toast.error('Location access denied. Please enable location services in browser settings.');
+        toast.error('Location access denied. Please enable location services.');
       } else {
         toast.error('Could not get your current location');
       }
@@ -158,25 +250,83 @@ export const RouteOptimizerPage: React.FC = () => {
     toast.success(`${selectedType} point added`);
   };
 
-  const handleOptimizeRoute = async (customPoints?: Coordinate[]) => {
-    const pointsToUse = customPoints || points;
-    if (pointsToUse.length < 2) {
-      toast.error('Please add at least 2 points (starting point + pickup/delivery)');
-      return;
+// frontend/src/pages/driver/RouteOptimizerPage.tsx
+// Zëvendëso të gjithë funksionin handleOptimizeRoute dhe saveOptimizedRoute:
+
+const handleOptimizeRoute = async () => {
+  if (points.length < 2) {
+    toast.error('Please add at least 2 points');
+    return;
+  }
+
+  // Ruaj original points para optimizimit
+  const originalPointsCopy = [...points];
+  const originalDistance = calculateDistance(originalPointsCopy);
+  console.log('📊 ORIGINAL DISTANCE:', originalDistance.toFixed(2), 'km');
+
+  setIsLoading(true);
+  try {
+    // Krijo original route record
+    if (!optimizationId) {
+      const response = await api.post('/ai/optimizations', {
+        shipmentId: shipmentData.shipmentId,
+        originalRoute: {
+          points: originalPointsCopy,
+          pointLabels: pointLabels,
+          totalDistance: originalDistance
+        },
+        originalDistanceKm: originalDistance
+      });
+      setOptimizationId(response.data.id);
+      console.log('✅ Original route saved with ID:', response.data.id);
     }
 
-    setIsLoading(true);
-    try {
-      const data = await routeService.optimizeRoute(pointsToUse);
-      setRouteData(data);
-      toast.success('Route optimized!');
-    } catch (error: any) {
-      console.error('Optimize error:', error);
-      toast.error(error.response?.data?.message || 'Failed to optimize route');
-    } finally {
-      setIsLoading(false);
+    // Optimizo rrugën
+    const optimizedResult = await routeService.optimizeRoute(originalPointsCopy);
+    setRouteData(optimizedResult);
+    
+    // Llogarit distancën e optimizuar
+    const optimizedPoints = optimizedResult?.features?.[0]?.geometry?.coordinates || [];
+    const convertedOptimizedPoints = optimizedPoints.map((coord: number[]) => ({
+      latitude: coord[1],
+      longitude: coord[0]
+    }));
+    
+    const optimizedDistance = calculateDistance(convertedOptimizedPoints);
+    const savedDistance = originalDistance - optimizedDistance;
+    
+    console.log('📊 OPTIMIZED DISTANCE:', optimizedDistance.toFixed(2), 'km');
+    console.log('📊 SAVED DISTANCE:', savedDistance.toFixed(2), 'km');
+    console.log('📊 SAVINGS PERCENTAGE:', ((savedDistance / originalDistance) * 100).toFixed(2), '%');
+    
+    // Llogarit confidence score (sa më i mirë është optimizimi)
+    let confidenceScore = 0.5;
+    if (originalDistance > 0 && savedDistance > 0) {
+      const savingsPercent = savedDistance / originalDistance;
+      confidenceScore = Math.min(0.95, 0.5 + savingsPercent);
+      confidenceScore = Math.max(0.1, confidenceScore);
     }
-  };
+    
+    // Përditëso me vlerat e llogaritura
+    if (optimizationId) {
+      await api.patch(`/ai/optimizations/${optimizationId}`, {
+        optimizedRoute: {
+          points: convertedOptimizedPoints,
+          totalDistance: Number(optimizedDistance.toFixed(2))
+        },
+        savedDistanceKm: Number(savedDistance.toFixed(2)),
+        confidenceScore: Number(confidenceScore.toFixed(2))
+      });
+    }
+    
+    toast.success(`Route optimized! Saved ${savedDistance.toFixed(2)} km`);
+  } catch (error: any) {
+    console.error('Optimize error:', error);
+    toast.error(error.response?.data?.message || 'Failed to optimize route');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleStartRoute = () => {
     if (!routeData) {
@@ -469,7 +619,7 @@ export const RouteOptimizerPage: React.FC = () => {
               {!isRouteStarted ? (
                 <>
                   <button
-                    onClick={() => handleOptimizeRoute()}
+                    onClick={handleOptimizeRoute}
                     disabled={points.length < 2 || isLoading}
                     className="flex-1 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
                   >

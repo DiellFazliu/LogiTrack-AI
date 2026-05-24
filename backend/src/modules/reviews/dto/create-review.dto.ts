@@ -1,36 +1,34 @@
-import { ApiProperty } from '@nestjs/swagger';
-
-import {
-  IsString,
-  IsNumber,
-  IsOptional,
-  Min,
-  Max
-} from 'class-validator';
+// backend/src/modules/reviews/dto/create-review.dto.ts
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsUUID, IsInt, IsString, IsOptional, Min, Max } from 'class-validator';
 
 export class CreateReviewDto {
-
   @ApiProperty()
-  @IsString()
+  @IsUUID()
   shipmentId!: string;
 
   @ApiProperty()
-  @IsString()
-  driverId!: string;
-
-  @ApiProperty({
-    example:5
-  })
-  @IsNumber()
+  @IsInt()
   @Min(1)
   @Max(5)
   rating!: number;
 
-  @ApiProperty({
-    required:false
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   comment?: string;
+}
 
+export class UpdateReviewDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  rating?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  comment?: string;
 }

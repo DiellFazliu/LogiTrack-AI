@@ -6,7 +6,9 @@ import { ReportsService } from './reports.service';
 import { Report } from './reports.entity';
 import { Shipment } from '../shipments/shipment.entity';
 import { Driver } from '../drivers/driver.entity';
-import { Vehicle } from '../vehicles/vehicle.entity';  // Import Vehicle entity
+import { Vehicle } from '../vehicles/vehicle.entity';
+import { UsersModule } from '../users/users.module';  // ✅ Shto këtë
+import { Review } from '../reviews/review.entity';
 
 @Module({
   imports: [
@@ -14,8 +16,10 @@ import { Vehicle } from '../vehicles/vehicle.entity';  // Import Vehicle entity
       Report,
       Shipment,
       Driver,
-      Vehicle,   // <-- Add Vehicle entity here
+      Vehicle,
+      Review,  
     ]),
+    UsersModule,  // ✅ Shto këtë
   ],
   controllers: [ReportsController],
   providers: [ReportsService],
