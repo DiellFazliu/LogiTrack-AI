@@ -11,6 +11,7 @@ import { Driver } from '../drivers/driver.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { User } from '../users/user.entity';
 import { AuditService } from '../audit/audit.service';
+import { ReportProblemDto } from './dto/report-problem.dto';
 
 @Injectable()
 export class ShipmentsService {
@@ -32,101 +33,98 @@ export class ShipmentsService {
     return `${prefix}${timestamp}${random}`;
   }
 
-async create(createDto: CreateShipmentDto, userId: string, organizationId: string): Promise<Shipment> {
-  try {
-    if (!organizationId) {
-      throw new ForbiddenException('Organization ID is required. Please select a company first.');
+  async create(createDto: CreateShipmentDto, userId: string, organizationId: string): Promise<Shipment> {
+    try {
+      if (!organizationId) {
+        throw new ForbiddenException('Organization ID is required. Please select a company first.');
+      }
+
+      let trackingNumber = createDto.trackingNumber;
+      const existingShipment = await this.shipmentRepository.findOne({
+        where: { trackingNumber }
+      });
+      
+      if (existingShipment) {
+        trackingNumber = this.generateUniqueTrackingNumber();
+      }
+
+      const shipment = this.shipmentRepository.create({
+        trackingNumber,
+        pickupAddress: createDto.pickupAddress,
+        pickupLatitude: createDto.pickupLatitude,
+        pickupLongitude: createDto.pickupLongitude,
+        deliveryAddress: createDto.deliveryAddress,
+        deliveryLatitude: createDto.deliveryLatitude,
+        deliveryLongitude: createDto.deliveryLongitude,
+        weightKg: createDto.weightKg,
+        volumeM3: createDto.volumeM3,
+        priority: createDto.priority || ShipmentPriority.NORMAL,
+        isExpress: createDto.isExpress || false,
+        notes: createDto.notes,
+        customerId: userId,
+        organizationId: organizationId,
+        createdBy: userId,
+        status: ShipmentStatus.PENDING,
+      });
+
+      const savedShipment = await this.shipmentRepository.save(shipment);
+
+      await this.auditService.log({
+        organizationId,
+        userId,
+        action: 'CREATE',
+        method: 'POST',
+        url: '/shipments',
+        entityType: 'shipment',
+        entityId: savedShipment.id,
+        newValues: {
+          trackingNumber: savedShipment.trackingNumber,
+          pickupAddress: savedShipment.pickupAddress,
+          deliveryAddress: savedShipment.deliveryAddress,
+          weightKg: savedShipment.weightKg,
+          volumeM3: savedShipment.volumeM3,
+          priority: savedShipment.priority,
+          isExpress: savedShipment.isExpress,
+          notes: savedShipment.notes,
+        },
+        statusCode: 201,
+      });
+
+      console.log(`✅ Audit log created for shipment ${savedShipment.id} by user ${userId}`);
+
+      await this.notificationsService.createForRole(
+        'dispatcher',
+        'New Shipment Created',
+        `A new shipment has been created (Tracking: ${trackingNumber}). Please assign a driver.`,
+        { shipmentId: savedShipment.id, trackingNumber }
+      );
+
+      await this.notificationsService.createForRole(
+        'company_admin',
+        'New Shipment Created',
+        `A new shipment (${trackingNumber}) has been created.`,
+        { shipmentId: savedShipment.id, trackingNumber }
+      );
+
+      return savedShipment;
+    } catch (error) {
+      console.error('Error creating shipment:', error);
+      
+      const err = error as Error;
+      await this.auditService.log({
+        organizationId,
+        userId,
+        action: 'CREATE_ERROR',
+        method: 'POST',
+        url: '/shipments',
+        entityType: 'shipment',
+        errorMessage: err.message,
+        statusCode: 500,
+      });
+      
+      throw new InternalServerErrorException('Failed to create shipment');
     }
-
-    let trackingNumber = createDto.trackingNumber;
-    const existingShipment = await this.shipmentRepository.findOne({
-      where: { trackingNumber }
-    });
-    
-    if (existingShipment) {
-      trackingNumber = this.generateUniqueTrackingNumber();
-    }
-
-    const shipment = this.shipmentRepository.create({
-      trackingNumber,
-      pickupAddress: createDto.pickupAddress,
-      pickupLatitude: createDto.pickupLatitude,
-      pickupLongitude: createDto.pickupLongitude,
-      deliveryAddress: createDto.deliveryAddress,
-      deliveryLatitude: createDto.deliveryLatitude,
-      deliveryLongitude: createDto.deliveryLongitude,
-      weightKg: createDto.weightKg,
-      volumeM3: createDto.volumeM3,
-      priority: createDto.priority || ShipmentPriority.NORMAL,
-      isExpress: createDto.isExpress || false,
-      notes: createDto.notes,
-      customerId: userId,
-      organizationId: organizationId,
-      createdBy: userId,
-      status: ShipmentStatus.PENDING,
-    });
-
-    const savedShipment = await this.shipmentRepository.save(shipment);
-
-    // ✅ Shto audit log për krijimin e shipment-it
-    await this.auditService.log({
-      organizationId,
-      userId,
-      action: 'CREATE',
-      method: 'POST',
-      url: '/shipments',
-      entityType: 'shipment',
-      entityId: savedShipment.id,
-      newValues: {
-        trackingNumber: savedShipment.trackingNumber,
-        pickupAddress: savedShipment.pickupAddress,
-        deliveryAddress: savedShipment.deliveryAddress,
-        weightKg: savedShipment.weightKg,
-        volumeM3: savedShipment.volumeM3,
-        priority: savedShipment.priority,
-        isExpress: savedShipment.isExpress,
-        notes: savedShipment.notes,
-      },
-      statusCode: 201,
-    });
-
-    console.log(`✅ Audit log created for shipment ${savedShipment.id} by user ${userId}`);
-
-    // Notifikatat
-    await this.notificationsService.createForRole(
-      'dispatcher',
-      'New Shipment Created',
-      `A new shipment has been created (Tracking: ${trackingNumber}). Please assign a driver.`,
-      { shipmentId: savedShipment.id, trackingNumber }
-    );
-
-    await this.notificationsService.createForRole(
-      'company_admin',
-      'New Shipment Created',
-      `A new shipment (${trackingNumber}) has been created.`,
-      { shipmentId: savedShipment.id, trackingNumber }
-    );
-
-    return savedShipment;
-  } catch (error) {
-    console.error('Error creating shipment:', error);
-    
-    // ✅ Log error në audit
-    const err = error as Error;
-    await this.auditService.log({
-      organizationId,
-      userId,
-      action: 'CREATE_ERROR',
-      method: 'POST',
-      url: '/shipments',
-      entityType: 'shipment',
-      errorMessage: err.message,
-      statusCode: 500,
-    });
-    
-    throw new InternalServerErrorException('Failed to create shipment');
   }
-}
 
   async updateCoordinates(id: string, updateCoordinatesDto: UpdateCoordinatesDto, organizationId: string, userId: string): Promise<any> {
     const shipment = await this.shipmentRepository.findOne({
@@ -151,7 +149,6 @@ async create(createDto: CreateShipmentDto, userId: string, organizationId: strin
 
     await this.shipmentRepository.update(id, updates);
 
-    // ✅ Audit log for coordinates update
     await this.auditService.log({
       organizationId,
       userId,
@@ -219,6 +216,19 @@ async create(createDto: CreateShipmentDto, userId: string, organizationId: strin
 
     return { items: transformedItems, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
+  // Shto këtë metodë në shipments.service.ts
+async getShipmentProblems(shipmentId: string, organizationId: string): Promise<any[]> {
+  // Merr problemet nga audit_logs
+  const problems = await this.auditService.findAll({
+    entityType: 'shipment',
+    entityId: shipmentId,
+    action: 'REPORT_PROBLEM',
+    organizationId,
+    limit: 100,
+  });
+  
+  return problems.data;
+}
 
   async getHistory(id: string, organizationId: string, userRole: string, userId: string): Promise<any[]> {
     await this.findOne(id, organizationId, userRole, userId);
@@ -338,7 +348,6 @@ async create(createDto: CreateShipmentDto, userId: string, organizationId: strin
     
     await this.shipmentRepository.update(id, allowedUpdates);
 
-    // ✅ Audit log for update
     await this.auditService.log({
       organizationId,
       userId,
@@ -366,7 +375,6 @@ async create(createDto: CreateShipmentDto, userId: string, organizationId: strin
     await this.shipmentRepository.update(id, updates);
     const updatedShipment = await this.findOne(id, organizationId, 'admin', '');
 
-    // ✅ Audit log for status change
     await this.auditService.log({
       organizationId,
       userId,
@@ -380,7 +388,6 @@ async create(createDto: CreateShipmentDto, userId: string, organizationId: strin
       statusCode: 200,
     });
 
-    // Notifikatat
     if (statusDto.status === ShipmentStatus.DELIVERED) {
       await this.notificationsService.create({
         userId: updatedShipment.customerId,
@@ -424,7 +431,6 @@ async create(createDto: CreateShipmentDto, userId: string, organizationId: strin
       status: ShipmentStatus.IN_TRANSIT
     });
 
-    // ✅ Audit log for driver assignment
     await this.auditService.log({
       organizationId,
       userId,
@@ -453,7 +459,6 @@ async create(createDto: CreateShipmentDto, userId: string, organizationId: strin
       }
     }
 
-    // Notifikatat
     const driver = await this.driverRepository.findOne({
       where: { id: finalDriverId },
       relations: ['user'],
@@ -484,7 +489,6 @@ async create(createDto: CreateShipmentDto, userId: string, organizationId: strin
 
     await this.shipmentRepository.update(id, { vehicleId });
 
-    // ✅ Audit log for vehicle assignment
     await this.auditService.log({
       organizationId,
       userId,
@@ -620,7 +624,6 @@ async create(createDto: CreateShipmentDto, userId: string, organizationId: strin
   async remove(id: string, organizationId: string, userId: string): Promise<void> {
     const shipment = await this.findOne(id, organizationId, 'admin', '');
     
-    // ✅ Audit log before deletion
     await this.auditService.log({
       organizationId,
       userId,
@@ -637,5 +640,71 @@ async create(createDto: CreateShipmentDto, userId: string, organizationId: strin
     });
     
     await this.shipmentRepository.delete(id);
+  }
+
+  // ✅ METODA E RE PËR RAPORTIMIN E PROBLEMEVE
+  async reportProblem(reportDto: ReportProblemDto, userId: string, organizationId: string): Promise<any> {
+    // Verifiko që shipment-i ekziston
+    const shipment = await this.shipmentRepository.findOne({
+      where: { id: reportDto.shipmentId, organizationId },
+      relations: ['driver', 'customer'],
+    });
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
+
+    // Ruaj problemin në audit_logs
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'REPORT_PROBLEM',
+      entityType: 'shipment',
+      entityId: reportDto.shipmentId,
+      newValues: {
+        problemType: reportDto.problemType,
+        description: reportDto.description,
+        location: reportDto.location,
+        hasPhoto: !!reportDto.photo,
+        trackingNumber: shipment.trackingNumber,
+        reportedBy: userId,
+        reportedAt: new Date().toISOString(),
+      },
+    });
+
+    // Dërgo notifikatë për dispatcher-at
+    await this.notificationsService.createForRole(
+      'dispatcher',
+      '⚠️ Problem Reported',
+      `Problem with shipment ${shipment.trackingNumber}: ${reportDto.problemType}. ${reportDto.description.substring(0, 100)}`,
+      { 
+        shipmentId: shipment.id, 
+        trackingNumber: shipment.trackingNumber,
+        problemType: reportDto.problemType,
+      }
+    );
+
+    // Dërgo notifikatë për company admin
+    await this.notificationsService.createForRole(
+      'company_admin',
+      '⚠️ Problem Reported',
+      `Problem with shipment ${shipment.trackingNumber}: ${reportDto.problemType}`,
+      { 
+        shipmentId: shipment.id, 
+        trackingNumber: shipment.trackingNumber,
+        problemType: reportDto.problemType,
+      }
+    );
+
+    return {
+      success: true,
+      message: 'Problem reported successfully',
+      data: {
+        shipmentId: shipment.id,
+        trackingNumber: shipment.trackingNumber,
+        problemType: reportDto.problemType,
+        reportedAt: new Date(),
+      },
+    };
   }
 }

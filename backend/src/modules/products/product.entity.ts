@@ -1,3 +1,4 @@
+// src/modules/products/product.entity.ts
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Organization } from '../organizations/organization.entity';
 
@@ -9,7 +10,7 @@ export class Product {
   @Column({ name: 'organization_id', type: 'uuid' })
   organizationId!: string;
 
-  @ManyToOne(() => Organization, (organization) => organization.products)
+  @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'organization_id' })
   organization!: Organization;
 
@@ -25,8 +26,8 @@ export class Product {
   @Column({ nullable: true })
   category?: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true, default: 0 })
-  price!: number;  // ✅ Shto këtë fushë
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true }) // ✅ Sigurohu që price është këtu
+  price?: number;
 
   @Column({ name: 'weight_kg', type: 'decimal', precision: 10, scale: 2, nullable: true })
   weightKg?: number;

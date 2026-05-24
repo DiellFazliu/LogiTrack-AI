@@ -33,7 +33,6 @@ export class DriversController {
   @Post()
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Create a new driver' })
-  @ApiResponse({ status: 201, description: 'Driver created successfully' })
   create(@Body() createDto: CreateDriverDto, @Request() req) {
     return this.driversService.create(createDto, req.user.organizationId, req.user.id);
   }
@@ -42,7 +41,6 @@ export class DriversController {
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Get all drivers' })
   findAll(@Query('status') status: string, @Request() req) {
-    // Konverto statusin në enum vetëm nëse nuk është 'all'
     const driverStatus = (status && status !== 'all') ? status as DriverStatus : undefined;
     return this.driversService.findAll(req.user.organizationId, req.user.id, driverStatus);
   }
@@ -51,9 +49,32 @@ export class DriversController {
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Get available drivers' })
   async getAvailable(@Request() req) {
-    const drivers = await this.driversService.getAvailable(req.user.organizationId, req.user.id);
-    console.log(`Found ${drivers.length} available drivers for organization ${req.user.organizationId}`);
-    return drivers;
+    return this.driversService.getAvailable(req.user.organizationId, req.user.id);
+  }
+
+  // ✅ DAILY REPORT ENDPOINTS
+  @Get('daily-report')
+  @Roles(UserRole.DRIVER)
+  @ApiOperation({ summary: 'Get daily report for driver' })
+  async getDailyReport(@Query('date') date: string, @Request() req) {
+    console.log('🔍 Daily report requested by user:', req.user.id);
+    const driver = await this.driversService.findByUserId(req.user.id);
+    if (!driver) {
+      throw new NotFoundException('Driver not found');
+    }
+    return this.driversService.getDailyReport(driver.id, date, req.user.organizationId);
+  }
+
+  @Post('confirm-day')
+  @Roles(UserRole.DRIVER)
+  @ApiOperation({ summary: 'Confirm day completion' })
+  async confirmDay(@Body('date') date: string, @Request() req) {
+    console.log('✅ Confirm day requested by user:', req.user.id);
+    const driver = await this.driversService.findByUserId(req.user.id);
+    if (!driver) {
+      throw new NotFoundException('Driver not found');
+    }
+    return this.driversService.confirmDay(driver.id, date, req.user.id, req.user.organizationId);
   }
 
   @Get('stats')
@@ -80,16 +101,9 @@ export class DriversController {
       s.status === ShipmentStatus.IN_TRANSIT
     ).length;
     const pending = shipments.filter(s => s.status === ShipmentStatus.PENDING).length;
-    
     const pendingSignature = waybills.filter(w => !w.signature).length;
 
-    return {
-      total,
-      inProgress,
-      completed,
-      pending,
-      pendingSignature,
-    };
+    return { total, inProgress, completed, pending, pendingSignature };
   }
 
   @Get('shipments')
@@ -158,7 +172,6 @@ export class DriversController {
     return this.driversService.updateStatus(id, status, req.user.organizationId, req.user.id);
   }
 
-  // VETËM NJË ENDPOINT PËR LOCATION LAST - JO DY!
   @Get(':id/location/last')
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get driver last known location by driver ID' })
@@ -182,15 +195,11 @@ export class DriversController {
   @Post('location')
   @Roles(UserRole.DRIVER)
   @ApiOperation({ summary: 'Update driver current location' })
-  async updateLocation(
-    @Body() updateLocationDto: UpdateLocationDto,
-    @Request() req,
-  ) {
+  async updateLocation(@Body() updateLocationDto: UpdateLocationDto, @Request() req) {
     const driver = await this.driversService.findByUserId(req.user.id);
     if (!driver) {
       throw new NotFoundException('Driver not found');
     }
-
     return this.driversService.updateLocation(
       driver.id,
       updateLocationDto.latitude,
@@ -203,13 +212,9 @@ export class DriversController {
   @Get('location/history')
   @Roles(UserRole.DRIVER)
   @ApiOperation({ summary: 'Get driver location history' })
-  async getLocationHistory(
-    @Query() query: LocationHistoryQueryDto,
-    @Request() req,
-  ) {
+  async getLocationHistory(@Query() query: LocationHistoryQueryDto, @Request() req) {
     const limit = query.limit || 50;
     const offset = query.offset || 0;
-
     return this.driversService.getLocationHistory(req.user.id, limit, offset);
   }
 
