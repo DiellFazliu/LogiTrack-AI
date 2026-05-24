@@ -1,89 +1,81 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsUUID, IsEnum, IsNumber, IsBoolean, IsDateString, Min } from 'class-validator';
-
-export enum ShipmentPriority {
-  LOW = 'low',
-  NORMAL = 'normal',
-  HIGH = 'high',
-  URGENT = 'urgent',
-}
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsOptional, IsNumber, IsBoolean, IsEnum, IsUUID } from 'class-validator';
+import { ShipmentPriority } from '../shipment.entity';
 
 export class CreateShipmentDto {
-  @ApiProperty({ example: 'SHIP-001' })
+  @ApiPropertyOptional({ example: 'TRK123456' })
+  @IsOptional()
   @IsString()
-  trackingNumber!: string;
-
-  @ApiProperty({ required: false })
-  @IsUUID()
-  organizationId?: string;
+  trackingNumber?: string;
 
   @ApiProperty()
   @IsString()
   pickupAddress!: string;
 
-  @ApiProperty()
-  @IsString()
-  deliveryAddress!: string;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsUUID()
-  driverId?: string;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsUUID()
-  vehicleId?: string;
-
-  @ApiProperty({ enum: ShipmentPriority, default: ShipmentPriority.NORMAL, required: false })
-  @IsOptional()
-  @IsEnum(ShipmentPriority)
-  priority?: ShipmentPriority;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  weightKg?: number;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  volumeM3?: number;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsDateString()
-  estimatedDelivery?: string;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
-  @ApiProperty({ required: false, default: false })
-  @IsOptional()
-  @IsBoolean()
-  isExpress?: boolean;
-
-  @ApiProperty({ required: false })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   pickupLatitude?: number;
 
-  @ApiProperty({ required: false })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   pickupLongitude?: number;
 
-  @ApiProperty({ required: false })
+  @ApiProperty()
+  @IsString()
+  deliveryAddress!: string;
+
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   deliveryLatitude?: number;
 
-  @ApiProperty({ required: false })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   deliveryLongitude?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  weightKg?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  volumeM3?: number;
+
+  @ApiPropertyOptional({ enum: ShipmentPriority, default: ShipmentPriority.NORMAL })
+  @IsOptional()
+  @IsEnum(ShipmentPriority)
+  priority?: ShipmentPriority;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  isExpress?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  organizationId?: string;
+
+  // ✅ Shto këto dy fusha për customer-in
+  @ApiPropertyOptional({ description: 'Customer name for new customer' })
+  @IsOptional()
+  @IsString()
+  customerName?: string;
+
+  @ApiPropertyOptional({ description: 'Customer email for new customer' })
+  @IsOptional()
+  @IsString()
+  customerEmail?: string;
+ 
+  
 }
