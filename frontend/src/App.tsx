@@ -203,6 +203,11 @@ function AppRoutes() {
             <CompanyDashboard />
           </ProtectedRoute>
         } />
+        <Route path="/company/shipments/:id" element={
+          <ProtectedRoute roles={['company_admin', 'dispatcher']}>
+            <DispatcherShipmentDetails />
+          </ProtectedRoute>
+        } />
         <Route path="/company/users" element={
           <ProtectedRoute roles={['company_admin']}>
             <CompanyUsersList />

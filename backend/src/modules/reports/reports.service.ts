@@ -8,6 +8,7 @@ import { Driver, DriverStatus } from '../drivers/driver.entity';
 import { Vehicle, VehicleStatus } from '../vehicles/vehicle.entity';
 import * as json2csv from 'json2csv';
 import { Review } from '../reviews/review.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ReportsService {
@@ -24,9 +25,10 @@ export class ReportsService {
     @InjectRepository(Vehicle)
     private vehicleRepository: Repository<Vehicle>,
 
-
     @InjectRepository(Review) 
     private reviewRepository: Repository<Review>,
+
+    private notificationsService: NotificationsService,
   ) {}
 
   // ==================== CRUD OPERATIONS ====================
@@ -53,14 +55,13 @@ export class ReportsService {
     return report;
   }
 
- // src/modules/reports/reports.service.ts
-async getReportsByOrganization(organizationId: string): Promise<Report[]> {
-  return this.reportRepository.find({
-    where: { organizationId },
-    relations: ['user'],  // ✅ Sigurohu që 'user' është në relations
-    order: { generatedAt: 'DESC' },
-  });
-}
+  async getReportsByOrganization(organizationId: string): Promise<Report[]> {
+    return this.reportRepository.find({
+      where: { organizationId },
+      relations: ['user'],
+      order: { generatedAt: 'DESC' },
+    });
+  }
 
   async updateReport(id: string, organizationId: string, title?: string, data?: any, fileUrl?: string): Promise<Report> {
     const report = await this.getReport(id, organizationId);
@@ -86,7 +87,6 @@ async getReportsByOrganization(organizationId: string): Promise<Report[]> {
       this.vehicleRepository.find({ where: { organizationId, isActive: true } }),
     ]);
 
-    // Shipment stats
     const totalShipments = shipments.length;
     const completedShipments = shipments.filter(s => s.status === ShipmentStatus.DELIVERED).length;
     const pendingShipments = shipments.filter(s => s.status === ShipmentStatus.PENDING).length;
@@ -94,17 +94,14 @@ async getReportsByOrganization(organizationId: string): Promise<Report[]> {
     const failedShipments = shipments.filter(s => s.status === ShipmentStatus.FAILED).length;
     const cancelledShipments = shipments.filter(s => s.status === ShipmentStatus.CANCELLED).length;
 
-    // Driver stats
     const totalDrivers = drivers.length;
     const activeDrivers = drivers.filter(d => 
       d.status === DriverStatus.AVAILABLE || d.status === DriverStatus.ON_DUTY
     ).length;
 
-    // Vehicle stats
     const totalVehicles = vehicles.length;
     const availableVehicles = vehicles.filter(v => v.status === VehicleStatus.AVAILABLE).length;
 
-    // On‑time delivery rate
     const deliveredShipments = shipments.filter(s => 
       s.status === ShipmentStatus.DELIVERED && 
       s.estimatedDelivery && 
@@ -119,7 +116,6 @@ async getReportsByOrganization(organizationId: string): Promise<Report[]> {
       ? Math.round((onTimeDeliveries / deliveredShipments.length) * 100)
       : 0;
 
-    // Average delivery time
     let avgDeliveryTime = 0;
     const completedWithDates = shipments.filter(s => 
       s.status === ShipmentStatus.DELIVERED && 
@@ -198,114 +194,117 @@ async getReportsByOrganization(organizationId: string): Promise<Report[]> {
 
   // ==================== CUSTOM REPORTS ====================
 
-// backend/src/modules/reports/reports.service.ts
-async generateCustomReport(organizationId: string, startDate: string, endDate: string, type: string): Promise<Report> {
-  const start = new Date(startDate);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(endDate);
-  end.setHours(23, 59, 59, 999);
+  async generateCustomReport(organizationId: string, startDate: string, endDate: string, type: string): Promise<Report> {
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
 
-  let data: any = {};
+    let data: any = {};
 
-  if (type === 'shipment' || type === 'all') {
-    const shipments = await this.shipmentRepository.find({
-      where: {
-        organizationId,
-        createdAt: Between(start, end),
-      },
-      relations: ['driver', 'vehicle', 'customer'],
-    });
-    data.shipments = shipments;
-    data.shipmentStats = {
-      total: shipments.length,
-      delivered: shipments.filter(s => s.status === ShipmentStatus.DELIVERED).length,
-      pending: shipments.filter(s => s.status === ShipmentStatus.PENDING).length,
-      inTransit: shipments.filter(s => s.status === ShipmentStatus.IN_TRANSIT || s.status === ShipmentStatus.PICKED_UP).length,
-    };
-  }
+    if (type === 'shipment' || type === 'all') {
+      const shipments = await this.shipmentRepository.find({
+        where: {
+          organizationId,
+          createdAt: Between(start, end),
+        },
+        relations: ['driver', 'vehicle', 'customer'],
+      });
+      data.shipments = shipments;
+      data.shipmentStats = {
+        total: shipments.length,
+        delivered: shipments.filter(s => s.status === ShipmentStatus.DELIVERED).length,
+        pending: shipments.filter(s => s.status === ShipmentStatus.PENDING).length,
+        inTransit: shipments.filter(s => s.status === ShipmentStatus.IN_TRANSIT || s.status === ShipmentStatus.PICKED_UP).length,
+      };
+    }
 
-if (type === 'driver' || type === 'all') {
-  const drivers = await this.driverRepository.find({
-    where: { organizationId, isActive: true },
-    relations: ['user'],
-  });
-  
-  // Për çdo driver, merr review-t dhe llogarit shipment-et e dorëzuara
-  const driversWithRating = await Promise.all(drivers.map(async (driver) => {
-    // Llogarit shipment-et e përfunduara për këtë driver
-    const deliveriesCount = await this.shipmentRepository.count({
-      where: { 
-        driverId: driver.id,
-        status: ShipmentStatus.DELIVERED,
-      },
-    });
-    
-    const reviews = await this.reviewRepository.find({
-      where: { driverId: driver.id },
-    });
-    
-    const avgRating = reviews.length > 0 
-      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length 
-      : 0;
-    
-    return {
-      id: driver.id,
-      name: driver.user?.name || 'Unknown',
-      licenseNumber: driver.licenseNumber,
-      phone: driver.phone,
-      status: driver.status,
-      totalDeliveries: deliveriesCount,  // Llogaritet nga shipment-et aktuale
-      averageRating: avgRating,
-      reviewsCount: reviews.length,
-    };
-  }));
-  
-  data.drivers = driversWithRating;
-  data.driverStats = {
-    total: drivers.length,
-    active: drivers.filter(d => d.status === DriverStatus.AVAILABLE || d.status === DriverStatus.ON_DUTY).length,
-    averageRating: driversWithRating.reduce((sum, d) => sum + d.averageRating, 0) / (driversWithRating.length || 1),
-    totalDeliveries: driversWithRating.reduce((sum, d) => sum + d.totalDeliveries, 0),
-  };
-}
+    if (type === 'driver' || type === 'all') {
+      const drivers = await this.driverRepository.find({
+        where: { organizationId, isActive: true },
+        relations: ['user'],
+      });
+      
+      const driversWithRating = await Promise.all(drivers.map(async (driver) => {
+        const deliveriesCount = await this.shipmentRepository.count({
+          where: { 
+            driverId: driver.id,
+            status: ShipmentStatus.DELIVERED,
+          },
+        });
+        
+        const reviews = await this.reviewRepository.find({
+          where: { driverId: driver.id },
+        });
+        
+        const avgRating = reviews.length > 0 
+          ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length 
+          : 0;
+        
+        return {
+          id: driver.id,
+          name: driver.user?.name || 'Unknown',
+          licenseNumber: driver.licenseNumber,
+          phone: driver.phone,
+          status: driver.status,
+          totalDeliveries: deliveriesCount,
+          averageRating: avgRating,
+          reviewsCount: reviews.length,
+        };
+      }));
+      
+      data.drivers = driversWithRating;
+      data.driverStats = {
+        total: drivers.length,
+        active: drivers.filter(d => d.status === DriverStatus.AVAILABLE || d.status === DriverStatus.ON_DUTY).length,
+        averageRating: driversWithRating.reduce((sum, d) => sum + d.averageRating, 0) / (driversWithRating.length || 1),
+        totalDeliveries: driversWithRating.reduce((sum, d) => sum + d.totalDeliveries, 0),
+      };
+    }
 
-// backend/src/modules/reports/reports.service.ts
-// Në pjesën financial, zëvendësoje me këtë:
+    if (type === 'financial' || type === 'all') {
+      const shipments = await this.shipmentRepository.find({
+        where: {
+          organizationId,
+          createdAt: Between(start, end),
+        },
+      });
+      
+      const deliveredShipments = shipments.filter(s => s.status === ShipmentStatus.DELIVERED);
+      const totalRevenue = deliveredShipments.length * 50;
+      
+      const completedShipments = deliveredShipments.length;
+      const onTimeDeliveries = shipments.filter(s => {
+        if (s.status !== ShipmentStatus.DELIVERED || !s.estimatedDelivery || !s.actualDelivery) return false;
+        return new Date(s.actualDelivery) <= new Date(s.estimatedDelivery);
+      }).length;
+      
+      data.totalRevenue = totalRevenue;
+      data.totalShipments = shipments.length;
+      data.completedShipments = completedShipments;
+      data.onTimeDelivery = shipments.length > 0 ? Math.round((onTimeDeliveries / shipments.length) * 100) : 0;
+      data.avgDeliveryTime = 2.5;
+    }
 
-if (type === 'financial' || type === 'all') {
-  const shipments = await this.shipmentRepository.find({
-    where: {
+    const report = this.reportRepository.create({
       organizationId,
-      createdAt: Between(start, end),
-    },
-  });
-  
-  // Llogarit revenue nga shipment-et e dorëzuara
-  const deliveredShipments = shipments.filter(s => s.status === ShipmentStatus.DELIVERED);
-  const totalRevenue = deliveredShipments.length * 50; // €50 për shipment
-  
-  const completedShipments = deliveredShipments.length;
-  const onTimeDeliveries = shipments.filter(s => {
-    if (s.status !== ShipmentStatus.DELIVERED || !s.estimatedDelivery || !s.actualDelivery) return false;
-    return new Date(s.actualDelivery) <= new Date(s.estimatedDelivery);
-  }).length;
-  
-  data.totalRevenue = totalRevenue;
-  data.totalShipments = shipments.length;
-  data.completedShipments = completedShipments;
-  data.onTimeDelivery = shipments.length > 0 ? Math.round((onTimeDeliveries / shipments.length) * 100) : 0;
-  data.avgDeliveryTime = 2.5;
-}
+      type,
+      title: `${type.toUpperCase()} Report - ${new Date().toLocaleDateString()}`,
+      data,
+    });
 
-  const report = this.reportRepository.create({
-    organizationId,
-    type,
-    title: `${type.toUpperCase()} Report - ${new Date().toLocaleDateString()}`,
-    data,
-  });
+    const savedReport = await this.reportRepository.save(report);
 
-  return this.reportRepository.save(report);
-}
+    // ✅ Dërgo notifikatë për admin-at e kompanisë
+    await this.notificationsService.createForRole(
+      'company_admin',
+      `New ${type.toUpperCase()} Report Generated`,
+      `A new ${type} report has been generated for period ${startDate} to ${endDate}. Click to view.`,
+      { reportId: savedReport.id, type, startDate, endDate }
+    );
+
+    return savedReport;
+  }
 
   // ==================== EXPORT ====================
 

@@ -9,7 +9,7 @@ import { Driver } from '../drivers/driver.entity';
 import { Vehicle } from '../vehicles/vehicle.entity';
 import { UsersModule } from '../users/users.module';  // ✅ Shto këtë
 import { Review } from '../reviews/review.entity';
-
+import { NotificationsModule } from '../notifications/notifications.module';  // ✅ Shto këtë
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -19,6 +19,7 @@ import { Review } from '../reviews/review.entity';
       Vehicle,
       Review,  
     ]),
+    NotificationsModule,  // ✅ Shto këtë
     UsersModule,  // ✅ Shto këtë
   ],
   controllers: [ReportsController],

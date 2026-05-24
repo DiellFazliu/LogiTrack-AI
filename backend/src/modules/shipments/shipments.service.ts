@@ -8,14 +8,19 @@ import { UpdateShipmentDto } from './dto/update-shipment.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { ShipmentQueryDto } from './dto/shipment-query.dto';
 import { Driver } from '../drivers/driver.entity';
+import { NotificationsService } from '../notifications/notifications.service';
+import { User } from '../users/user.entity';
 
 @Injectable()
 export class ShipmentsService {
   constructor(
     @InjectRepository(Shipment)
     private shipmentRepository: Repository<Shipment>,
-        @InjectRepository(Driver)
-        private driverRepository: Repository<Driver>
+    @InjectRepository(Driver)
+    private driverRepository: Repository<Driver>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+    private notificationsService: NotificationsService,
   ) {}
 
   private generateUniqueTrackingNumber(): string {
@@ -59,13 +64,30 @@ export class ShipmentsService {
         status: ShipmentStatus.PENDING,
       });
 
-      return await this.shipmentRepository.save(shipment);
+      const savedShipment = await this.shipmentRepository.save(shipment);
+
+      // ✅ Notifikata për dispatchers kur krijohet shipment i ri
+      await this.notificationsService.createForRole(
+        'dispatcher',
+        'New Shipment Created',
+        `A new shipment has been created (Tracking: ${trackingNumber}). Please assign a driver.`,
+        { shipmentId: savedShipment.id, trackingNumber }
+      );
+
+      // ✅ Notifikata për company admin
+      await this.notificationsService.createForRole(
+        'company_admin',
+        'New Shipment Created',
+        `A new shipment (${trackingNumber}) has been created.`,
+        { shipmentId: savedShipment.id, trackingNumber }
+      );
+
+      return savedShipment;
     } catch (error) {
       console.error('Error creating shipment:', error);
       throw new InternalServerErrorException('Failed to create shipment');
     }
   }
-  
 
   async findAll(query: ShipmentQueryDto, organizationId: string, userRole: string, userId: string) {
     const { status, search, driverId, page = 1, limit = 10 } = query;
@@ -88,102 +110,82 @@ export class ShipmentsService {
     return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  // src/modules/shipments/shipments.service.ts
-async getHistory(id: string, organizationId: string, userRole: string, userId: string): Promise<any[]> {
-  // Verifiko aksesin
-  await this.findOne(id, organizationId, userRole, userId);
-  
-  // Për momentin kthe array bosh
-  // TODO: Kur të keni tabelën e historikut, implementoni këtu
-  return [];
-}
-
-async findOne(id: string, organizationId: string, userRole: string, userId: string): Promise<any> {
-  // Fetch shipment with all necessary relations
-  const shipment = await this.shipmentRepository.findOne({
-    where: { id },
-    relations: ['driver', 'driver.user', 'vehicle', 'customer', 'organization'],
-  });
-
-  if (!shipment) {
-    throw new NotFoundException('Shipment not found');
+  async getHistory(id: string, organizationId: string, userRole: string, userId: string): Promise<any[]> {
+    await this.findOne(id, organizationId, userRole, userId);
+    return [];
   }
 
-  // Super admin can access any shipment
-  if (userRole !== 'super_admin') {
-    // Check organization access
-    if (shipment.organizationId !== organizationId) {
-      throw new ForbiddenException('Access denied - This shipment belongs to a different organization');
+  async findOne(id: string, organizationId: string, userRole: string, userId: string): Promise<any> {
+    const shipment = await this.shipmentRepository.findOne({
+      where: { id },
+      relations: ['driver', 'driver.user', 'vehicle', 'customer', 'organization'],
+    });
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
     }
 
-    // Driver-specific check
-    if (userRole === 'driver') {
-      const driver = await this.driverRepository.findOne({
-        where: { userId: userId },
-      });
+    if (userRole !== 'super_admin') {
+      if (shipment.organizationId !== organizationId) {
+        throw new ForbiddenException('Access denied - This shipment belongs to a different organization');
+      }
 
-      if (!driver || shipment.driverId !== driver.id) {
-        throw new ForbiddenException('Access denied - This shipment is not assigned to you');
+      if (userRole === 'driver') {
+        const driver = await this.driverRepository.findOne({
+          where: { userId: userId },
+        });
+
+        if (!driver || shipment.driverId !== driver.id) {
+          throw new ForbiddenException('Access denied - This shipment is not assigned to you');
+        }
       }
     }
+
+    return {
+      id: shipment.id,
+      trackingNumber: shipment.trackingNumber,
+      pickupAddress: shipment.pickupAddress,
+      pickupLatitude: shipment.pickupLatitude,
+      pickupLongitude: shipment.pickupLongitude,
+      deliveryAddress: shipment.deliveryAddress,
+      deliveryLatitude: shipment.deliveryLatitude,
+      deliveryLongitude: shipment.deliveryLongitude,
+      weightKg: shipment.weightKg,
+      volumeM3: shipment.volumeM3,
+      priority: shipment.priority,
+      isExpress: shipment.isExpress,
+      notes: shipment.notes,
+      status: shipment.status,
+      estimatedDistanceKm: shipment.estimatedDistanceKm,
+      estimatedDurationMin: shipment.estimatedDurationMin,
+      estimatedDelivery: shipment.estimatedDelivery,
+      actualDelivery: shipment.actualDelivery,
+      pickedUpAt: shipment.pickedUpAt,
+      deliveryPhoto: shipment.deliveryPhoto,
+      deliverySignature: shipment.deliverySignature,
+      createdAt: shipment.createdAt,
+      updatedAt: shipment.updatedAt,
+      customerId: shipment.customerId,
+      customerName: shipment.customer?.name || null,
+      customerEmail: shipment.customer?.email || null,
+      driverId: shipment.driverId,
+      driverName: shipment.driver?.user?.name || null,
+      driverLicenseNumber: shipment.driver?.licenseNumber || null,
+      driverPhone: shipment.driver?.phone || null,
+      vehicleId: shipment.vehicleId,
+      vehiclePlate: shipment.vehicle?.licensePlate || null,
+      vehicleType: shipment.vehicle?.type || null,
+      vehicleBrand: shipment.vehicle?.brand || null,
+      vehicleModel: shipment.vehicle?.model || null,
+      organizationId: shipment.organizationId,
+      organizationName: shipment.organization?.name || null,
+      createdBy: shipment.createdBy,
+      driver: shipment.driver,
+      vehicle: shipment.vehicle,
+      customer: shipment.customer,
+      organization: shipment.organization,
+    };
   }
-
-  // Return a flattened DTO for frontend convenience
-  return {
-    // Core shipment fields (spread)
-    id: shipment.id,
-    trackingNumber: shipment.trackingNumber,
-    pickupAddress: shipment.pickupAddress,
-    pickupLatitude: shipment.pickupLatitude,
-    pickupLongitude: shipment.pickupLongitude,
-    deliveryAddress: shipment.deliveryAddress,
-    deliveryLatitude: shipment.deliveryLatitude,
-    deliveryLongitude: shipment.deliveryLongitude,
-    weightKg: shipment.weightKg,
-    volumeM3: shipment.volumeM3,
-    priority: shipment.priority,
-    isExpress: shipment.isExpress,
-    notes: shipment.notes,
-    status: shipment.status,
-    estimatedDistanceKm: shipment.estimatedDistanceKm,
-    estimatedDurationMin: shipment.estimatedDurationMin,
-    estimatedDelivery: shipment.estimatedDelivery,
-    actualDelivery: shipment.actualDelivery,
-    pickedUpAt: shipment.pickedUpAt,
-    deliveryPhoto: shipment.deliveryPhoto,
-    deliverySignature: shipment.deliverySignature,
-    createdAt: shipment.createdAt,
-    updatedAt: shipment.updatedAt,
-
-    // Flattened relations
-    customerId: shipment.customerId,
-    customerName: shipment.customer?.name || null,
-    customerEmail: shipment.customer?.email || null,
-    
-    driverId: shipment.driverId,
-    driverName: shipment.driver?.user?.name || null,
-    driverLicenseNumber: shipment.driver?.licenseNumber || null,
-    driverPhone: shipment.driver?.phone || null,
-    
-    vehicleId: shipment.vehicleId,
-    vehiclePlate: shipment.vehicle?.licensePlate || null,
-    vehicleType: shipment.vehicle?.type || null,
-    vehicleBrand: shipment.vehicle?.brand || null,
-    vehicleModel: shipment.vehicle?.model || null,
-
-    organizationId: shipment.organizationId,
-    organizationName: shipment.organization?.name || null,
-
-    createdBy: shipment.createdBy,
-
-    // Keep original nested objects for flexibility (optional, can be removed)
-    // but frontend can rely on flattened fields above.
-    driver: shipment.driver,
-    vehicle: shipment.vehicle,
-    customer: shipment.customer,
-    organization: shipment.organization,
-  };
-}
 
   async update(id: string, updateDto: UpdateShipmentDto, organizationId: string): Promise<Shipment> {
     await this.findOne(id, organizationId, 'admin', '');
@@ -202,67 +204,104 @@ async findOne(id: string, organizationId: string, userRole: string, userId: stri
   }
 
   async updateStatus(id: string, statusDto: UpdateStatusDto, organizationId: string, userId: string): Promise<Shipment> {
-    await this.findOne(id, organizationId, 'admin', '');
+    const shipment = await this.findOne(id, organizationId, 'admin', '');
     
     const updates: any = { status: statusDto.status };
     if (statusDto.status === ShipmentStatus.PICKED_UP) updates.pickedUpAt = new Date();
     if (statusDto.status === ShipmentStatus.DELIVERED) updates.actualDelivery = new Date();
-    if (statusDto.status === ShipmentStatus.IN_TRANSIT) {
-      // Just update status
-    }
 
     await this.shipmentRepository.update(id, updates);
+    const updatedShipment = await this.findOne(id, organizationId, 'admin', '');
+
+    // ✅ Notifikata kur shipment-i dorëzohet
+    if (statusDto.status === ShipmentStatus.DELIVERED) {
+      await this.notificationsService.create({
+        userId: updatedShipment.customerId,
+        title: 'Shipment Delivered',
+        message: `Your shipment ${updatedShipment.trackingNumber} has been delivered successfully.`,
+        data: { shipmentId: id, trackingNumber: updatedShipment.trackingNumber }
+      });
+
+      await this.notificationsService.createForRole(
+        'company_admin',
+        'Shipment Delivered',
+        `Shipment ${updatedShipment.trackingNumber} has been delivered.`,
+        { shipmentId: id, trackingNumber: updatedShipment.trackingNumber }
+      );
+    }
+
+    return updatedShipment;
+  }
+
+  async assignDriver(id: string, driverId: string, organizationId: string): Promise<Shipment> {
+    const shipment = await this.findOne(id, organizationId, 'admin', '');
+    
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
+    
+    let finalDriverId = driverId;
+    
+    const driverByUser = await this.driverRepository.findOne({
+      where: { userId: driverId }
+    });
+    
+    if (driverByUser) {
+      finalDriverId = driverByUser.id;
+      console.log(`Converted userId ${driverId} to driverId ${finalDriverId}`);
+    }
+    
+    await this.shipmentRepository.update(id, { 
+      driverId: finalDriverId,
+      status: ShipmentStatus.IN_TRANSIT
+    });
+
+    const updated = await this.shipmentRepository.findOne({
+      where: { id },
+      relations: ['driver', 'vehicle'],
+    });
+
+    if (updated?.driver && updated?.vehicle) {
+      const driver = updated.driver;
+      const vehicle = updated.vehicle;
+
+      if (vehicle.licensePlate && driver.licenseNumber !== vehicle.licensePlate) {
+        driver.licenseNumber = vehicle.licensePlate;
+        await this.driverRepository.save(driver);
+      }
+    }
+
+    // ✅ Notifikatë për driver-in e assignuar
+    const driver = await this.driverRepository.findOne({
+      where: { id: finalDriverId },
+      relations: ['user'],
+    });
+
+    if (driver?.user) {
+      await this.notificationsService.create({
+        userId: driver.user.id,
+        title: 'New Shipment Assigned',
+        message: `You have been assigned to shipment ${shipment.trackingNumber}. Pickup: ${shipment.pickupAddress}`,
+        data: { shipmentId: id, trackingNumber: shipment.trackingNumber }
+      });
+    }
+
+    // ✅ Notifikatë për dispatchers
+    await this.notificationsService.createForRole(
+      'dispatcher',
+      'Driver Assigned',
+      `Driver ${driver?.user?.name || 'Unknown'} has been assigned to shipment ${shipment.trackingNumber}.`,
+      { shipmentId: id, driverId: finalDriverId, trackingNumber: shipment.trackingNumber }
+    );
+
     return this.findOne(id, organizationId, 'admin', '');
   }
-
-async assignDriver(id: string, driverId: string, organizationId: string): Promise<Shipment> {
-  const shipment = await this.findOne(id, organizationId, 'admin', '');
-  
-  if (!shipment) {
-    throw new NotFoundException('Shipment not found');
-  }
-  
-  let finalDriverId = driverId;
-  
-  const driverByUser = await this.driverRepository.findOne({
-    where: { userId: driverId }
-  });
-  
-  if (driverByUser) {
-    finalDriverId = driverByUser.id;
-    console.log(`Converted userId ${driverId} to driverId ${finalDriverId}`);
-  }
-  
-await this.shipmentRepository.update(id, { 
-    driverId: finalDriverId,
-    status: ShipmentStatus.IN_TRANSIT
-  });
-
-  const updated = await this.shipmentRepository.findOne({
-    where: { id },
-    relations: ['driver', 'vehicle'],
-  });
-
-  if (updated?.driver && updated?.vehicle) {
-    const driver = updated.driver;
-    const vehicle = updated.vehicle;
-
-    // NOTE: license_number is UNIQUE in drivers and license_plate is UNIQUE in vehicles
-    if (vehicle.licensePlate && driver.licenseNumber !== vehicle.licensePlate) {
-      driver.licenseNumber = vehicle.licensePlate;
-      await this.driverRepository.save(driver);
-    }
-  }
-  
-  return this.findOne(id, organizationId, 'admin', '');
-}
 
   async assignVehicle(id: string, vehicleId: string, organizationId: string): Promise<Shipment> {
     await this.findOne(id, organizationId, 'admin', '');
 
     await this.shipmentRepository.update(id, { vehicleId });
 
-    // If driver already assigned on this shipment, sync driver license_number from vehicle.license_plate
     const updated = await this.shipmentRepository.findOne({
       where: { id },
       relations: ['driver', 'vehicle'],
@@ -280,8 +319,6 @@ await this.shipmentRepository.update(id, {
 
     return this.findOne(id, organizationId, 'admin', '');
   }
-
-// backend/src/modules/shipments/shipments.service.ts
 
   async findByCustomer(customerId: string, organizationId: string, query: ShipmentQueryDto) {
     const { status, search, driverId, page = 1, limit = 10 } = query;
@@ -304,66 +341,58 @@ await this.shipmentRepository.update(id, {
   }
 
   async getMyShipments(userId: string, organizationId: string, query: ShipmentQueryDto) {
-
-  const driver = await this.driverRepository.findOne({
-    where: { userId: userId }
-  });
-  
-  if (!driver) {
-    return { items: [], total: 0, page: 1, limit: 10, totalPages: 0 };
+    const driver = await this.driverRepository.findOne({
+      where: { userId: userId }
+    });
+    
+    if (!driver) {
+      return { items: [], total: 0, page: 1, limit: 10, totalPages: 0 };
+    }
+    
+    const result = await this.findAll(query, organizationId, 'driver', driver.id);
+    return result;
   }
-  
-  // Përdor driver.id për të gjetur shipment-et
-  const result = await this.findAll(query, organizationId, 'driver', driver.id);
-  
-  return result;  // Kthe direkt result, pa modifikim shtesë
-}
 
-// backend/src/modules/shipments/shipments.service.ts
-async getTracking(trackingNumber: string) {
-  console.log('getTracking called for:', trackingNumber);
-  
-  const shipment = await this.shipmentRepository.findOne({
-    where: { trackingNumber },
-    relations: ['driver', 'driver.user', 'vehicle'], // ✅ Shto këto relations
-  });
-  
-  if (!shipment) {
-    throw new NotFoundException('Shipment not found');
+  async getTracking(trackingNumber: string) {
+    console.log('getTracking called for:', trackingNumber);
+    
+    const shipment = await this.shipmentRepository.findOne({
+      where: { trackingNumber },
+      relations: ['driver', 'driver.user', 'vehicle'],
+    });
+    
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
+    
+    console.log('Found shipment:', shipment.id);
+    
+    return {
+      id: shipment.id,
+      trackingNumber: shipment.trackingNumber,
+      status: shipment.status,
+      pickupAddress: shipment.pickupAddress,
+      deliveryAddress: shipment.deliveryAddress,
+      estimated_delivery: shipment.estimatedDelivery,
+      actual_delivery: shipment.actualDelivery,
+      createdAt: shipment.createdAt,
+      weight_kg: shipment.weightKg,
+      volume_m3: shipment.volumeM3,
+      notes: shipment.notes,
+      driver: shipment.driver ? {
+        name: shipment.driver.user?.name || 'Driver',
+        phone: shipment.driver.phone || '',
+      } : null,
+      vehicle: shipment.vehicle ? {
+        license_plate: shipment.vehicle.licensePlate,
+        type: shipment.vehicle.type,
+      } : null,
+      customer: shipment.customer ? {
+        name: shipment.customer.name,
+        email: shipment.customer.email,
+      } : null,
+    };
   }
-  
-  console.log('Found shipment:', shipment.id);
-  console.log('Driver:', shipment.driver);
-  console.log('Driver user:', shipment.driver?.user);
-  console.log('Vehicle:', shipment.vehicle);
-  
-  // Formato përgjigjen
-  return {
-    id: shipment.id,
-    trackingNumber: shipment.trackingNumber,
-    status: shipment.status,
-    pickupAddress: shipment.pickupAddress,
-    deliveryAddress: shipment.deliveryAddress,
-    estimated_delivery: shipment.estimatedDelivery,
-    actual_delivery: shipment.actualDelivery,
-    createdAt: shipment.createdAt,
-    weight_kg: shipment.weightKg,
-    volume_m3: shipment.volumeM3,
-    notes: shipment.notes,
-    driver: shipment.driver ? {
-      name: shipment.driver.user?.name || 'Driver',
-      phone: shipment.driver.phone || '',
-    } : null,
-    vehicle: shipment.vehicle ? {
-      license_plate: shipment.vehicle.licensePlate,
-      type: shipment.vehicle.type,
-    } : null,
-    customer: shipment.customer ? {
-      name: shipment.customer.name,
-      email: shipment.customer.email,
-    } : null,
-  };
-}
 
   async remove(id: string, organizationId: string): Promise<void> {
     await this.findOne(id, organizationId, 'admin', '');

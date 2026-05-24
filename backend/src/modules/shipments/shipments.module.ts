@@ -6,12 +6,13 @@ import { ShipmentsController } from './shipments.controller';
 import { UsersModule } from '../users/users.module';
 import { Driver } from '../drivers/driver.entity';  
 import { DriversModule } from '../drivers/drivers.module';  // ✅ Shto importin
-
+import { NotificationsModule } from '../notifications/notifications.module';  // ✅ Shto këtë
 @Module({
   imports: [
     TypeOrmModule.forFeature([Shipment, Driver]),
     UsersModule,
     DriversModule,
+    NotificationsModule,  // ✅ Shto këtë
   ],
   providers: [ShipmentsService],
   controllers: [ShipmentsController],
