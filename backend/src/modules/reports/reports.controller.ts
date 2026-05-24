@@ -25,6 +25,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/roles.enum';
+
 @ApiTags('Reports')
 @ApiBearerAuth()
 @Controller('reports')
@@ -44,36 +45,35 @@ export class ReportsController {
       body.title,
       body.data,
       req.user.organizationId,
-      req.user.id,
+      req.user.id, // ✅ Shto userId
     );
   }
-  // src/modules/reports/reports.controller.ts
-// Shto këtë endpoint:
 
-@Get(':id/download')
-@Roles(UserRole.COMPANY_ADMIN, UserRole.SUPER_ADMIN)
-@ApiOperation({ summary: 'Download report file' })
-async downloadReport(@Param('id') id: string, @Request() req, @Res() res: Response) {
-  const report = await this.reportsService.getReport(id, req.user.organizationId);
-  
-  if (!report.fileUrl) {
-    // Krijo JSON nga të dhënat
-    const jsonData = JSON.stringify(report.data, null, 2);
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename=report_${report.id}.json`);
-    return res.send(jsonData);
+  @Get(':id/download')
+  @Roles(UserRole.COMPANY_ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Download report file' })
+  async downloadReport(@Param('id') id: string, @Request() req, @Res() res: Response) {
+    const report = await this.reportsService.getReport(id, req.user.organizationId);
+    
+    if (!report.fileUrl) {
+      const jsonData = JSON.stringify(report.data, null, 2);
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename=report_${report.id}.json`);
+      return res.send(jsonData);
+    }
+    
+    return res.download(report.fileUrl);
   }
-  
-  // Nëse ka fileUrl, shkarko nga aty
-  return res.download(report.fileUrl);
-}
 
   @Get()
   @Roles(UserRole.COMPANY_ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get all reports for organization' })
   @ApiResponse({ status: 200, description: 'Reports retrieved successfully' })
   async getAllReports(@Request() req) {
-    return this.reportsService.getReportsByOrganization(req.user.organizationId);
+    return this.reportsService.getReportsByOrganization(
+      req.user.organizationId,
+      req.user.id, // ✅ Shto userId
+    );
   }
 
   @Get(':id')
@@ -92,6 +92,7 @@ async downloadReport(@Param('id') id: string, @Request() req, @Res() res: Respon
     return this.reportsService.updateReport(
       id,
       req.user.organizationId,
+      req.user.id, // ✅ Shto userId
       body.title,
       body.data,
       body.fileUrl,
@@ -103,7 +104,11 @@ async downloadReport(@Param('id') id: string, @Request() req, @Res() res: Respon
   @ApiOperation({ summary: 'Delete a report' })
   @ApiResponse({ status: 200, description: 'Report deleted successfully' })
   async deleteReport(@Param('id') id: string, @Request() req) {
-    await this.reportsService.deleteReport(id, req.user.organizationId);
+    await this.reportsService.deleteReport(
+      id,
+      req.user.organizationId,
+      req.user.id, // ✅ Shto userId
+    );
     return { message: 'Report deleted successfully' };
   }
 
@@ -114,11 +119,13 @@ async downloadReport(@Param('id') id: string, @Request() req, @Res() res: Respon
   @ApiOperation({ summary: 'Get dashboard statistics' })
   @ApiResponse({ status: 200, description: 'Dashboard stats retrieved successfully' })
   async getDashboardStats(@Param('organizationId') organizationId: string, @Request() req) {
-    // Verifiko që përdoruesi ka të drejtë
     if (req.user.role !== UserRole.SUPER_ADMIN && req.user.organizationId !== organizationId) {
       throw new ForbiddenException('You do not have access to this organization');
     }
-    return this.reportsService.getDashboardStats(organizationId);
+    return this.reportsService.getDashboardStats(
+      organizationId,
+      req.user.id, // ✅ Shto userId
+    );
   }
 
   // ==================== DAILY REPORTS ====================
@@ -135,7 +142,11 @@ async downloadReport(@Param('id') id: string, @Request() req, @Res() res: Respon
     if (req.user.role !== UserRole.SUPER_ADMIN && req.user.organizationId !== organizationId) {
       throw new ForbiddenException('You do not have access to this organization');
     }
-    return this.reportsService.generateDailyReport(organizationId, new Date(date));
+    return this.reportsService.generateDailyReport(
+      organizationId,
+      req.user.id, // ✅ Shto userId
+      new Date(date),
+    );
   }
 
   // ==================== CUSTOM REPORTS ====================
@@ -147,6 +158,7 @@ async downloadReport(@Param('id') id: string, @Request() req, @Res() res: Respon
   async generateCustomReport(@Body() body: any, @Request() req) {
     return this.reportsService.generateCustomReport(
       req.user.organizationId,
+      req.user.id, // ✅ Shto userId
       body.startDate,
       body.endDate,
       body.type,
@@ -158,6 +170,10 @@ async downloadReport(@Param('id') id: string, @Request() req, @Res() res: Respon
   @ApiOperation({ summary: 'Export shipments as CSV' })
   @ApiResponse({ status: 200, description: 'Shipments exported successfully' })
   async exportShipments(@Query('format') format: string, @Request() req) {
-    return this.reportsService.exportShipments(req.user.organizationId, format || 'csv');
+    return this.reportsService.exportShipments(
+      req.user.organizationId,
+      req.user.id, // ✅ Shto userId
+      format || 'csv',
+    );
   }
 }

@@ -1,4 +1,3 @@
-// src/modules/shipments/shipments.service.ts
 import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
@@ -7,11 +6,12 @@ import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { ShipmentQueryDto } from './dto/shipment-query.dto';
+import { UpdateCoordinatesDto } from './dto/update-coordinates.dto';
 import { Driver } from '../drivers/driver.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { User } from '../users/user.entity';
-// Në fillim të shipments.controller.ts, shto importin:
-import { UpdateCoordinatesDto } from './dto/update-coordinates.dto';
+import { AuditService } from '../audit/audit.service';
+
 @Injectable()
 export class ShipmentsService {
   constructor(
@@ -22,6 +22,7 @@ export class ShipmentsService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private notificationsService: NotificationsService,
+    private auditService: AuditService,
   ) {}
 
   private generateUniqueTrackingNumber(): string {
@@ -31,153 +32,193 @@ export class ShipmentsService {
     return `${prefix}${timestamp}${random}`;
   }
 
-  async create(createDto: CreateShipmentDto, userId: string, organizationId: string): Promise<Shipment> {
-    try {
-      if (!organizationId) {
-        throw new ForbiddenException('Organization ID is required. Please select a company first.');
-      }
-
-      let trackingNumber = createDto.trackingNumber;
-      const existingShipment = await this.shipmentRepository.findOne({
-        where: { trackingNumber }
-      });
-      
-      if (existingShipment) {
-        trackingNumber = this.generateUniqueTrackingNumber();
-      }
-
-      const shipment = this.shipmentRepository.create({
-        trackingNumber,
-        pickupAddress: createDto.pickupAddress,
-        pickupLatitude: createDto.pickupLatitude,
-        pickupLongitude: createDto.pickupLongitude,
-        deliveryAddress: createDto.deliveryAddress,
-        deliveryLatitude: createDto.deliveryLatitude,
-        deliveryLongitude: createDto.deliveryLongitude,
-        weightKg: createDto.weightKg,
-        volumeM3: createDto.volumeM3,
-        priority: createDto.priority || ShipmentPriority.NORMAL,
-        isExpress: createDto.isExpress || false,
-        notes: createDto.notes,
-        customerId: userId,
-        organizationId: organizationId,
-        createdBy: userId,
-        status: ShipmentStatus.PENDING,
-      });
-
-      const savedShipment = await this.shipmentRepository.save(shipment);
-
-      // ✅ Notifikata për dispatchers kur krijohet shipment i ri
-      await this.notificationsService.createForRole(
-        'dispatcher',
-        'New Shipment Created',
-        `A new shipment has been created (Tracking: ${trackingNumber}). Please assign a driver.`,
-        { shipmentId: savedShipment.id, trackingNumber }
-      );
-
-      // ✅ Notifikata për company admin
-      await this.notificationsService.createForRole(
-        'company_admin',
-        'New Shipment Created',
-        `A new shipment (${trackingNumber}) has been created.`,
-        { shipmentId: savedShipment.id, trackingNumber }
-      );
-
-      return savedShipment;
-    } catch (error) {
-      console.error('Error creating shipment:', error);
-      throw new InternalServerErrorException('Failed to create shipment');
+async create(createDto: CreateShipmentDto, userId: string, organizationId: string): Promise<Shipment> {
+  try {
+    if (!organizationId) {
+      throw new ForbiddenException('Organization ID is required. Please select a company first.');
     }
+
+    let trackingNumber = createDto.trackingNumber;
+    const existingShipment = await this.shipmentRepository.findOne({
+      where: { trackingNumber }
+    });
+    
+    if (existingShipment) {
+      trackingNumber = this.generateUniqueTrackingNumber();
+    }
+
+    const shipment = this.shipmentRepository.create({
+      trackingNumber,
+      pickupAddress: createDto.pickupAddress,
+      pickupLatitude: createDto.pickupLatitude,
+      pickupLongitude: createDto.pickupLongitude,
+      deliveryAddress: createDto.deliveryAddress,
+      deliveryLatitude: createDto.deliveryLatitude,
+      deliveryLongitude: createDto.deliveryLongitude,
+      weightKg: createDto.weightKg,
+      volumeM3: createDto.volumeM3,
+      priority: createDto.priority || ShipmentPriority.NORMAL,
+      isExpress: createDto.isExpress || false,
+      notes: createDto.notes,
+      customerId: userId,
+      organizationId: organizationId,
+      createdBy: userId,
+      status: ShipmentStatus.PENDING,
+    });
+
+    const savedShipment = await this.shipmentRepository.save(shipment);
+
+    // ✅ Shto audit log për krijimin e shipment-it
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'CREATE',
+      method: 'POST',
+      url: '/shipments',
+      entityType: 'shipment',
+      entityId: savedShipment.id,
+      newValues: {
+        trackingNumber: savedShipment.trackingNumber,
+        pickupAddress: savedShipment.pickupAddress,
+        deliveryAddress: savedShipment.deliveryAddress,
+        weightKg: savedShipment.weightKg,
+        volumeM3: savedShipment.volumeM3,
+        priority: savedShipment.priority,
+        isExpress: savedShipment.isExpress,
+        notes: savedShipment.notes,
+      },
+      statusCode: 201,
+    });
+
+    console.log(`✅ Audit log created for shipment ${savedShipment.id} by user ${userId}`);
+
+    // Notifikatat
+    await this.notificationsService.createForRole(
+      'dispatcher',
+      'New Shipment Created',
+      `A new shipment has been created (Tracking: ${trackingNumber}). Please assign a driver.`,
+      { shipmentId: savedShipment.id, trackingNumber }
+    );
+
+    await this.notificationsService.createForRole(
+      'company_admin',
+      'New Shipment Created',
+      `A new shipment (${trackingNumber}) has been created.`,
+      { shipmentId: savedShipment.id, trackingNumber }
+    );
+
+    return savedShipment;
+  } catch (error) {
+    console.error('Error creating shipment:', error);
+    
+    // ✅ Log error në audit
+    const err = error as Error;
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'CREATE_ERROR',
+      method: 'POST',
+      url: '/shipments',
+      entityType: 'shipment',
+      errorMessage: err.message,
+      statusCode: 500,
+    });
+    
+    throw new InternalServerErrorException('Failed to create shipment');
   }
-// src/modules/shipments/shipments.service.ts
-// Shto këtë metodë pas assignVehicle ose në fund
-
-async updateCoordinates(id: string, updateCoordinatesDto: UpdateCoordinatesDto, organizationId: string): Promise<any> {
-  // Verifiko që shipment-i ekziston dhe i përket organizatës
-  const shipment = await this.shipmentRepository.findOne({
-    where: { id, organizationId },
-  });
-
-  if (!shipment) {
-    throw new NotFoundException('Shipment not found');
-  }
-
-  // Përgatit të dhënat për përditësim
-  const updates: any = {};
-  
-  if (updateCoordinatesDto.pickupLatitude !== undefined) {
-    updates.pickupLatitude = updateCoordinatesDto.pickupLatitude;
-  }
-  if (updateCoordinatesDto.pickupLongitude !== undefined) {
-    updates.pickupLongitude = updateCoordinatesDto.pickupLongitude;
-  }
-  if (updateCoordinatesDto.deliveryLatitude !== undefined) {
-    updates.deliveryLatitude = updateCoordinatesDto.deliveryLatitude;
-  }
-  if (updateCoordinatesDto.deliveryLongitude !== undefined) {
-    updates.deliveryLongitude = updateCoordinatesDto.deliveryLongitude;
-  }
-
-  // Përditëso shipment-in
-  await this.shipmentRepository.update(id, updates);
-
-  // Kthe shipment-in e përditësuar
-  const updatedShipment = await this.findOne(id, organizationId, 'admin', '');
-
-  // ✅ Notifikatë për dispatchers kur përditësohen koordinatat
-  await this.notificationsService.createForRole(
-    'dispatcher',
-    'Shipment Coordinates Updated',
-    `Coordinates for shipment ${shipment.trackingNumber} have been updated.`,
-    { shipmentId: id, trackingNumber: shipment.trackingNumber }
-  );
-
-  return updatedShipment;
 }
-// backend/src/modules/shipments/shipments.service.ts
-async findAll(query: ShipmentQueryDto, organizationId: string, userRole: string, userId: string) {
-  const { status, search, driverId, page = 1, limit = 10 } = query;
-  const skip = (page - 1) * limit;
-  const where: any = { organizationId };
 
-  if (status) where.status = status;
-  if (driverId) where.driverId = driverId;
-  if (search) where.trackingNumber = Like(`%${search}%`);
-  if (userRole === 'driver') where.driverId = userId;
+  async updateCoordinates(id: string, updateCoordinatesDto: UpdateCoordinatesDto, organizationId: string, userId: string): Promise<any> {
+    const shipment = await this.shipmentRepository.findOne({
+      where: { id, organizationId },
+    });
 
-  const [items, total] = await this.shipmentRepository.findAndCount({
-    where,
-    relations: ['driver', 'driver.user', 'vehicle', 'customer'],
-    skip,
-    take: limit,
-    order: { createdAt: 'DESC' },
-  });
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
 
-  // Transformo të dhënat për frontend (pa select)
-  const transformedItems = items.map(shipment => ({
-    id: shipment.id,
-    trackingNumber: shipment.trackingNumber,
-    status: shipment.status,
-    pickupAddress: shipment.pickupAddress,
-    deliveryAddress: shipment.deliveryAddress,
-    createdAt: shipment.createdAt,
-    customer: shipment.customer ? {
-      name: shipment.customer.name,
-      email: shipment.customer.email
-    } : null,
-    driver: shipment.driver ? {
-      name: shipment.driver.user?.name || 'Driver',
-      id: shipment.driver.id,
-      phone: shipment.driver.phone
-    } : null,
-    vehicle: shipment.vehicle ? {
-      licensePlate: shipment.vehicle.licensePlate,
-      type: shipment.vehicle.type
-    } : null
-  }));
+    const oldValues: any = {};
+    if (updateCoordinatesDto.pickupLatitude !== undefined) oldValues.pickupLatitude = shipment.pickupLatitude;
+    if (updateCoordinatesDto.pickupLongitude !== undefined) oldValues.pickupLongitude = shipment.pickupLongitude;
+    if (updateCoordinatesDto.deliveryLatitude !== undefined) oldValues.deliveryLatitude = shipment.deliveryLatitude;
+    if (updateCoordinatesDto.deliveryLongitude !== undefined) oldValues.deliveryLongitude = shipment.deliveryLongitude;
 
-  return { items: transformedItems, total, page, limit, totalPages: Math.ceil(total / limit) };
-}
+    const updates: any = {};
+    if (updateCoordinatesDto.pickupLatitude !== undefined) updates.pickupLatitude = updateCoordinatesDto.pickupLatitude;
+    if (updateCoordinatesDto.pickupLongitude !== undefined) updates.pickupLongitude = updateCoordinatesDto.pickupLongitude;
+    if (updateCoordinatesDto.deliveryLatitude !== undefined) updates.deliveryLatitude = updateCoordinatesDto.deliveryLatitude;
+    if (updateCoordinatesDto.deliveryLongitude !== undefined) updates.deliveryLongitude = updateCoordinatesDto.deliveryLongitude;
+
+    await this.shipmentRepository.update(id, updates);
+
+    // ✅ Audit log for coordinates update
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'UPDATE_COORDINATES',
+      method: 'PATCH',
+      url: `/shipments/${id}/coordinates`,
+      entityType: 'shipment',
+      entityId: id,
+      oldValues: Object.keys(oldValues).length ? oldValues : null,
+      newValues: updates,
+      statusCode: 200,
+    });
+
+    const updatedShipment = await this.findOne(id, organizationId, 'admin', '');
+
+    await this.notificationsService.createForRole(
+      'dispatcher',
+      'Shipment Coordinates Updated',
+      `Coordinates for shipment ${shipment.trackingNumber} have been updated.`,
+      { shipmentId: id, trackingNumber: shipment.trackingNumber }
+    );
+
+    return updatedShipment;
+  }
+
+  async findAll(query: ShipmentQueryDto, organizationId: string, userRole: string, userId: string) {
+    const { status, search, driverId, page = 1, limit = 10 } = query;
+    const skip = (page - 1) * limit;
+    const where: any = { organizationId };
+
+    if (status) where.status = status;
+    if (driverId) where.driverId = driverId;
+    if (search) where.trackingNumber = Like(`%${search}%`);
+    if (userRole === 'driver') where.driverId = userId;
+
+    const [items, total] = await this.shipmentRepository.findAndCount({
+      where,
+      relations: ['driver', 'driver.user', 'vehicle', 'customer'],
+      skip,
+      take: limit,
+      order: { createdAt: 'DESC' },
+    });
+
+    const transformedItems = items.map(shipment => ({
+      id: shipment.id,
+      trackingNumber: shipment.trackingNumber,
+      status: shipment.status,
+      pickupAddress: shipment.pickupAddress,
+      deliveryAddress: shipment.deliveryAddress,
+      createdAt: shipment.createdAt,
+      customer: shipment.customer ? {
+        name: shipment.customer.name,
+        email: shipment.customer.email
+      } : null,
+      driver: shipment.driver ? {
+        name: shipment.driver.user?.name || 'Driver',
+        id: shipment.driver.id,
+        phone: shipment.driver.phone
+      } : null,
+      vehicle: shipment.vehicle ? {
+        licensePlate: shipment.vehicle.licensePlate,
+        type: shipment.vehicle.type
+      } : null
+    }));
+
+    return { items: transformedItems, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
 
   async getHistory(id: string, organizationId: string, userRole: string, userId: string): Promise<any[]> {
     await this.findOne(id, organizationId, userRole, userId);
@@ -256,25 +297,68 @@ async findAll(query: ShipmentQueryDto, organizationId: string, userRole: string,
     };
   }
 
-  async update(id: string, updateDto: UpdateShipmentDto, organizationId: string): Promise<Shipment> {
-    await this.findOne(id, organizationId, 'admin', '');
+  async update(id: string, updateDto: UpdateShipmentDto, organizationId: string, userId: string): Promise<Shipment> {
+    const oldShipment = await this.findOne(id, organizationId, 'admin', '');
     
     const allowedUpdates: Partial<Shipment> = {};
-    if (updateDto.pickupAddress !== undefined) allowedUpdates.pickupAddress = updateDto.pickupAddress;
-    if (updateDto.deliveryAddress !== undefined) allowedUpdates.deliveryAddress = updateDto.deliveryAddress;
-    if (updateDto.weightKg !== undefined) allowedUpdates.weightKg = updateDto.weightKg;
-    if (updateDto.volumeM3 !== undefined) allowedUpdates.volumeM3 = updateDto.volumeM3;
-    if (updateDto.priority !== undefined) allowedUpdates.priority = updateDto.priority;
-    if (updateDto.isExpress !== undefined) allowedUpdates.isExpress = updateDto.isExpress;
-    if (updateDto.notes !== undefined) allowedUpdates.notes = updateDto.notes;
+    const changedFields: any = {};
+    
+    if (updateDto.pickupAddress !== undefined && updateDto.pickupAddress !== oldShipment.pickupAddress) {
+      allowedUpdates.pickupAddress = updateDto.pickupAddress;
+      changedFields.pickupAddress = { old: oldShipment.pickupAddress, new: updateDto.pickupAddress };
+    }
+    if (updateDto.deliveryAddress !== undefined && updateDto.deliveryAddress !== oldShipment.deliveryAddress) {
+      allowedUpdates.deliveryAddress = updateDto.deliveryAddress;
+      changedFields.deliveryAddress = { old: oldShipment.deliveryAddress, new: updateDto.deliveryAddress };
+    }
+    if (updateDto.weightKg !== undefined && updateDto.weightKg !== oldShipment.weightKg) {
+      allowedUpdates.weightKg = updateDto.weightKg;
+      changedFields.weightKg = { old: oldShipment.weightKg, new: updateDto.weightKg };
+    }
+    if (updateDto.volumeM3 !== undefined && updateDto.volumeM3 !== oldShipment.volumeM3) {
+      allowedUpdates.volumeM3 = updateDto.volumeM3;
+      changedFields.volumeM3 = { old: oldShipment.volumeM3, new: updateDto.volumeM3 };
+    }
+    if (updateDto.priority !== undefined && updateDto.priority !== oldShipment.priority) {
+      allowedUpdates.priority = updateDto.priority;
+      changedFields.priority = { old: oldShipment.priority, new: updateDto.priority };
+    }
+    if (updateDto.isExpress !== undefined && updateDto.isExpress !== oldShipment.isExpress) {
+      allowedUpdates.isExpress = updateDto.isExpress;
+      changedFields.isExpress = { old: oldShipment.isExpress, new: updateDto.isExpress };
+    }
+    if (updateDto.notes !== undefined && updateDto.notes !== oldShipment.notes) {
+      allowedUpdates.notes = updateDto.notes;
+      changedFields.notes = { old: oldShipment.notes, new: updateDto.notes };
+    }
+    
+    if (Object.keys(allowedUpdates).length === 0) {
+      return oldShipment;
+    }
     
     await this.shipmentRepository.update(id, allowedUpdates);
+
+    // ✅ Audit log for update
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'UPDATE',
+      method: 'PUT',
+      url: `/shipments/${id}`,
+      entityType: 'shipment',
+      entityId: id,
+      oldValues: changedFields,
+      newValues: allowedUpdates,
+      statusCode: 200,
+    });
+
     return this.findOne(id, organizationId, 'admin', '');
   }
 
   async updateStatus(id: string, statusDto: UpdateStatusDto, organizationId: string, userId: string): Promise<Shipment> {
     const shipment = await this.findOne(id, organizationId, 'admin', '');
     
+    const oldStatus = shipment.status;
     const updates: any = { status: statusDto.status };
     if (statusDto.status === ShipmentStatus.PICKED_UP) updates.pickedUpAt = new Date();
     if (statusDto.status === ShipmentStatus.DELIVERED) updates.actualDelivery = new Date();
@@ -282,7 +366,21 @@ async findAll(query: ShipmentQueryDto, organizationId: string, userRole: string,
     await this.shipmentRepository.update(id, updates);
     const updatedShipment = await this.findOne(id, organizationId, 'admin', '');
 
-    // ✅ Notifikata kur shipment-i dorëzohet
+    // ✅ Audit log for status change
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'UPDATE_STATUS',
+      method: 'PATCH',
+      url: `/shipments/${id}/status`,
+      entityType: 'shipment',
+      entityId: id,
+      oldValues: { status: oldStatus },
+      newValues: { status: statusDto.status },
+      statusCode: 200,
+    });
+
+    // Notifikatat
     if (statusDto.status === ShipmentStatus.DELIVERED) {
       await this.notificationsService.create({
         userId: updatedShipment.customerId,
@@ -301,15 +399,15 @@ async findAll(query: ShipmentQueryDto, organizationId: string, userRole: string,
 
     return updatedShipment;
   }
-  
 
-  async assignDriver(id: string, driverId: string, organizationId: string): Promise<Shipment> {
+  async assignDriver(id: string, driverId: string, organizationId: string, userId: string): Promise<Shipment> {
     const shipment = await this.findOne(id, organizationId, 'admin', '');
     
     if (!shipment) {
       throw new NotFoundException('Shipment not found');
     }
     
+    const oldDriverId = shipment.driverId;
     let finalDriverId = driverId;
     
     const driverByUser = await this.driverRepository.findOne({
@@ -326,6 +424,20 @@ async findAll(query: ShipmentQueryDto, organizationId: string, userRole: string,
       status: ShipmentStatus.IN_TRANSIT
     });
 
+    // ✅ Audit log for driver assignment
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'ASSIGN_DRIVER',
+      method: 'PATCH',
+      url: `/shipments/${id}/assign-driver/${driverId}`,
+      entityType: 'shipment',
+      entityId: id,
+      oldValues: { driverId: oldDriverId },
+      newValues: { driverId: finalDriverId },
+      statusCode: 200,
+    });
+
     const updated = await this.shipmentRepository.findOne({
       where: { id },
       relations: ['driver', 'vehicle'],
@@ -339,10 +451,9 @@ async findAll(query: ShipmentQueryDto, organizationId: string, userRole: string,
         driver.licenseNumber = vehicle.licensePlate;
         await this.driverRepository.save(driver);
       }
-      
     }
 
-    // ✅ Notifikatë për driver-in e assignuar
+    // Notifikatat
     const driver = await this.driverRepository.findOne({
       where: { id: finalDriverId },
       relations: ['user'],
@@ -357,7 +468,6 @@ async findAll(query: ShipmentQueryDto, organizationId: string, userRole: string,
       });
     }
 
-    // ✅ Notifikatë për dispatchers
     await this.notificationsService.createForRole(
       'dispatcher',
       'Driver Assigned',
@@ -368,10 +478,25 @@ async findAll(query: ShipmentQueryDto, organizationId: string, userRole: string,
     return this.findOne(id, organizationId, 'admin', '');
   }
 
-  async assignVehicle(id: string, vehicleId: string, organizationId: string): Promise<Shipment> {
-    await this.findOne(id, organizationId, 'admin', '');
+  async assignVehicle(id: string, vehicleId: string, organizationId: string, userId: string): Promise<Shipment> {
+    const oldShipment = await this.findOne(id, organizationId, 'admin', '');
+    const oldVehicleId = oldShipment.vehicleId;
 
     await this.shipmentRepository.update(id, { vehicleId });
+
+    // ✅ Audit log for vehicle assignment
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'ASSIGN_VEHICLE',
+      method: 'PATCH',
+      url: `/shipments/${id}/assign-vehicle/${vehicleId}`,
+      entityType: 'shipment',
+      entityId: id,
+      oldValues: { vehicleId: oldVehicleId },
+      newValues: { vehicleId },
+      statusCode: 200,
+    });
 
     const updated = await this.shipmentRepository.findOne({
       where: { id },
@@ -492,8 +617,25 @@ async findAll(query: ShipmentQueryDto, organizationId: string, userRole: string,
     };
   }
 
-  async remove(id: string, organizationId: string): Promise<void> {
-    await this.findOne(id, organizationId, 'admin', '');
+  async remove(id: string, organizationId: string, userId: string): Promise<void> {
+    const shipment = await this.findOne(id, organizationId, 'admin', '');
+    
+    // ✅ Audit log before deletion
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'DELETE',
+      method: 'DELETE',
+      url: `/shipments/${id}`,
+      entityType: 'shipment',
+      entityId: id,
+      oldValues: {
+        trackingNumber: shipment.trackingNumber,
+        status: shipment.status,
+      },
+      statusCode: 200,
+    });
+    
     await this.shipmentRepository.delete(id);
   }
 }
