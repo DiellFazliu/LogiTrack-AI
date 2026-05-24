@@ -13,6 +13,7 @@ import { UpdateDriverDto } from './dto/update-driver.dto';
 import { User } from '../users/user.entity';
 import { UsersService } from '../users/users.service';
 import { DriverLocation } from './location.entity';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class DriversService {
@@ -23,9 +24,10 @@ export class DriversService {
     private locationRepository: Repository<DriverLocation>,
     private usersService: UsersService,
     private dataSource: DataSource,
+    private auditService: AuditService,
   ) {}
 
-  async create(createDto: CreateDriverDto, organizationId: string): Promise<Driver> {
+  async create(createDto: CreateDriverDto, organizationId: string, userId: string): Promise<Driver> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -103,6 +105,23 @@ export class DriversService {
       const savedDriver = await queryRunner.manager.save(driver);
 
       await queryRunner.commitTransaction();
+
+      // ✅ Audit log for driver creation
+      await this.auditService.log({
+        organizationId,
+        userId,
+        action: 'CREATE_DRIVER',
+        entityType: 'driver',
+        entityId: savedDriver.id,
+        newValues: {
+          name: savedUser?.name,
+          email: savedUser?.email,
+          licenseNumber: savedDriver.licenseNumber,
+          phone: savedDriver.phone,
+          status: savedDriver.status,
+        },
+      });
+
       return savedDriver;
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -112,70 +131,152 @@ export class DriversService {
     }
   }
 
-  async findAll(organizationId: string, status?: DriverStatus): Promise<Driver[]> {
+  async findAll(organizationId: string, userId: string, status?: DriverStatus): Promise<Driver[]> {
     const where: any = { organizationId, isActive: true };
     if (status) where.status = status;
 
-    return this.driverRepository.find({
+    const drivers = await this.driverRepository.find({
       where,
       relations: ['user', 'organization'],
       order: { createdAt: 'DESC' },
     });
+
+    // ✅ Audit log for viewing drivers list
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'VIEW_DRIVERS_LIST',
+      entityType: 'driver',
+      newValues: { count: drivers.length },
+    });
+
+    return drivers;
   }
 
-  async findOne(id: string, organizationId: string): Promise<Driver> {
+  async findOne(id: string, organizationId: string, userId: string): Promise<Driver> {
     const driver = await this.driverRepository.findOne({
       where: { id, organizationId, isActive: true },
       relations: ['user', 'organization', 'shipments'],
     });
 
     if (!driver) throw new NotFoundException('Driver not found');
+    
+    // ✅ Audit log for viewing driver details
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'VIEW_DRIVER_DETAILS',
+      entityType: 'driver',
+      entityId: driver.id,
+      newValues: { name: driver.user?.name, status: driver.status },
+    });
+    
     return driver;
   }
-// backend/src/modules/drivers/drivers.service.ts
-// Shto këtë metodë:
 
-async getLastLocationByDriverId(driverId: string): Promise<DriverLocation | null> {
-  const lastLocation = await this.locationRepository.findOne({
-    where: { driverId },
-    order: { createdAt: 'DESC' },
-  });
-  return lastLocation;
-}
+  async getLastLocationByDriverId(driverId: string): Promise<DriverLocation | null> {
+    const lastLocation = await this.locationRepository.findOne({
+      where: { driverId },
+      order: { createdAt: 'DESC' },
+    });
+    return lastLocation;
+  }
 
   async findByUserId(userId: string): Promise<Driver | null> {
     return this.driverRepository.findOne({
       where: { userId: userId, isActive: true },
     });
   }
-  
 
   async update(
     id: string,
     updateDto: UpdateDriverDto,
     organizationId: string,
+    userId: string,
   ): Promise<Driver> {
-    await this.findOne(id, organizationId);
+    const oldDriver = await this.findOne(id, organizationId, userId);
+    
+    const changes: any = {};
+    if (updateDto.licenseNumber !== undefined && updateDto.licenseNumber !== oldDriver.licenseNumber) {
+      changes.licenseNumber = { old: oldDriver.licenseNumber, new: updateDto.licenseNumber };
+    }
+    if (updateDto.phone !== undefined && updateDto.phone !== oldDriver.phone) {
+      changes.phone = { old: oldDriver.phone, new: updateDto.phone };
+    }
+    if (updateDto.status !== undefined && updateDto.status !== oldDriver.status) {
+      changes.status = { old: oldDriver.status, new: updateDto.status };
+    }
+    
     await this.driverRepository.update(id, updateDto);
-    return this.findOne(id, organizationId);
+    const updatedDriver = await this.findOne(id, organizationId, userId);
+    
+    // ✅ Audit log for driver update
+    if (Object.keys(changes).length > 0) {
+      await this.auditService.log({
+        organizationId,
+        userId,
+        action: 'UPDATE_DRIVER',
+        entityType: 'driver',
+        entityId: id,
+        oldValues: changes,
+        newValues: {
+          licenseNumber: updatedDriver.licenseNumber,
+          phone: updatedDriver.phone,
+          status: updatedDriver.status,
+        },
+      });
+    }
+    
+    return updatedDriver;
   }
 
   async updateStatus(
     id: string,
     status: DriverStatus,
     organizationId: string,
+    userId: string,
   ): Promise<Driver> {
-    await this.findOne(id, organizationId);
+    const oldDriver = await this.findOne(id, organizationId, userId);
+    const oldStatus = oldDriver.status;
+    
     await this.driverRepository.update(id, { status });
-    return this.findOne(id, organizationId);
+    const updatedDriver = await this.findOne(id, organizationId, userId);
+    
+    // ✅ Audit log for driver status change
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'UPDATE_DRIVER_STATUS',
+      entityType: 'driver',
+      entityId: id,
+      oldValues: { status: oldStatus },
+      newValues: { status },
+    });
+    
+    return updatedDriver;
   }
 
-  async remove(id: string, organizationId: string): Promise<void> {
-    await this.findOne(id, organizationId);
+  async remove(id: string, organizationId: string, userId: string): Promise<void> {
+    const driver = await this.findOne(id, organizationId, userId);
+    
+    // ✅ Audit log for driver deletion
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'DELETE_DRIVER',
+      entityType: 'driver',
+      entityId: id,
+      oldValues: {
+        name: driver.user?.name,
+        licenseNumber: driver.licenseNumber,
+        status: driver.status,
+      },
+    });
+    
     await this.driverRepository.update(id, { isActive: false });
   }
 
-  async getAvailable(organizationId: string): Promise<any[]> {
+  async getAvailable(organizationId: string, userId: string): Promise<any[]> {
     const drivers = await this.driverRepository.find({
       where: {
         organizationId,
@@ -184,6 +285,15 @@ async getLastLocationByDriverId(driverId: string): Promise<DriverLocation | null
       },
       relations: ['user'],
       order: { createdAt: 'DESC' },
+    });
+
+    // ✅ Audit log for viewing available drivers
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'VIEW_AVAILABLE_DRIVERS',
+      entityType: 'driver',
+      newValues: { count: drivers.length },
     });
 
     return drivers.map((driver) => ({
@@ -200,36 +310,49 @@ async getLastLocationByDriverId(driverId: string): Promise<DriverLocation | null
 
   // ==================== LOCATION METHODS ====================
 
-// backend/src/modules/drivers/drivers.service.ts
-async updateLocation(
-  driverId: string,  // kjo është driver.id, jo userId
-  latitude: number,
-  longitude: number,
-  address?: string,
-): Promise<DriverLocation> {
-  console.log('updateLocation called with driverId:', driverId);
-  
-  // Gjej driver-in duke përdorur ID direkte
-  const driver = await this.driverRepository.findOne({
-    where: { id: driverId, isActive: true }
-  });
-  
-  if (!driver) {
-    throw new NotFoundException('Driver not found');
+  async updateLocation(
+    driverId: string,
+    latitude: number,
+    longitude: number,
+    userId: string,
+    address?: string,
+  ): Promise<DriverLocation> {
+    console.log('updateLocation called with driverId:', driverId);
+    
+    const driver = await this.driverRepository.findOne({
+      where: { id: driverId, isActive: true }
+    });
+    
+    if (!driver) {
+      throw new NotFoundException('Driver not found');
+    }
+
+    const location = this.locationRepository.create({
+      driverId: driver.id,
+      latitude,
+      longitude,
+      address,
+    });
+
+    const saved = await this.locationRepository.save(location);
+    console.log('Location saved:', saved);
+    
+    // ✅ Audit log for location update
+    await this.auditService.log({
+      organizationId: driver.organizationId,
+      userId,
+      action: 'UPDATE_DRIVER_LOCATION',
+      entityType: 'driver',
+      entityId: driver.id,
+      newValues: {
+        latitude,
+        longitude,
+        address: address || null,
+      },
+    });
+    
+    return saved;
   }
-
-  const location = this.locationRepository.create({
-    driverId: driver.id,
-    latitude,
-    longitude,
-    address,
-  });
-
-  const saved = await this.locationRepository.save(location);
-  console.log('Location saved:', saved);
-  
-  return saved;
-}
 
   async getLocationHistory(
     userId: string,

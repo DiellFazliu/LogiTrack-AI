@@ -1,11 +1,10 @@
-// src/modules/shipments/shipments.controller.ts
 import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ShipmentsService } from './shipments.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
-import { UpdateCoordinatesDto } from './dto/update-coordinates.dto'; // ✅ Shto këtë import
+import { UpdateCoordinatesDto } from './dto/update-coordinates.dto';
 import { ShipmentQueryDto } from './dto/shipment-query.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -84,7 +83,7 @@ export class ShipmentsController {
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Update shipment' })
   update(@Param('id') id: string, @Body() updateDto: UpdateShipmentDto, @Request() req) {
-    return this.shipmentsService.update(id, updateDto, req.user.organizationId);
+    return this.shipmentsService.update(id, updateDto, req.user.organizationId, req.user.id);
   }
 
   @Patch(':id/status')
@@ -94,7 +93,6 @@ export class ShipmentsController {
     return this.shipmentsService.updateStatus(id, statusDto, req.user.organizationId, req.user.id);
   }
 
-  // ✅ Shto këtë metodë të re:
   @Patch(':id/coordinates')
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Update shipment pickup/delivery coordinates' })
@@ -103,27 +101,27 @@ export class ShipmentsController {
     @Body() updateCoordinatesDto: UpdateCoordinatesDto,
     @Request() req,
   ) {
-    return this.shipmentsService.updateCoordinates(id, updateCoordinatesDto, req.user.organizationId);
+    return this.shipmentsService.updateCoordinates(id, updateCoordinatesDto, req.user.organizationId, req.user.id);
   }
 
   @Patch(':id/assign-driver/:driverId')
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Assign driver to shipment' })
   assignDriver(@Param('id') id: string, @Param('driverId') driverId: string, @Request() req) {
-    return this.shipmentsService.assignDriver(id, driverId, req.user.organizationId);
+    return this.shipmentsService.assignDriver(id, driverId, req.user.organizationId, req.user.id);
   }
 
   @Patch(':id/assign-vehicle/:vehicleId')
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Assign vehicle to shipment' })
   assignVehicle(@Param('id') id: string, @Param('vehicleId') vehicleId: string, @Request() req) {
-    return this.shipmentsService.assignVehicle(id, vehicleId, req.user.organizationId);
+    return this.shipmentsService.assignVehicle(id, vehicleId, req.user.organizationId, req.user.id);
   }
 
   @Delete(':id')
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
   @ApiOperation({ summary: 'Delete shipment' })
   remove(@Param('id') id: string, @Request() req) {
-    return this.shipmentsService.remove(id, req.user.organizationId);
+    return this.shipmentsService.remove(id, req.user.organizationId, req.user.id);
   }
 }

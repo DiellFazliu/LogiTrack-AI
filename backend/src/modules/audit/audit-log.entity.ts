@@ -1,3 +1,4 @@
+// audit-log.entity.ts - VERSIONI I SAKTË (pa kolonat shtesë)
 import {
   Entity,
   Column,
@@ -34,17 +35,11 @@ export class AuditLog {
   @JoinColumn({ name: 'user_id' })
   user!: User | null;
 
-  @Column()
+  @Column({ type: 'varchar' })
   action!: string;
 
-  @Column({ name: 'method', nullable: true })
-  method!: string;
-
-  @Column({ name: 'url', nullable: true, type: 'text' })
-  url!: string;
-
-  @Column({ name: 'entity_type', nullable: true })
-  entityType!: string;
+  @Column({ name: 'entity_type', nullable: true, type: 'varchar' })
+  entityType!: string | null;
 
   @Column({ name: 'entity_id', nullable: true, type: 'uuid' })
   entityId!: string | null;
@@ -55,21 +50,12 @@ export class AuditLog {
   @Column({ name: 'new_values', type: 'jsonb', nullable: true })
   newValues: any;
 
-  @Column({ name: 'ip_address', nullable: true })
-  ipAddress!: string;
+  @Column({ name: 'ip_address', nullable: true, type: 'varchar' })
+  ipAddress!: string | null;
 
-  @Column({ name: 'user_agent', type: 'text', nullable: true })
-  userAgent!: string;
+  @Column({ name: 'user_agent', nullable: true, type: 'text' })
+  userAgent!: string | null;
 
-  @Column({ name: 'status_code', type: 'int', nullable: true })
-  statusCode!: number;
-
-  @Column({ name: 'response_time_ms', type: 'int', nullable: true })
-  responseTimeMs!: number;
-
-  @Column({ name: 'error_message', type: 'text', nullable: true })
-  errorMessage!: string;
-
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt!: Date;
 }

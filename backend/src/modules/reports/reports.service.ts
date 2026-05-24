@@ -9,6 +9,7 @@ import { Vehicle, VehicleStatus } from '../vehicles/vehicle.entity';
 import * as json2csv from 'json2csv';
 import { Review } from '../reviews/review.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class ReportsService {
@@ -29,6 +30,7 @@ export class ReportsService {
     private reviewRepository: Repository<Review>,
 
     private notificationsService: NotificationsService,
+    private auditService: AuditService,
   ) {}
 
   // ==================== CRUD OPERATIONS ====================
@@ -41,7 +43,23 @@ export class ReportsService {
       data,
       generatedBy: userId,
     });
-    return this.reportRepository.save(report);
+    
+    const savedReport = await this.reportRepository.save(report);
+    
+    // ✅ Audit log for report creation
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'CREATE_REPORT',
+      entityType: 'report',
+      entityId: savedReport.id,
+      newValues: {
+        type: savedReport.type,
+        title: savedReport.title,
+      },
+    });
+    
+    return savedReport;
   }
 
   async getReport(id: string, organizationId: string): Promise<Report> {
@@ -55,32 +73,77 @@ export class ReportsService {
     return report;
   }
 
-  async getReportsByOrganization(organizationId: string): Promise<Report[]> {
-    return this.reportRepository.find({
+  async getReportsByOrganization(organizationId: string, userId: string): Promise<Report[]> {
+    const reports = await this.reportRepository.find({
       where: { organizationId },
       relations: ['user'],
       order: { generatedAt: 'DESC' },
     });
+    
+    // ✅ Audit log for viewing reports list
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'VIEW_REPORTS_LIST',
+      entityType: 'report',
+      newValues: { count: reports.length },
+    });
+    
+    return reports;
   }
 
-  async updateReport(id: string, organizationId: string, title?: string, data?: any, fileUrl?: string): Promise<Report> {
-    const report = await this.getReport(id, organizationId);
+  async updateReport(id: string, organizationId: string, userId: string, title?: string, data?: any, fileUrl?: string): Promise<Report> {
+    const oldReport = await this.getReport(id, organizationId);
     
-    if (title !== undefined) report.title = title;
-    if (data !== undefined) report.data = data;
-    if (fileUrl !== undefined) report.fileUrl = fileUrl;
+    const changes: any = {};
+    if (title !== undefined && title !== oldReport.title) changes.title = { old: oldReport.title, new: title };
+    if (data !== undefined) changes.data = { old: oldReport.data, new: data };
+    if (fileUrl !== undefined && fileUrl !== oldReport.fileUrl) changes.fileUrl = { old: oldReport.fileUrl, new: fileUrl };
     
-    return this.reportRepository.save(report);
+    if (title !== undefined) oldReport.title = title;
+    if (data !== undefined) oldReport.data = data;
+    if (fileUrl !== undefined) oldReport.fileUrl = fileUrl;
+    
+    const updatedReport = await this.reportRepository.save(oldReport);
+    
+    // ✅ Audit log for report update
+    if (Object.keys(changes).length > 0) {
+      await this.auditService.log({
+        organizationId,
+        userId,
+        action: 'UPDATE_REPORT',
+        entityType: 'report',
+        entityId: id,
+        oldValues: changes,
+        newValues: { title: updatedReport.title },
+      });
+    }
+    
+    return updatedReport;
   }
 
-  async deleteReport(id: string, organizationId: string): Promise<void> {
+  async deleteReport(id: string, organizationId: string, userId: string): Promise<void> {
     const report = await this.getReport(id, organizationId);
+    
+    // ✅ Audit log before deletion
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'DELETE_REPORT',
+      entityType: 'report',
+      entityId: id,
+      oldValues: {
+        type: report.type,
+        title: report.title,
+      },
+    });
+    
     await this.reportRepository.remove(report);
   }
 
   // ==================== DASHBOARD STATS ====================
 
-  async getDashboardStats(organizationId: string) {
+  async getDashboardStats(organizationId: string, userId: string) {
     const [shipments, drivers, vehicles] = await Promise.all([
       this.shipmentRepository.find({ where: { organizationId } }),
       this.driverRepository.find({ where: { organizationId, isActive: true } }),
@@ -132,7 +195,7 @@ export class ReportsService {
       avgDeliveryTime = parseFloat((totalDays / completedWithDates.length).toFixed(1));
     }
 
-    return {
+    const stats = {
       totalShipments,
       completedShipments,
       pendingShipments,
@@ -146,11 +209,22 @@ export class ReportsService {
       avgDeliveryTime,
       onTimeDelivery,
     };
+    
+    // ✅ Audit log for dashboard view
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'VIEW_DASHBOARD',
+      entityType: 'dashboard',
+      newValues: { stats },
+    });
+    
+    return stats;
   }
 
   // ==================== DAILY REPORTS ====================
 
-  async generateDailyReport(organizationId: string, date: Date): Promise<Report> {
+  async generateDailyReport(organizationId: string, userId: string, date: Date): Promise<Report> {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(date);
@@ -187,14 +261,40 @@ export class ReportsService {
       type: 'daily',
       title: `Daily Report - ${date.toDateString()}`,
       data,
+      generatedBy: userId,
     });
 
-    return this.reportRepository.save(report);
+    const savedReport = await this.reportRepository.save(report);
+    
+    // ✅ Audit log for daily report generation
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'GENERATE_DAILY_REPORT',
+      entityType: 'report',
+      entityId: savedReport.id,
+      newValues: {
+        type: 'daily',
+        date: date.toISOString(),
+        totalShipments: total,
+        delivered,
+      },
+    });
+    
+    // ✅ Dërgo notifikatë për admin-at e kompanisë
+    await this.notificationsService.createForRole(
+      'company_admin',
+      'Daily Report Generated',
+      `Daily report for ${date.toDateString()} has been generated. Total shipments: ${total}`,
+      { reportId: savedReport.id, type: 'daily' }
+    );
+
+    return savedReport;
   }
 
   // ==================== CUSTOM REPORTS ====================
 
-  async generateCustomReport(organizationId: string, startDate: string, endDate: string, type: string): Promise<Report> {
+  async generateCustomReport(organizationId: string, userId: string, startDate: string, endDate: string, type: string): Promise<Report> {
     const start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
     const end = new Date(endDate);
@@ -291,9 +391,29 @@ export class ReportsService {
       type,
       title: `${type.toUpperCase()} Report - ${new Date().toLocaleDateString()}`,
       data,
+      generatedBy: userId,
     });
 
     const savedReport = await this.reportRepository.save(report);
+    
+    // ✅ Audit log for custom report generation
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'GENERATE_CUSTOM_REPORT',
+      entityType: 'report',
+      entityId: savedReport.id,
+      newValues: {
+        type,
+        startDate,
+        endDate,
+        reportData: {
+          shipments: data.shipmentStats,
+          drivers: data.driverStats,
+          financial: data.totalRevenue ? { totalRevenue: data.totalRevenue } : null,
+        },
+      },
+    });
 
     // ✅ Dërgo notifikatë për admin-at e kompanisë
     await this.notificationsService.createForRole(
@@ -308,10 +428,22 @@ export class ReportsService {
 
   // ==================== EXPORT ====================
 
-  async exportShipments(organizationId: string, format: string): Promise<any> {
+  async exportShipments(organizationId: string, userId: string, format: string): Promise<any> {
     const shipments = await this.shipmentRepository.find({
       where: { organizationId },
       relations: ['driver', 'vehicle', 'customer'],
+    });
+
+    // ✅ Audit log for export
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'EXPORT_SHIPMENTS',
+      entityType: 'shipment',
+      newValues: {
+        format,
+        count: shipments.length,
+      },
     });
 
     if (format === 'csv') {
