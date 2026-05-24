@@ -208,63 +208,73 @@ export const CreateShipment: React.FC = () => {
     }, 1000);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.pickup_address && !formData.pickup_warehouse_id) {
-      toast.error('Please provide pickup address or select a warehouse');
-      return;
-    }
-    
-    if (!formData.delivery_address) {
-      toast.error('Please provide delivery address');
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      const trackingNumber = generateTrackingNumber();
+  
+  // Gjej funksionin handleSubmit dhe shto këtë pjesë:
 
-      const pickupAddress = (formData.pickup_address || (formData.pickup_warehouse_id
-        ? warehouses.find(w => w.id === formData.pickup_warehouse_id)?.address
-        : ''))?.toString() || '';
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!formData.pickup_address && !formData.pickup_warehouse_id) {
+    toast.error('Please provide pickup address or select a warehouse');
+    return;
+  }
+  
+  if (!formData.delivery_address) {
+    toast.error('Please provide delivery address');
+    return;
+  }
+  
+  setLoading(true);
+  
+  try {
+    const trackingNumber = generateTrackingNumber();
 
-      const shipmentData = {
-        trackingNumber,
-        // backend will also fall back to req.user.organizationId if omitted, but we send it explicitly
-        organizationId: user?.organizationId || undefined,
-        pickupAddress: pickupAddress.toString(),
-        deliveryAddress: formData.delivery_address.toString(),
-        weightKg: formData.weight_kg || undefined,
-        volumeM3: formData.volume_m3 || undefined,
-        priority: formData.priority,
-        isExpress: formData.is_express,
-        notes: formData.notes || undefined,
-        driverId: formData.driver_id || undefined,
-        vehicleId: formData.vehicle_id || undefined,
-        estimatedDelivery: formData.estimated_delivery || undefined,
-      };
+    const pickupAddress = (formData.pickup_address || (formData.pickup_warehouse_id
+      ? warehouses.find(w => w.id === formData.pickup_warehouse_id)?.address
+      : ''))?.toString() || '';
+
+    const shipmentData: any = {
+      trackingNumber,
+      organizationId: user?.organizationId || undefined,
+      pickupAddress: pickupAddress.toString(),
+      deliveryAddress: formData.delivery_address.toString(),
+      weightKg: formData.weight_kg || undefined,
+      volumeM3: formData.volume_m3 || undefined,
+      priority: formData.priority,
+      isExpress: formData.is_express,
+      notes: formData.notes || undefined,
+      driverId: formData.driver_id || undefined,
+      vehicleId: formData.vehicle_id || undefined,
+      estimatedDelivery: formData.estimated_delivery || undefined,
+    };
+
+    // ✅ ✅ ✅ SHTONI KËTË PJESË! ✅ ✅ ✅
+    if (isNewCustomer && customerName && customerEmail) {
+      shipmentData.customerName = customerName;
+      shipmentData.customerEmail = customerEmail;
+      console.log('Creating new customer:', { customerName, customerEmail });
+    }
+
+    console.log('Sending shipment data:', shipmentData);
+
+    const response = await api.post('/shipments', shipmentData);
+    
+    if (response.data) {
+      toast.success('Shipment created successfully!');
       
-      const response = await api.post('/shipments', shipmentData);
-      
-      if (response.data) {
-        toast.success('Shipment created successfully!');
-        
-        // If driver assigned, show option to notify
-        if (formData.driver_id) {
-          toast.success('Driver has been notified');
-        }
-        
-        navigate('/dispatcher/shipments');
+      if (formData.driver_id) {
+        toast.success('Driver has been notified');
       }
-    } catch (error: any) {
-      console.error('Error:', error);
-      toast.error(error.response?.data?.message || 'Failed to create shipment');
-    } finally {
-      setLoading(false);
+      
+      navigate('/dispatcher/shipments');
     }
-  };
+  } catch (error: any) {
+    console.error('Error:', error);
+    toast.error(error.response?.data?.message || 'Failed to create shipment');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const getDriverStatusColor = (status: string) => {
     const colors: Record<string, string> = {
