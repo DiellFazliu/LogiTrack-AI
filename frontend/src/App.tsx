@@ -62,6 +62,8 @@ import { OrganizationDetails } from './pages/super-admin/OrganizationDetails';
 // Shared/Common Pages
 import { ProfilePage } from './pages/common/ProfilePage';
 import { NotFoundPage } from './pages/common/NotFoundPage';
+import { SettingsPage } from './pages/common/SettingsPage';
+
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -90,6 +92,7 @@ function AppRoutes() {
 
         {/* Common Routes */}
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
 
         {/* Customer Routes */}
         <Route path="/customer/dashboard" element={
