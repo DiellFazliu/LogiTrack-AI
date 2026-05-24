@@ -42,7 +42,12 @@ export const LoginPage: React.FC = () => {
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
       <div className="bg-white p-8 rounded-lg shadow-md w-96">
         <div className="flex justify-center mb-6">
-          <img src="/src/components/logo.tsx" alt="LogiTrack AI" className="h-12" /> //
+          <div className="flex items-center">
+                      <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-2">
+                <span className="text-white font-bold text-lg">L</span>
+              </div>
+              <span className="text-xl font-bold text-gray-800">Logi<span className="text-blue-600">Track</span></span>
+                    </div>
         </div>
         <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">Login</h2>
 

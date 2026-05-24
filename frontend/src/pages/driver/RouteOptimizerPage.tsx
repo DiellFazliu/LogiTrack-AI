@@ -337,32 +337,38 @@ const handleOptimizeRoute = async () => {
     toast.success('Route started! Follow navigation.');
   };
 
-  const handleCompleteDelivery = async () => {
-    if (!shipmentData?.shipmentId) {
-      toast.error('No shipment associated');
-      return;
-    }
+// frontend/src/pages/driver/RouteOptimizerPage.tsx
+// Zëvendëso funksionin handleCompleteDelivery me këtë:
 
-    setIsLoading(true);
-    try {
-      await api.patch(`/shipments/${shipmentData.shipmentId}/status`, {
-        status: 'delivered',
-        notes: 'Delivery completed via route optimizer'
-      });
-      
-      toast.success('Delivery completed!');
-      
-      navigate(`/driver/shipments/${shipmentData.shipmentId}`, {
-        state: { openSignatureModal: true }
-      });
-    } catch (error: any) {
-      console.error('Error completing delivery:', error);
-      toast.error(error.response?.data?.message || 'Failed to complete delivery');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+const handleCompleteDelivery = async () => {
+  if (!shipmentData?.shipmentId) {
+    toast.error('No shipment associated');
+    return;
+  }
 
+  setIsLoading(true);
+  try {
+    // Update shipment status to delivered
+    await api.patch(`/shipments/${shipmentData.shipmentId}/status`, {
+      status: 'delivered',
+      notes: 'Delivery completed via route optimizer'
+    });
+    
+    toast.success('Delivery completed!');
+    
+    // Notifikata për customer-in do të dërgohet nga backend-i
+    // (në shipments.service.ts, në updateStatus kur statusi bëhet DELIVERED)
+    
+    navigate(`/driver/shipments/${shipmentData.shipmentId}`, {
+      state: { openSignatureModal: true }
+    });
+  } catch (error: any) {
+    console.error('Error completing delivery:', error);
+    toast.error(error.response?.data?.message || 'Failed to complete delivery');
+  } finally {
+    setIsLoading(false);
+  }
+};
   const handleRemoveLastPoint = () => {
     if (isRouteStarted) {
       toast.error('Cannot remove points after route started');
