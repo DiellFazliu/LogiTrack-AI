@@ -9,8 +9,9 @@ import type { Coordinate, RouteResponse } from '../../types/route.types';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { locationService } from '../../services/location.service';
-import { ArrowLeft, CheckCircle, Truck, Search, Navigation, LocateFixed, MapPin, Save } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Truck, Search, Navigation, LocateFixed, MapPin, Save, AlertTriangle } from 'lucide-react';
 import SimpleErrorBoundary from '../../components/common/SimpleErrorBoundary';
+import { ReportProblemModal } from '../../components/driver/ReportProblemModal';
 
 export const RouteOptimizerPage: React.FC = () => {
   const { user } = useAuth();
@@ -42,6 +43,7 @@ export const RouteOptimizerPage: React.FC = () => {
   const [isGettingCurrentLocation, setIsGettingCurrentLocation] = useState(false);
   const [showSavedLocationSection, setShowSavedLocationSection] = useState(true);
   const [optimizationId, setOptimizationId] = useState<string | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   // Initialize points from shipment data
   useEffect(() => {
@@ -64,98 +66,77 @@ export const RouteOptimizerPage: React.FC = () => {
     loadSavedLocation();
   }, [shipmentData.shipmentId]);
 
-const calculateDistance = (routePoints: Coordinate[]): number => {
-  if (routePoints.length < 2) return 0;
-  let total = 0;
-  for (let i = 1; i < routePoints.length; i++) {
-    // ✅ Sigurohu që latitude dhe longitude janë numra
-    const lat1 = Number(routePoints[i-1].latitude);
-    const lon1 = Number(routePoints[i-1].longitude);
-    const lat2 = Number(routePoints[i].latitude);
-    const lon2 = Number(routePoints[i].longitude);
-    
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    total += R * c;
-  }
-  return total;
-};
+  const calculateDistance = (routePoints: Coordinate[]): number => {
+    if (routePoints.length < 2) return 0;
+    let total = 0;
+    for (let i = 1; i < routePoints.length; i++) {
+      const lat1 = Number(routePoints[i-1].latitude);
+      const lon1 = Number(routePoints[i-1].longitude);
+      const lat2 = Number(routePoints[i].latitude);
+      const lon2 = Number(routePoints[i].longitude);
+      
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      total += R * c;
+    }
+    return total;
+  };
 
-  // Ruaj rrugën origjinale para optimizimit
-const saveOriginalRoute = async (routePoints: Coordinate[]) => {
-  console.log('=== saveOriginalRoute START ===');
-  console.log('shipmentId:', shipmentData.shipmentId);
-  
-  try {
-    const totalDistance = calculateDistance(routePoints);
-    console.log('totalDistance:', totalDistance);
-    
-    const response = await api.post('/ai/optimizations', {
-      shipmentId: shipmentData.shipmentId,
-      originalRoute: {
-        points: routePoints,
-        pointLabels: pointLabels,
-        totalDistance: totalDistance
-      },
-      originalDistanceKm: totalDistance
-    });
-    
-    console.log('Response status:', response.status);
-    console.log('Response data:', response.data);
-    setOptimizationId(response.data.id);
-    toast.success('Original route saved!');
-  } catch (error: any) {
-    console.error('Error saving original route:', error.response?.data || error);
-    toast.error(error.response?.data?.message || 'Failed to save route');
-  }
-};
+  const saveOriginalRoute = async (routePoints: Coordinate[]) => {
+    try {
+      const totalDistance = calculateDistance(routePoints);
+      const response = await api.post('/ai/optimizations', {
+        shipmentId: shipmentData.shipmentId,
+        originalRoute: {
+          points: routePoints,
+          pointLabels: pointLabels,
+          totalDistance: totalDistance
+        },
+        originalDistanceKm: totalDistance
+      });
+      setOptimizationId(response.data.id);
+      toast.success('Original route saved!');
+    } catch (error: any) {
+      console.error('Error saving original route:', error);
+      toast.error(error.response?.data?.message || 'Failed to save route');
+    }
+  };
 
-// frontend/src/pages/driver/RouteOptimizerPage.tsx
-const saveOptimizedRoute = async (optimizedData: RouteResponse, originalPoints: Coordinate[]) => {
-  if (!optimizationId) return;
-  
-  try {
-    // ✅ Konverto koordinatat nga [lng, lat] në {lat, lng}
-    const optimizedCoordinates = optimizedData?.features?.[0]?.geometry?.coordinates || [];
-    const convertedPoints = optimizedCoordinates.map((coord: number[]) => ({
-      latitude: coord[1],  // coord[1] është latitude
-      longitude: coord[0]  // coord[0] është longitude
-    }));
+  const saveOptimizedRoute = async (optimizedData: RouteResponse, originalPoints: Coordinate[]) => {
+    if (!optimizationId) return;
     
-    // Llogarit distancën origjinale
-    const originalDistance = calculateDistance(originalPoints);
-    
-    // Llogarit distancën e optimizuar nga koordinatat e konvertuara
-    const optimizedDistance = calculateDistance(convertedPoints);
-    
-    const savedDistance = originalDistance - optimizedDistance;
-    
-    console.log('Original distance:', originalDistance.toFixed(2), 'km');
-    console.log('Optimized distance:', optimizedDistance.toFixed(2), 'km');
-    console.log('Saved distance:', savedDistance.toFixed(2), 'km');
-    
-    const updateData = {
-      optimizedRoute: {
-        points: convertedPoints,
-        totalDistance: Number(optimizedDistance.toFixed(2)),
-      },
-      savedDistanceKm: Number(savedDistance.toFixed(2)),
-      confidenceScore: originalDistance > 0 
-        ? Number((Math.min(0.95, Math.max(0, (savedDistance / originalDistance) + 0.5))).toFixed(2))
-        : 0.5
-    };
-    
-    await api.patch(`/ai/optimizations/${optimizationId}`, updateData);
-    console.log('Optimized route saved, savings:', updateData.savedDistanceKm, 'km');
-  } catch (error) {
-    console.error('Failed to save optimized route:', error);
-  }
-};
+    try {
+      const optimizedCoordinates = optimizedData?.features?.[0]?.geometry?.coordinates || [];
+      const convertedPoints = optimizedCoordinates.map((coord: number[]) => ({
+        latitude: coord[1],
+        longitude: coord[0]
+      }));
+      
+      const originalDistance = calculateDistance(originalPoints);
+      const optimizedDistance = calculateDistance(convertedPoints);
+      const savedDistance = originalDistance - optimizedDistance;
+      
+      const updateData = {
+        optimizedRoute: {
+          points: convertedPoints,
+          totalDistance: Number(optimizedDistance.toFixed(2)),
+        },
+        savedDistanceKm: Number(savedDistance.toFixed(2)),
+        confidenceScore: originalDistance > 0 
+          ? Number((Math.min(0.95, Math.max(0, (savedDistance / originalDistance) + 0.5))).toFixed(2))
+          : 0.5
+      };
+      
+      await api.patch(`/ai/optimizations/${optimizationId}`, updateData);
+    } catch (error) {
+      console.error('Failed to save optimized route:', error);
+    }
+  };
 
   const loadSavedLocation = async () => {
     setIsGettingCurrentLocation(true);
@@ -196,7 +177,6 @@ const saveOptimizedRoute = async (optimizedData: RouteResponse, originalPoints: 
       toast.success('Current location added as starting point');
       setShowSavedLocationSection(false);
     } catch (error: any) {
-      console.error('Error getting current location:', error);
       if (error.code === 1) {
         toast.error('Location access denied. Please enable location services.');
       } else {
@@ -231,7 +211,6 @@ const saveOptimizedRoute = async (optimizedData: RouteResponse, originalPoints: 
         toast.error('Address not found');
       }
     } catch (error) {
-      console.error('Geocoding error:', error);
       toast.error('Failed to locate address');
     } finally {
       setIsGeocoding(false);
@@ -250,83 +229,67 @@ const saveOptimizedRoute = async (optimizedData: RouteResponse, originalPoints: 
     toast.success(`${selectedType} point added`);
   };
 
-// frontend/src/pages/driver/RouteOptimizerPage.tsx
-// Zëvendëso të gjithë funksionin handleOptimizeRoute dhe saveOptimizedRoute:
-
-const handleOptimizeRoute = async () => {
-  if (points.length < 2) {
-    toast.error('Please add at least 2 points');
-    return;
-  }
-
-  // Ruaj original points para optimizimit
-  const originalPointsCopy = [...points];
-  const originalDistance = calculateDistance(originalPointsCopy);
-  console.log('📊 ORIGINAL DISTANCE:', originalDistance.toFixed(2), 'km');
-
-  setIsLoading(true);
-  try {
-    // Krijo original route record
-    if (!optimizationId) {
-      const response = await api.post('/ai/optimizations', {
-        shipmentId: shipmentData.shipmentId,
-        originalRoute: {
-          points: originalPointsCopy,
-          pointLabels: pointLabels,
-          totalDistance: originalDistance
-        },
-        originalDistanceKm: originalDistance
-      });
-      setOptimizationId(response.data.id);
-      console.log('✅ Original route saved with ID:', response.data.id);
+  const handleOptimizeRoute = async () => {
+    if (points.length < 2) {
+      toast.error('Please add at least 2 points');
+      return;
     }
 
-    // Optimizo rrugën
-    const optimizedResult = await routeService.optimizeRoute(originalPointsCopy);
-    setRouteData(optimizedResult);
-    
-    // Llogarit distancën e optimizuar
-    const optimizedPoints = optimizedResult?.features?.[0]?.geometry?.coordinates || [];
-    const convertedOptimizedPoints = optimizedPoints.map((coord: number[]) => ({
-      latitude: coord[1],
-      longitude: coord[0]
-    }));
-    
-    const optimizedDistance = calculateDistance(convertedOptimizedPoints);
-    const savedDistance = originalDistance - optimizedDistance;
-    
-    console.log('📊 OPTIMIZED DISTANCE:', optimizedDistance.toFixed(2), 'km');
-    console.log('📊 SAVED DISTANCE:', savedDistance.toFixed(2), 'km');
-    console.log('📊 SAVINGS PERCENTAGE:', ((savedDistance / originalDistance) * 100).toFixed(2), '%');
-    
-    // Llogarit confidence score (sa më i mirë është optimizimi)
-    let confidenceScore = 0.5;
-    if (originalDistance > 0 && savedDistance > 0) {
-      const savingsPercent = savedDistance / originalDistance;
-      confidenceScore = Math.min(0.95, 0.5 + savingsPercent);
-      confidenceScore = Math.max(0.1, confidenceScore);
+    const originalPointsCopy = [...points];
+    const originalDistance = calculateDistance(originalPointsCopy);
+
+    setIsLoading(true);
+    try {
+      if (!optimizationId) {
+        const response = await api.post('/ai/optimizations', {
+          shipmentId: shipmentData.shipmentId,
+          originalRoute: {
+            points: originalPointsCopy,
+            pointLabels: pointLabels,
+            totalDistance: originalDistance
+          },
+          originalDistanceKm: originalDistance
+        });
+        setOptimizationId(response.data.id);
+      }
+
+      const optimizedResult = await routeService.optimizeRoute(originalPointsCopy);
+      setRouteData(optimizedResult);
+      
+      const optimizedPoints = optimizedResult?.features?.[0]?.geometry?.coordinates || [];
+      const convertedOptimizedPoints = optimizedPoints.map((coord: number[]) => ({
+        latitude: coord[1],
+        longitude: coord[0]
+      }));
+      
+      const optimizedDistance = calculateDistance(convertedOptimizedPoints);
+      const savedDistance = originalDistance - optimizedDistance;
+      
+      let confidenceScore = 0.5;
+      if (originalDistance > 0 && savedDistance > 0) {
+        const savingsPercent = savedDistance / originalDistance;
+        confidenceScore = Math.min(0.95, 0.5 + savingsPercent);
+        confidenceScore = Math.max(0.1, confidenceScore);
+      }
+      
+      if (optimizationId) {
+        await api.patch(`/ai/optimizations/${optimizationId}`, {
+          optimizedRoute: {
+            points: convertedOptimizedPoints,
+            totalDistance: Number(optimizedDistance.toFixed(2))
+          },
+          savedDistanceKm: Number(savedDistance.toFixed(2)),
+          confidenceScore: Number(confidenceScore.toFixed(2))
+        });
+      }
+      
+      toast.success(`Route optimized! Saved ${savedDistance.toFixed(2)} km`);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to optimize route');
+    } finally {
+      setIsLoading(false);
     }
-    
-    // Përditëso me vlerat e llogaritura
-    if (optimizationId) {
-      await api.patch(`/ai/optimizations/${optimizationId}`, {
-        optimizedRoute: {
-          points: convertedOptimizedPoints,
-          totalDistance: Number(optimizedDistance.toFixed(2))
-        },
-        savedDistanceKm: Number(savedDistance.toFixed(2)),
-        confidenceScore: Number(confidenceScore.toFixed(2))
-      });
-    }
-    
-    toast.success(`Route optimized! Saved ${savedDistance.toFixed(2)} km`);
-  } catch (error: any) {
-    console.error('Optimize error:', error);
-    toast.error(error.response?.data?.message || 'Failed to optimize route');
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const handleStartRoute = () => {
     if (!routeData) {
@@ -337,38 +300,31 @@ const handleOptimizeRoute = async () => {
     toast.success('Route started! Follow navigation.');
   };
 
-// frontend/src/pages/driver/RouteOptimizerPage.tsx
-// Zëvendëso funksionin handleCompleteDelivery me këtë:
+  const handleCompleteDelivery = async () => {
+    if (!shipmentData?.shipmentId) {
+      toast.error('No shipment associated');
+      return;
+    }
 
-const handleCompleteDelivery = async () => {
-  if (!shipmentData?.shipmentId) {
-    toast.error('No shipment associated');
-    return;
-  }
+    setIsLoading(true);
+    try {
+      await api.patch(`/shipments/${shipmentData.shipmentId}/status`, {
+        status: 'delivered',
+        notes: 'Delivery completed via route optimizer'
+      });
+      
+      toast.success('Delivery completed!');
+      
+      navigate(`/driver/shipments/${shipmentData.shipmentId}`, {
+        state: { openSignatureModal: true }
+      });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to complete delivery');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  setIsLoading(true);
-  try {
-    // Update shipment status to delivered
-    await api.patch(`/shipments/${shipmentData.shipmentId}/status`, {
-      status: 'delivered',
-      notes: 'Delivery completed via route optimizer'
-    });
-    
-    toast.success('Delivery completed!');
-    
-    // Notifikata për customer-in do të dërgohet nga backend-i
-    // (në shipments.service.ts, në updateStatus kur statusi bëhet DELIVERED)
-    
-    navigate(`/driver/shipments/${shipmentData.shipmentId}`, {
-      state: { openSignatureModal: true }
-    });
-  } catch (error: any) {
-    console.error('Error completing delivery:', error);
-    toast.error(error.response?.data?.message || 'Failed to complete delivery');
-  } finally {
-    setIsLoading(false);
-  }
-};
   const handleRemoveLastPoint = () => {
     if (isRouteStarted) {
       toast.error('Cannot remove points after route started');
@@ -430,276 +386,300 @@ const handleCompleteDelivery = async () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="bg-white shadow">
-        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/driver')} className="text-gray-600 hover:text-gray-800">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-xl font-bold text-blue-600">Route Optimizer</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-600">{user?.name}</span>
-            {shipmentData?.trackingNumber && (
-              <span className="text-sm bg-blue-100 text-blue-600 px-2 py-1 rounded">
-                {shipmentData.trackingNumber}
-              </span>
-            )}
+    <>
+      <div className="min-h-screen bg-gray-100">
+        <div className="bg-white shadow">
+          <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <button onClick={() => navigate('/driver')} className="text-gray-600 hover:text-gray-800">
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <h1 className="text-xl font-bold text-blue-600">Route Optimizer</h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-gray-600">{user?.name}</span>
+              {shipmentData?.trackingNumber && (
+                <span className="text-sm bg-blue-100 text-blue-600 px-2 py-1 rounded">
+                  {shipmentData.trackingNumber}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Panel */}
-          <div className="lg:col-span-1 space-y-4">
-            {/* Shipment Info */}
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="font-semibold mb-2 flex items-center gap-2">
-                <Truck className="w-4 h-4 text-blue-500" />
-                Shipment Details
-              </h3>
-              <p className="text-sm"><span className="font-medium">Tracking:</span> {shipmentData.trackingNumber}</p>
-              {shipmentData.waybillNumber && (
-                <p className="text-sm"><span className="font-medium">Waybill:</span> {shipmentData.waybillNumber}</p>
+        <div className="container mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Panel */}
+            <div className="lg:col-span-1 space-y-4">
+              {/* Shipment Info */}
+              <div className="bg-white rounded-lg shadow p-4">
+                <h3 className="font-semibold mb-2 flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-blue-500" />
+                  Shipment Details
+                </h3>
+                <p className="text-sm"><span className="font-medium">Tracking:</span> {shipmentData.trackingNumber}</p>
+                {shipmentData.waybillNumber && (
+                  <p className="text-sm"><span className="font-medium">Waybill:</span> {shipmentData.waybillNumber}</p>
+                )}
+                <p className="text-sm mt-1"><span className="font-medium">Pickup:</span> {shipmentData.pickupAddress}</p>
+                <p className="text-sm"><span className="font-medium">Delivery:</span> {shipmentData.deliveryAddress}</p>
+              </div>
+
+              {/* Use Saved Location Button */}
+              {!isRouteStarted && showSavedLocationSection && (
+                <div className="bg-white rounded-lg shadow p-4 border border-blue-200">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Save className="w-4 h-4 text-green-500" />
+                    Saved Location
+                  </h3>
+                  <button
+                    onClick={loadSavedLocation}
+                    className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 flex items-center justify-center gap-2 mb-2"
+                  >
+                    <MapPin className="w-4 h-4" />
+                    Use Saved Location from Profile
+                  </button>
+                  <p className="text-xs text-gray-500 text-center">
+                    Use the location you saved in your profile
+                  </p>
+                </div>
               )}
-              <p className="text-sm mt-1"><span className="font-medium">Pickup:</span> {shipmentData.pickupAddress}</p>
-              <p className="text-sm"><span className="font-medium">Delivery:</span> {shipmentData.deliveryAddress}</p>
-            </div>
 
-            {/* Use Saved Location Button */}
-            {!isRouteStarted && showSavedLocationSection && (
-              <div className="bg-white rounded-lg shadow p-4 border border-blue-200">
-                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <Save className="w-4 h-4 text-green-500" />
-                  Saved Location
-                </h3>
-                <button
-                  onClick={loadSavedLocation}
-                  className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 flex items-center justify-center gap-2 mb-2"
-                >
-                  <MapPin className="w-4 h-4" />
-                  Use Saved Location from Profile
-                </button>
-                <p className="text-xs text-gray-500 text-center">
-                  Use the location you saved in your profile
-                </p>
-              </div>
-            )}
-
-            {/* Current Location Button */}
-            {!isRouteStarted && (
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <LocateFixed className="w-4 h-4 text-blue-500" />
-                  Starting Point
-                </h3>
-                <button
-                  onClick={addCurrentLocation}
-                  disabled={isGettingCurrentLocation}
-                  className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center gap-2 mb-2"
-                >
-                  <Navigation className="w-4 h-4" />
-                  {isGettingCurrentLocation ? 'Getting location...' : 'Use My Current Location (GPS)'}
-                </button>
-                <p className="text-xs text-gray-500 text-center">
-                  Get your real-time GPS location
-                </p>
-              </div>
-            )}
-
-            {/* Add by Address */}
-            {!isRouteStarted && (
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <Search className="w-4 h-4" />
-                  Add Point by Address
-                </h3>
-                <div className="flex gap-2 mb-3">
+              {/* Current Location Button */}
+              {!isRouteStarted && (
+                <div className="bg-white rounded-lg shadow p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <LocateFixed className="w-4 h-4 text-blue-500" />
+                    Starting Point
+                  </h3>
                   <button
-                    onClick={() => setSelectedType('pickup')}
-                    className={`flex-1 py-1.5 px-2 rounded-lg text-sm transition ${
-                      selectedType === 'pickup' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'
-                    }`}
+                    onClick={addCurrentLocation}
+                    disabled={isGettingCurrentLocation}
+                    className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center gap-2 mb-2"
                   >
-                    🟢 Pickup
+                    <Navigation className="w-4 h-4" />
+                    {isGettingCurrentLocation ? 'Getting location...' : 'Use My Current Location (GPS)'}
                   </button>
-                  <button
-                    onClick={() => setSelectedType('delivery')}
-                    className={`flex-1 py-1.5 px-2 rounded-lg text-sm transition ${
-                      selectedType === 'delivery' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    🔴 Delivery
-                  </button>
-                  <button
-                    onClick={() => setSelectedType('warehouse')}
-                    className={`flex-1 py-1.5 px-2 rounded-lg text-sm transition ${
-                      selectedType === 'warehouse' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    📍 Waypoint
-                  </button>
+                  <p className="text-xs text-gray-500 text-center">
+                    Get your real-time GPS location
+                  </p>
                 </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={addressInput}
-                    onChange={(e) => setAddressInput(e.target.value)}
-                    placeholder="Enter address..."
-                    className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    onKeyPress={(e) => e.key === 'Enter' && handleSearchAddress()}
-                  />
-                  <button
-                    onClick={handleSearchAddress}
-                    disabled={isGeocoding}
-                    className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
-                  >
-                    {isGeocoding ? '...' : 'Add'}
-                  </button>
-                </div>
-              </div>
-            )}
+              )}
 
-            {/* Add by Map Click */}
-            {!isRouteStarted && (
+              {/* Add by Address */}
+              {!isRouteStarted && (
+                <div className="bg-white rounded-lg shadow p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Search className="w-4 h-4" />
+                    Add Point by Address
+                  </h3>
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      onClick={() => setSelectedType('pickup')}
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-sm transition ${
+                        selectedType === 'pickup' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      🟢 Pickup
+                    </button>
+                    <button
+                      onClick={() => setSelectedType('delivery')}
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-sm transition ${
+                        selectedType === 'delivery' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      🔴 Delivery
+                    </button>
+                    <button
+                      onClick={() => setSelectedType('warehouse')}
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-sm transition ${
+                        selectedType === 'warehouse' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      📍 Waypoint
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={addressInput}
+                      onChange={(e) => setAddressInput(e.target.value)}
+                      placeholder="Enter address..."
+                      className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onKeyPress={(e) => e.key === 'Enter' && handleSearchAddress()}
+                    />
+                    <button
+                      onClick={handleSearchAddress}
+                      disabled={isGeocoding}
+                      className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                    >
+                      {isGeocoding ? '...' : 'Add'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Add by Map Click */}
+              {!isRouteStarted && (
+                <div className="bg-white rounded-lg shadow p-4">
+                  <h3 className="font-semibold mb-3">Add Point by Map Click</h3>
+                  <div className="flex gap-2 mb-2">
+                    <button
+                      onClick={() => setSelectedType('pickup')}
+                      className={`flex-1 py-2 px-3 rounded-lg transition ${
+                        selectedType === 'pickup' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      🟢 Pickup
+                    </button>
+                    <button
+                      onClick={() => setSelectedType('delivery')}
+                      className={`flex-1 py-2 px-3 rounded-lg transition ${
+                        selectedType === 'delivery' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      🔴 Delivery
+                    </button>
+                    <button
+                      onClick={() => setSelectedType('warehouse')}
+                      className={`flex-1 py-2 px-3 rounded-lg transition ${
+                        selectedType === 'warehouse' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      📍 Waypoint
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500">Click directly on the map to add points</p>
+                </div>
+              )}
+
+              {/* Points List */}
               <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="font-semibold mb-3">Add Point by Map Click</h3>
-                <div className="flex gap-2 mb-2">
-                  <button
-                    onClick={() => setSelectedType('pickup')}
-                    className={`flex-1 py-2 px-3 rounded-lg transition ${
-                      selectedType === 'pickup' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    🟢 Pickup
-                  </button>
-                  <button
-                    onClick={() => setSelectedType('delivery')}
-                    className={`flex-1 py-2 px-3 rounded-lg transition ${
-                      selectedType === 'delivery' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    🔴 Delivery
-                  </button>
-                  <button
-                    onClick={() => setSelectedType('warehouse')}
-                    className={`flex-1 py-2 px-3 rounded-lg transition ${
-                      selectedType === 'warehouse' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    📍 Waypoint
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500">Click directly on the map to add points</p>
-              </div>
-            )}
-
-            {/* Points List */}
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="font-semibold mb-3">Route Points ({points.length})</h3>
-              {points.length === 0 ? (
-                <p className="text-gray-500 text-sm">No points added</p>
-              ) : (
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {points.map((point, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <div className="flex items-center gap-2">
-                        <span className={getPointColor(pointLabels[index])}>
-                          {getPointIcon(pointLabels[index])}
-                        </span>
-                        <span className="text-sm">
-                          {Number(point.latitude).toFixed(4)}, {Number(point.longitude).toFixed(4)}
-                        </span>
+                <h3 className="font-semibold mb-3">Route Points ({points.length})</h3>
+                {points.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No points added</p>
+                ) : (
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {points.map((point, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <div className="flex items-center gap-2">
+                          <span className={getPointColor(pointLabels[index])}>
+                            {getPointIcon(pointLabels[index])}
+                          </span>
+                          <span className="text-sm">
+                            {Number(point.latitude).toFixed(4)}, {Number(point.longitude).toFixed(4)}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-400 capitalize">{pointLabels[index] || 'waypoint'}</span>
                       </div>
-                      <span className="text-xs text-gray-400 capitalize">{pointLabels[index] || 'waypoint'}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-              {!isRouteStarted ? (
-                <>
-                  <button
-                    onClick={handleOptimizeRoute}
-                    disabled={points.length < 2 || isLoading}
-                    className="flex-1 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-                  >
-                    {isLoading ? 'Optimizing...' : '🗺️ Optimize'}
-                  </button>
-                  <button
-                    onClick={handleRemoveLastPoint}
-                    disabled={points.length === 0}
-                    className="px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50"
-                  >
-                    ↶ Undo
-                  </button>
-                  <button
-                    onClick={handleClearPoints}
-                    disabled={points.length === 0}
-                    className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
-                  >
-                    ✕ Clear
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={handleCompleteDelivery}
-                  disabled={isLoading}
-                  className="w-full bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 flex items-center justify-center gap-2 text-lg font-semibold"
-                >
-                  <CheckCircle className="w-5 h-5" />
-                  {isLoading ? 'Completing...' : '✓ Complete Delivery'}
-                </button>
-              )}
-            </div>
-
-            {routeData && !isRouteStarted && (
-              <button
-                onClick={handleStartRoute}
-                className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600"
-              >
-                🚀 Start Route
-              </button>
-            )}
-          </div>
-
-          {/* Map */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="p-3 border-b bg-gray-50 flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-600">
-                  {isRouteStarted ? 'Route in Progress' : `Click map to add ${selectedType}`}
-                </span>
-                {isRouteStarted && (
-                  <span className="text-sm bg-green-100 text-green-600 px-2 py-1 rounded">
-                    <Navigation className="w-3 h-3 inline mr-1" />
-                    Navigation Active
-                  </span>
+                    ))}
+                  </div>
                 )}
               </div>
-              <SimpleErrorBoundary>
-                <RouteMap
-                  points={points}
-                  routeCoordinates={routeData?.features[0]?.geometry.coordinates}
-                  onMapClick={!isRouteStarted ? handleMapClick : emptyHandler}
-                  selectedPointType={selectedType}
-                />
-              </SimpleErrorBoundary>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-3">
+                <div className="flex gap-3">
+                  {!isRouteStarted ? (
+                    <>
+                      <button
+                        onClick={handleOptimizeRoute}
+                        disabled={points.length < 2 || isLoading}
+                        className="flex-1 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                      >
+                        {isLoading ? 'Optimizing...' : '🗺️ Optimize'}
+                      </button>
+                      <button
+                        onClick={handleRemoveLastPoint}
+                        disabled={points.length === 0}
+                        className="px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50"
+                      >
+                        ↶ Undo
+                      </button>
+                      <button
+                        onClick={handleClearPoints}
+                        disabled={points.length === 0}
+                        className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
+                      >
+                        ✕ Clear
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={handleCompleteDelivery}
+                      disabled={isLoading}
+                      className="w-full bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 flex items-center justify-center gap-2 text-lg font-semibold"
+                    >
+                      <CheckCircle className="w-5 h-5" />
+                      {isLoading ? 'Completing...' : '✓ Complete Delivery'}
+                    </button>
+                  )}
+                </div>
+
+                {/* Report Problem Button */}
+                {isRouteStarted && (
+                  <button
+                    onClick={() => setShowReportModal(true)}
+                    className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 flex items-center justify-center gap-2"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                    Report Problem
+                  </button>
+                )}
+              </div>
+
+              {routeData && !isRouteStarted && (
+                <button
+                  onClick={handleStartRoute}
+                  className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600"
+                >
+                  🚀 Start Route
+                </button>
+              )}
+            </div>
+
+            {/* Map */}
+            <div className="lg:col-span-2">
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="p-3 border-b bg-gray-50 flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-600">
+                    {isRouteStarted ? 'Route in Progress' : `Click map to add ${selectedType}`}
+                  </span>
+                  {isRouteStarted && (
+                    <span className="text-sm bg-green-100 text-green-600 px-2 py-1 rounded">
+                      <Navigation className="w-3 h-3 inline mr-1" />
+                      Navigation Active
+                    </span>
+                  )}
+                </div>
+                <SimpleErrorBoundary>
+                  <RouteMap
+                    points={points}
+                    routeCoordinates={routeData?.features[0]?.geometry.coordinates}
+                    onMapClick={!isRouteStarted ? handleMapClick : emptyHandler}
+                    selectedPointType={selectedType}
+                  />
+                </SimpleErrorBoundary>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Route Instructions */}
-        <div className="mt-6">
-          <RouteInstructions routeData={routeData} isLoading={isLoading} />
+          {/* Route Instructions */}
+          <div className="mt-6">
+            <RouteInstructions routeData={routeData} isLoading={isLoading} />
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Report Problem Modal */}
+      <ReportProblemModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        shipmentId={shipmentData.shipmentId}
+        trackingNumber={shipmentData.trackingNumber}
+        currentLocation={points.length > 0 ? { lat: points[0].latitude, lng: points[0].longitude } : undefined}
+      />
+    </>
   );
 };
 

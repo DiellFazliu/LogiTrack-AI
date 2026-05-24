@@ -2,7 +2,6 @@
 import {
   Injectable,
   NotFoundException,
-  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -14,7 +13,9 @@ import { User } from '../users/user.entity';
 import { UsersService } from '../users/users.service';
 import { DriverLocation } from './location.entity';
 import { AuditService } from '../audit/audit.service';
-
+import { Between } from 'typeorm';
+import { Shipment, ShipmentStatus } from '../shipments/shipment.entity';
+import { ConflictException } from '@nestjs/common';
 @Injectable()
 export class DriversService {
 
@@ -23,6 +24,8 @@ export class DriversService {
     private driverRepository: Repository<Driver>,
     @InjectRepository(DriverLocation)
     private locationRepository: Repository<DriverLocation>,
+      @InjectRepository(Shipment)  // ✅ Shto këtë
+  private shipmentRepository: Repository<Shipment>,
     private usersService: UsersService,
     private dataSource: DataSource,
     private auditService: AuditService,
@@ -133,6 +136,133 @@ export class DriversService {
       await queryRunner.release();
     }
   }
+  // backend/src/modules/drivers/drivers.service.ts
+
+async getDailyReport(driverId: string, date: string, organizationId: string): Promise<any> {
+  const startDate = new Date(date);
+  startDate.setHours(0, 0, 0, 0);
+  const endDate = new Date(date);
+  endDate.setHours(23, 59, 59, 999);
+
+  const shipments = await this.shipmentRepository.find({
+    where: {
+      driverId,
+      organizationId,
+      status: ShipmentStatus.DELIVERED,
+      actualDelivery: Between(startDate, endDate),
+    },
+    order: { actualDelivery: 'ASC' },
+  });
+
+  // Kontrollo nëse dita është konfirmuar
+  const dayConfirmed = await this.auditService.findAll({
+    organizationId,
+    action: 'CONFIRM_DAY',
+    entityType: 'driver',
+    entityId: driverId,
+    fromDate: startDate.toISOString(),
+    toDate: endDate.toISOString(),
+    limit: 1,
+  });
+
+  // Funksioni për të llogaritur distancën midis dy pikave
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    if (!lat1 || !lng1 || !lat2 || !lng2) return 0;
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  // Përllogarit distancën dhe kohën për çdo shipment
+  const deliveries = await Promise.all(shipments.map(async (shipment) => {
+    let distance = shipment.estimatedDistanceKm || 0;
+    let duration = shipment.estimatedDurationMin || 0;
+    
+    // Nëse nuk ka distancë të ruajtur, llogarite nga koordinatat
+    if (distance === 0 && shipment.pickupLatitude && shipment.pickupLongitude && 
+        shipment.deliveryLatitude && shipment.deliveryLongitude) {
+      distance = calculateDistance(
+        shipment.pickupLatitude, shipment.pickupLongitude,
+        shipment.deliveryLatitude, shipment.deliveryLongitude
+      );
+      // Koha e përafërt: 1 orë = 60 km (mesatarisht)
+      duration = Math.round(distance * 1.5);
+    }
+    
+    return {
+      id: shipment.id,
+      trackingNumber: shipment.trackingNumber,
+      deliveryAddress: shipment.deliveryAddress,
+      status: shipment.status,
+      completedAt: shipment.actualDelivery,
+      distance,
+      duration,
+    };
+  }));
+
+  const totalDeliveries = shipments.length;
+  const completedDeliveries = deliveries.filter(s => s.status === ShipmentStatus.DELIVERED).length;
+  const totalDistance = deliveries.reduce((sum, s) => sum + (s.distance || 0), 0);
+  const totalDuration = deliveries.reduce((sum, s) => sum + (s.duration || 0), 0);
+  const earnings = completedDeliveries * 50;
+
+  return {
+    date,
+    totalDeliveries,
+    completedDeliveries,
+    cancelledDeliveries: 0,
+    totalDistance,
+    totalDuration,
+    earnings,
+    deliveries,
+    dayConfirmed: dayConfirmed.data.length > 0,
+  };
+}
+
+async confirmDay(driverId: string, date: string, userId: string, organizationId: string): Promise<any> {
+  const startDate = new Date(date);
+  startDate.setHours(0, 0, 0, 0);
+  const endDate = new Date(date);
+  endDate.setHours(23, 59, 59, 999);
+
+  // Kontrollo nëse tashmë është konfirmuar
+  const existingConfirm = await this.auditService.findAll({
+    organizationId,
+    action: 'CONFIRM_DAY',
+    entityType: 'driver',
+    entityId: driverId,
+    fromDate: startDate.toISOString(),
+    toDate: endDate.toISOString(),
+    limit: 1,
+  });
+
+  if (existingConfirm.data.length > 0) {
+    throw new ConflictException('Day already confirmed');
+  }
+
+  // Ruaj konfirmimin në audit_logs
+  await this.auditService.log({
+    organizationId,
+    userId,
+    action: 'CONFIRM_DAY',
+    entityType: 'driver',
+    entityId: driverId,
+    newValues: {
+      date,
+      confirmedAt: new Date().toISOString(),
+    },
+  });
+
+  return {
+    success: true,
+    message: 'Day confirmed successfully',
+  };
+}
 
   async findAll(organizationId: string, userId: string, status?: DriverStatus): Promise<Driver[]> {
     const where: any = { organizationId, isActive: true };

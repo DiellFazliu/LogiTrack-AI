@@ -8,11 +8,13 @@ import { DriverLocation } from './location.entity';
 import { Shipment } from '../shipments/shipment.entity';
 import { Waybill } from '../waybills/waybill.entity';
 import { UsersModule } from '../users/users.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Driver, DriverLocation, Shipment, Waybill]),
     UsersModule,
+    AuditModule, // ✅ Shto këtë
   ],
   controllers: [DriversController],
   providers: [DriversService],

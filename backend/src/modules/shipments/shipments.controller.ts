@@ -11,6 +11,7 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/roles.enum';
 import { DriversService } from '../drivers/drivers.service';
+import { ReportProblemDto } from './dto/report-problem.dto';
 
 @ApiTags('Shipments')
 @ApiBearerAuth()
@@ -56,12 +57,25 @@ export class ShipmentsController {
     // Scope to organization; super_admin is also treated as allowed to any organization through role/guard
     return this.shipmentsService.getStats(req.user.organizationId);
   }
+  
 
   @Get('track/:trackingNumber')
   @ApiOperation({ summary: 'Track shipment by tracking number (public)' })
   async trackShipment(@Param('trackingNumber') trackingNumber: string) {
     return this.shipmentsService.getTracking(trackingNumber);
   }
+  @Post('report-problem')
+@Roles(UserRole.DRIVER, UserRole.DISPATCHER, UserRole.COMPANY_ADMIN)
+@ApiOperation({ summary: 'Report a problem with a shipment' })
+async reportProblem(@Body() reportDto: ReportProblemDto, @Request() req) {
+  return this.shipmentsService.reportProblem(reportDto, req.user.id, req.user.organizationId);
+}
+@Get(':id/problems')
+@Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.SUPER_ADMIN)
+@ApiOperation({ summary: 'Get reported problems for a shipment' })
+async getShipmentProblems(@Param('id') id: string, @Request() req) {
+  return this.shipmentsService.getShipmentProblems(id, req.user.organizationId);
+}
 
   @Get(':id')
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.CUSTOMER)
@@ -111,6 +125,7 @@ export class ShipmentsController {
   ) {
     return this.shipmentsService.updateCoordinates(id, updateCoordinatesDto, req.user.organizationId, req.user.id);
   }
+  
 
   @Patch(':id/assign-driver/:driverId')
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)

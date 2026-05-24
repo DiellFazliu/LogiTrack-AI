@@ -24,6 +24,8 @@ import { MyShipments } from './pages/driver/MyShipments';
 import DriverShipmentDetails from './pages/driver/ShipmentDetails';
 import { UpdateLocation } from './pages/driver/UpdateLocation';
 import { RouteOptimizerPage } from './pages/driver/RouteOptimizerPage';
+import { DriverProfilePage } from './pages/driver/DriverProfilePage';
+import { DriverDailyReport } from './pages/driver/DriverDailyReport';
 
 // Dispatcher Pages
 import { DispatcherDashboard } from './pages/dispatcher/DispatcherDashboard';
@@ -159,6 +161,16 @@ function AppRoutes() {
             <RouteOptimizerPage />
           </ProtectedRoute>
         } />
+        <Route path="/driver/profile" element={
+          <ProtectedRoute roles={['driver']}>
+            <DriverProfilePage />
+          </ProtectedRoute>
+        } />
+        <Route path="/driver/daily-report" element={
+          <ProtectedRoute roles={['driver']}>
+            <DriverDailyReport />
+          </ProtectedRoute>
+        } />
 
         {/* ==================== DISPATCHER ROUTES ==================== */}
         <Route path="/dispatcher/dashboard" element={
@@ -192,9 +204,9 @@ function AppRoutes() {
           </ProtectedRoute>
         } />
         <Route path="/dispatcher/driver-locations" element={
-        <ProtectedRoute roles={['dispatcher', 'company_admin']}>
-          <DriverLocationMap />
-        </ProtectedRoute>
+          <ProtectedRoute roles={['dispatcher', 'company_admin']}>
+            <DriverLocationMap />
+          </ProtectedRoute>
         } />
 
         {/* ==================== COMPANY ADMIN ROUTES ==================== */}
