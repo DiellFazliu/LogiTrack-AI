@@ -1,3 +1,4 @@
+// src/modules/warehouses/warehouses.controller.ts
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { WarehousesService } from './warehouses.service';
@@ -19,34 +20,34 @@ export class WarehousesController {
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Create a new warehouse' })
   create(@Body() createDto: CreateWarehouseDto, @Request() req) {
-    return this.warehousesService.create(createDto, req.user.organizationId);
+    return this.warehousesService.create(createDto, req.user.organizationId, req.user.id);
   }
 
   @Get()
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Get all warehouses' })
   findAll(@Request() req) {
-    return this.warehousesService.findAll(req.user.organizationId);
+    return this.warehousesService.findAll(req.user.organizationId, req.user.id);
   }
 
   @Get(':id')
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Get warehouse by ID' })
   findOne(@Param('id') id: string, @Request() req) {
-    return this.warehousesService.findOne(id, req.user.organizationId);
+    return this.warehousesService.findOne(id, req.user.organizationId, req.user.id);
   }
 
   @Put(':id')
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Update warehouse' })
   update(@Param('id') id: string, @Body() updateDto: UpdateWarehouseDto, @Request() req) {
-    return this.warehousesService.update(id, updateDto, req.user.organizationId);
+    return this.warehousesService.update(id, updateDto, req.user.organizationId, req.user.id);
   }
 
   @Delete(':id')
   @Roles(UserRole.COMPANY_ADMIN)
   @ApiOperation({ summary: 'Delete warehouse' })
   remove(@Param('id') id: string, @Request() req) {
-    return this.warehousesService.remove(id, req.user.organizationId);
+    return this.warehousesService.remove(id, req.user.organizationId, req.user.id);
   }
 }

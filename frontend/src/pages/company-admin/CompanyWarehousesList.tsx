@@ -8,17 +8,18 @@ import { WarehouseFormModal } from '../../components/forms/WarehouseForm';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 
+// ✅ Përditëso interface me camelCase (siç vjen nga backend)
 interface Warehouse {
   id: string;
   name: string;
   address: string;
   latitude?: number;
   longitude?: number;
-  capacity_sqm?: number;
-  manager_name?: string;
-  manager_phone?: string;
-  is_active: boolean;
-  created_at: string;
+  capacitySqm?: number;     // ✅ ndrysho nga capacity_sqm
+  managerName?: string;      // ✅ ndrysho nga manager_name
+  managerPhone?: string;     // ✅ ndrysho nga manager_phone
+  isActive: boolean;         // ✅ ndrysho nga is_active
+  createdAt: string;         // ✅ ndrysho nga created_at
 }
 
 // Komponenti i kartës statistikore
@@ -53,23 +54,17 @@ export const CompanyWarehousesList: React.FC = () => {
     fetchWarehouses();
   }, []);
 
-  const toSnakeCase = (str: string) => str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-  const transformKeysToSnakeCase = (obj: any): any => {
-    if (Array.isArray(obj)) return obj.map(v => transformKeysToSnakeCase(v));
-    if (obj !== null && typeof obj === 'object') {
-      return Object.keys(obj).reduce((acc, key) => {
-        acc[toSnakeCase(key)] = transformKeysToSnakeCase(obj[key]);
-        return acc;
-      }, {} as any);
-    }
-    return obj;
-  };
-
   const fetchWarehouses = async () => {
     try {
       const response = await api.get('/warehouses');
-      const transformed = transformKeysToSnakeCase(response.data);
-      setWarehouses(Array.isArray(transformed) ? transformed : []);
+      console.log('Raw response:', response.data);
+      
+      // Përdor të dhënat direkt pa transformim
+      if (Array.isArray(response.data)) {
+        setWarehouses(response.data);
+      } else {
+        setWarehouses([]);
+      }
     } catch (error: any) {
       console.error('Error:', error);
       toast.error(error.response?.data?.message || 'Failed to fetch warehouses');
@@ -105,13 +100,13 @@ export const CompanyWarehousesList: React.FC = () => {
     }
   };
 
-  // Filtrimi dhe paginimi
+  // Filtrimi dhe paginimi - përdor camelCase
   const filteredWarehouses = useMemo(() => {
     return warehouses.filter(wh => 
       search === '' || 
       wh.name.toLowerCase().includes(search.toLowerCase()) ||
       wh.address.toLowerCase().includes(search.toLowerCase()) ||
-      (wh.manager_name && wh.manager_name.toLowerCase().includes(search.toLowerCase()))
+      (wh.managerName && wh.managerName.toLowerCase().includes(search.toLowerCase()))
     );
   }, [warehouses, search]);
 
@@ -122,12 +117,12 @@ export const CompanyWarehousesList: React.FC = () => {
 
   const totalPages = Math.ceil(filteredWarehouses.length / itemsPerPage);
 
-  // Statistikat
+  // Statistikat - përdor camelCase
   const stats = {
     total: warehouses.length,
-    totalCapacity: warehouses.reduce((sum, wh) => sum + (wh.capacity_sqm || 0), 0),
-    withManager: warehouses.filter(wh => wh.manager_name).length,
-    active: warehouses.filter(wh => wh.is_active).length,
+    totalCapacity: warehouses.reduce((sum, wh) => sum + (wh.capacitySqm || 0), 0),
+    withManager: warehouses.filter(wh => wh.managerName).length,
+    active: warehouses.filter(wh => wh.isActive).length,
   };
 
   if (loading) return <LoadingSpinner fullScreen />;
@@ -227,36 +222,37 @@ export const CompanyWarehousesList: React.FC = () => {
                 </div>
 
                 <div className="space-y-2 text-sm">
-                  {warehouse.capacity_sqm && (
+                  {warehouse.capacitySqm && (
                     <div className="flex justify-between">
                       <span className="text-gray-600">Kapaciteti:</span>
-                      <span className="font-medium text-gray-800">{warehouse.capacity_sqm} m²</span>
+                      <span className="font-medium text-gray-800">{warehouse.capacitySqm} m²</span>
                     </div>
                   )}
                   {(warehouse.latitude || warehouse.longitude) && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Koordinatat:</span>
-                      <span className="font-medium text-gray-800">
-                        {warehouse.latitude?.toFixed(4)} , {warehouse.longitude?.toFixed(4)}
-                      </span>
-                    </div>
-                  )}
-                  {warehouse.manager_name && (
+  <div className="flex justify-between">
+    <span className="text-gray-600">Koordinatat:</span>
+    <span className="font-medium text-gray-800">
+      {typeof warehouse.latitude === 'number' ? warehouse.latitude.toFixed(4) : warehouse.latitude} , 
+      {typeof warehouse.longitude === 'number' ? warehouse.longitude.toFixed(4) : warehouse.longitude}
+    </span>
+  </div>
+)}
+                  {warehouse.managerName && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600 flex items-center gap-1"><User className="w-3 h-3" /> Menaxheri:</span>
-                      <span className="font-medium text-gray-800">{warehouse.manager_name}</span>
+                      <span className="font-medium text-gray-800">{warehouse.managerName}</span>
                     </div>
                   )}
-                  {warehouse.manager_phone && (
+                  {warehouse.managerPhone && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600 flex items-center gap-1"><Phone className="w-3 h-3" /> Tel:</span>
-                      <span className="font-medium text-gray-800">{warehouse.manager_phone}</span>
+                      <span className="font-medium text-gray-800">{warehouse.managerPhone}</span>
                     </div>
                   )}
                   <div className="flex justify-between items-center pt-1 border-t border-gray-100">
                     <span className="text-gray-600">Statusi:</span>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold uppercase ${warehouse.is_active ? 'bg-green-700 text-white' : 'bg-gray-700 text-white'}`}>
-                      {warehouse.is_active ? 'Aktive' : 'Joaktive'}
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold uppercase ${warehouse.isActive ? 'bg-green-700 text-white' : 'bg-gray-700 text-white'}`}>
+                      {warehouse.isActive ? 'Aktive' : 'Joaktive'}
                     </span>
                   </div>
                 </div>

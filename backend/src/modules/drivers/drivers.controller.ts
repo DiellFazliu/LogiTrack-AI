@@ -38,12 +38,13 @@ export class DriversController {
     return this.driversService.create(createDto, req.user.organizationId, req.user.id);
   }
 
-
   @Get()
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Get all drivers' })
-  findAll(@Query('status') status: DriverStatus, @Request() req) {
-    return this.driversService.findAll(req.user.organizationId, req.user.id, status);
+  findAll(@Query('status') status: string, @Request() req) {
+    // Konverto statusin në enum vetëm nëse nuk është 'all'
+    const driverStatus = (status && status !== 'all') ? status as DriverStatus : undefined;
+    return this.driversService.findAll(req.user.organizationId, req.user.id, driverStatus);
   }
 
   @Get('available')
@@ -157,6 +158,7 @@ export class DriversController {
     return this.driversService.updateStatus(id, status, req.user.organizationId, req.user.id);
   }
 
+  // VETËM NJË ENDPOINT PËR LOCATION LAST - JO DY!
   @Get(':id/location/last')
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get driver last known location by driver ID' })
@@ -165,17 +167,6 @@ export class DriversController {
     if (!lastLocation) {
       return { message: 'No location updates yet' };
     }
-    
-    // ✅ Audit log for viewing driver location
-    await this.driversService['auditService']?.log({
-      organizationId: req.user.organizationId,
-      userId: req.user.id,
-      action: 'VIEW_DRIVER_LOCATION',
-      entityType: 'driver',
-      entityId: id,
-      newValues: { hasLocation: true },
-    });
-    
     return lastLocation;
   }
 

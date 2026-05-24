@@ -25,47 +25,47 @@ export class OrganizationsService {
 
   async findAll(): Promise<Organization[]> {
     return this.orgRepository.find({
-      relations: ['users', 'drivers', 'vehicles', 'warehouses', 'products', 'shipments'],
+      relations: ['users', 'drivers', 'vehicles', 'warehouses', 'shipments'],
     });
   }
 
-    async findAvailableOrganizations(): Promise<Organization[]> {
-      return this.orgRepository.find({
-        where: { isActive: true },
-        select: ['id', 'name', 'email', 'phone', 'address'], // Vetëm fushat e nevojshme për customer
-        order: { name: 'ASC' },
-      });
-    }
+  async findAvailableOrganizations(): Promise<Organization[]> {
+    return this.orgRepository.find({
+      where: { isActive: true },
+      select: ['id', 'name', 'email', 'phone', 'address'],
+      order: { name: 'ASC' },
+    });
+  }
 
   async findById(id: string): Promise<Organization> {
     const org = await this.orgRepository.findOne({
       where: { id },
-      relations: ['users', 'drivers', 'vehicles', 'warehouses', 'products', 'shipments'],
+      relations: ['users', 'drivers', 'vehicles', 'warehouses', 'shipments'],
     });
     if (!org) throw new NotFoundException('Organization not found');
     return org;
   }
 
   async update(id: string, updateDto: UpdateOrganizationDto): Promise<Organization> {
-    const organization = await this.findById(id);
+    await this.findById(id);
     await this.orgRepository.update(id, updateDto);
     return this.findById(id);
   }
 
   async updatePlan(id: string, planType: PlanType): Promise<Organization> {
-    const organization = await this.findById(id);
+    await this.findById(id);
     await this.orgRepository.update(id, { planType });
     return this.findById(id);
   }
 
   async updateSubscription(id: string, status: SubscriptionStatus): Promise<Organization> {
-    const organization = await this.findById(id);
+    await this.findById(id);
     await this.orgRepository.update(id, { subscriptionStatus: status });
     return this.findById(id);
   }
 
   async remove(id: string): Promise<void> {
-    const organization = await this.findById(id);
+    await this.findById(id);
     await this.orgRepository.update(id, { isActive: false });
   }
 
@@ -76,7 +76,7 @@ export class OrganizationsService {
       totalDrivers: organization.drivers?.length || 0,
       totalVehicles: organization.vehicles?.length || 0,
       totalWarehouses: organization.warehouses?.length || 0,
-      totalProducts: organization.products?.length || 0,
+      totalProducts: 0,
       totalShipments: organization.shipments?.length || 0,
       planType: organization.planType,
       subscriptionStatus: organization.subscriptionStatus,
