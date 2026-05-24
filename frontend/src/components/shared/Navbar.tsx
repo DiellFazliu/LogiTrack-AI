@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
-import { Menu, X, User, LogOut, Settings, Bell } from 'lucide-react';
+import { Menu, X, User, LogOut, Settings } from 'lucide-react';
+import { NotificationBell } from '../common/NotificationBell';
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
@@ -43,13 +44,8 @@ export const Navbar: React.FC = () => {
           
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-6">
-            {/* Notifications */}
-            <button className="relative text-gray-500 hover:text-gray-700">
-              <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
-                3
-              </span>
-            </button>
+            {/* Notifications - Përdor NotificationBell komponentin */}
+            <NotificationBell />
 
             {/* User Menu */}
             <div className="relative">
