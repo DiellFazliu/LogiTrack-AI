@@ -652,14 +652,16 @@ export const RouteOptimizerPage: React.FC = () => {
                     </span>
                   )}
                 </div>
-                <SimpleErrorBoundary>
-                  <RouteMap
-                    points={points}
-                    routeCoordinates={routeData?.features[0]?.geometry.coordinates}
-                    onMapClick={!isRouteStarted ? handleMapClick : emptyHandler}
-                    selectedPointType={selectedType}
-                  />
-                </SimpleErrorBoundary>
+                {!showReportModal && (
+                  <SimpleErrorBoundary>
+                    <RouteMap
+                      points={points}
+                      routeCoordinates={routeData?.features[0]?.geometry.coordinates}
+                      onMapClick={!isRouteStarted ? handleMapClick : emptyHandler}
+                      selectedPointType={selectedType}
+                    />
+                  </SimpleErrorBoundary>
+                )}
               </div>
             </div>
           </div>
@@ -672,13 +674,15 @@ export const RouteOptimizerPage: React.FC = () => {
       </div>
 
       {/* Report Problem Modal */}
-      <ReportProblemModal
-        isOpen={showReportModal}
-        onClose={() => setShowReportModal(false)}
-        shipmentId={shipmentData.shipmentId}
-        trackingNumber={shipmentData.trackingNumber}
-        currentLocation={points.length > 0 ? { lat: points[0].latitude, lng: points[0].longitude } : undefined}
-      />
+      {showReportModal && (
+        <ReportProblemModal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          shipmentId={shipmentData.shipmentId}
+          trackingNumber={shipmentData.trackingNumber}
+          currentLocation={points.length > 0 ? { lat: points[0].latitude, lng: points[0].longitude } : undefined}
+        />
+      )}
     </>
   );
 };
