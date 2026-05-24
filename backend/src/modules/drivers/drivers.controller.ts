@@ -35,21 +35,22 @@ export class DriversController {
   @ApiOperation({ summary: 'Create a new driver' })
   @ApiResponse({ status: 201, description: 'Driver created successfully' })
   create(@Body() createDto: CreateDriverDto, @Request() req) {
-    return this.driversService.create(createDto, req.user.organizationId);
+    return this.driversService.create(createDto, req.user.organizationId, req.user.id);
   }
+
 
   @Get()
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Get all drivers' })
   findAll(@Query('status') status: DriverStatus, @Request() req) {
-    return this.driversService.findAll(req.user.organizationId, status);
+    return this.driversService.findAll(req.user.organizationId, req.user.id, status);
   }
 
   @Get('available')
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Get available drivers' })
   async getAvailable(@Request() req) {
-    const drivers = await this.driversService.getAvailable(req.user.organizationId);
+    const drivers = await this.driversService.getAvailable(req.user.organizationId, req.user.id);
     console.log(`Found ${drivers.length} available drivers for organization ${req.user.organizationId}`);
     return drivers;
   }
@@ -139,52 +140,50 @@ export class DriversController {
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Get driver by ID' })
   findOne(@Param('id') id: string, @Request() req) {
-    return this.driversService.findOne(id, req.user.organizationId);
+    return this.driversService.findOne(id, req.user.organizationId, req.user.id);
   }
 
   @Put(':id')
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Update driver' })
   update(@Param('id') id: string, @Body() updateDto: UpdateDriverDto, @Request() req) {
-    return this.driversService.update(id, updateDto, req.user.organizationId);
+    return this.driversService.update(id, updateDto, req.user.organizationId, req.user.id);
   }
 
   @Patch(':id/status')
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Update driver status' })
   updateStatus(@Param('id') id: string, @Body('status') status: DriverStatus, @Request() req) {
-    return this.driversService.updateStatus(id, status, req.user.organizationId);
+    return this.driversService.updateStatus(id, status, req.user.organizationId, req.user.id);
   }
-  // backend/src/modules/drivers/drivers.controller.ts
-@Get(':id/location/last')
-@Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
-@ApiOperation({ summary: 'Get driver last known location by driver ID' })
-async getDriverLastLocation(@Param('id') id: string) {
-  const lastLocation = await this.driversService.getLastLocationByDriverId(id);
-  if (!lastLocation) {
-    return { message: 'No location updates yet' };
-  }
-  return lastLocation;
-}
-// backend/src/modules/drivers/drivers.controller.ts
-// Shto këtë endpoint:
 
-@Get(':id/location/last')
-@Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.SUPER_ADMIN)
-@ApiOperation({ summary: 'Get driver last known location by driver ID' })
-async getDriverLastLocationById(@Param('id') id: string) {
-  const lastLocation = await this.driversService.getLastLocationByDriverId(id);
-  if (!lastLocation) {
-    return { message: 'No location updates yet' };
+  @Get(':id/location/last')
+  @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get driver last known location by driver ID' })
+  async getDriverLastLocationById(@Param('id') id: string, @Request() req) {
+    const lastLocation = await this.driversService.getLastLocationByDriverId(id);
+    if (!lastLocation) {
+      return { message: 'No location updates yet' };
+    }
+    
+    // ✅ Audit log for viewing driver location
+    await this.driversService['auditService']?.log({
+      organizationId: req.user.organizationId,
+      userId: req.user.id,
+      action: 'VIEW_DRIVER_LOCATION',
+      entityType: 'driver',
+      entityId: id,
+      newValues: { hasLocation: true },
+    });
+    
+    return lastLocation;
   }
-  return lastLocation;
-}
 
   @Delete(':id')
   @Roles(UserRole.COMPANY_ADMIN)
   @ApiOperation({ summary: 'Delete driver' })
   remove(@Param('id') id: string, @Request() req) {
-    return this.driversService.remove(id, req.user.organizationId);
+    return this.driversService.remove(id, req.user.organizationId, req.user.id);
   }
 
   // ==================== LOCATION ENDPOINTS ====================
@@ -205,6 +204,7 @@ async getDriverLastLocationById(@Param('id') id: string) {
       driver.id,
       updateLocationDto.latitude,
       updateLocationDto.longitude,
+      req.user.id,
       updateLocationDto.address,
     );
   }

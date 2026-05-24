@@ -1,7 +1,7 @@
 // src/components/common/DataTable.tsx
 import React from 'react';
 
-interface Column<T> {
+export interface Column<T> {
   key: keyof T;
   header: string;
   sortable?: boolean;
@@ -14,6 +14,7 @@ interface DataTableProps<T> {
   onRowClick?: (item: T) => void;
   onEdit?: (item: T) => void;
   onDelete?: (item: T) => void;
+  extraActions?: (item: T) => React.ReactNode;
   isLoading?: boolean;
 }
 
@@ -23,6 +24,7 @@ export function DataTable<T extends { id: string }>({
   onRowClick,
   onEdit,
   onDelete,
+  extraActions,
   isLoading = false,
 }: DataTableProps<T>) {
   if (isLoading) {
@@ -35,11 +37,12 @@ export function DataTable<T extends { id: string }>({
 
   if (data.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
-        No data available
-      </div>
+      <div className="text-center py-12 text-gray-500">No data available</div>
     );
   }
+
+  // Kontrollo nëse duhet të shfaqet kolona e veprimeve
+  const showActions = !!(onEdit || onDelete || extraActions);
 
   return (
     <div className="overflow-x-auto">
@@ -54,9 +57,9 @@ export function DataTable<T extends { id: string }>({
                 {col.header}
               </th>
             ))}
-            {(onEdit || onDelete) && (
+            {showActions && (
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
+                Veprimet
               </th>
             )}
           </tr>
@@ -73,30 +76,37 @@ export function DataTable<T extends { id: string }>({
                   {col.render ? col.render(item[col.key], item) : String(item[col.key])}
                 </td>
               ))}
-              {(onEdit || onDelete) && (
+              {showActions && (
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  {onEdit && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEdit(item);
-                      }}
-                      className="text-indigo-600 hover:text-indigo-900 mr-3"
-                    >
-                      Edit
-                    </button>
-                  )}
-                  {onDelete && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete(item);
-                      }}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Delete
-                    </button>
-                  )}
+                  <div className="flex justify-end gap-2">
+                    {onEdit && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEdit(item);
+                        }}
+                        className="text-indigo-600 hover:text-indigo-900"
+                      >
+                        Edit
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(item);
+                        }}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
+                    )}
+                    {extraActions && (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        {extraActions(item)}
+                      </div>
+                    )}
+                  </div>
                 </td>
               )}
             </tr>
