@@ -82,7 +82,7 @@ export const CreateShipment: React.FC = () => {
   // Customer info (for customer shipments)
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerName, setCustomerName] = useState('');
-  const [isNewCustomer, setIsNewCustomer] = useState(true);
+  const [isNewCustomer, setIsNewCustomer] = useState(false); // ✅ Ndrysho në false fillimisht
 
   useEffect(() => {
     fetchProducts();
@@ -185,9 +185,15 @@ export const CreateShipment: React.FC = () => {
     }
   };
 
+  const generateTrackingNumber = () => {
+    const prefix = 'TRK';
+    const timestamp = Date.now().toString().slice(-8);
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `${prefix}${timestamp}${random}`;
+  };
+
   const calculateEstimatedDelivery = () => {
     setCalculating(true);
-    // Simulate AI calculation
     setTimeout(() => {
       const today = new Date();
       const daysToAdd = formData.is_express ? 1 : (formData.priority === 'urgent' ? 1 : formData.priority === 'high' ? 2 : 3);
@@ -214,33 +220,50 @@ export const CreateShipment: React.FC = () => {
       return;
     }
     
+    // ✅ VALIDIMI PËR NEW CUSTOMER
+    if (isNewCustomer && (!customerName || !customerEmail)) {
+      toast.error('Please enter customer name and email for new customer');
+      return;
+    }
+    
     setLoading(true);
     
     try {
-      const shipmentData = {
-        pickup_address: formData.pickup_address || (formData.pickup_warehouse_id ? 
-          warehouses.find(w => w.id === formData.pickup_warehouse_id)?.address : ''),
-        pickup_warehouse_id: formData.pickup_warehouse_id || undefined,
-        delivery_address: formData.delivery_address,
-        weight_kg: formData.weight_kg,
-        volume_m3: formData.volume_m3,
+      const trackingNumber = generateTrackingNumber();
+
+      const pickupAddress = (formData.pickup_address || (formData.pickup_warehouse_id
+        ? warehouses.find(w => w.id === formData.pickup_warehouse_id)?.address
+        : ''))?.toString() || '';
+
+      const shipmentData: any = {
+        trackingNumber,
+        organizationId: user?.organizationId || undefined,
+        pickupAddress: pickupAddress.toString(),
+        deliveryAddress: formData.delivery_address.toString(),
+        weightKg: formData.weight_kg || undefined,
+        volumeM3: formData.volume_m3 || undefined,
         priority: formData.priority,
-        is_express: formData.is_express,
-        notes: formData.notes,
-        driver_id: formData.driver_id || undefined,
-        vehicle_id: formData.vehicle_id || undefined,
-        estimated_delivery: formData.estimated_delivery || undefined,
-        // Customer info (if creating for customer)
-        customer_email: isNewCustomer ? customerEmail : undefined,
-        customer_name: isNewCustomer ? customerName : undefined,
+        isExpress: formData.is_express,
+        notes: formData.notes || undefined,
+        driverId: formData.driver_id || undefined,
+        vehicleId: formData.vehicle_id || undefined,
+        estimatedDelivery: formData.estimated_delivery || undefined,
       };
-      
+
+      // ✅ SHTIMI I CUSTOMERIT
+      if (isNewCustomer && customerName && customerEmail) {
+        shipmentData.customerName = customerName;
+        shipmentData.customerEmail = customerEmail;
+        console.log('📤 Creating new customer:', { customerName, customerEmail });
+      }
+
+      console.log('📦 Sending shipment data:', shipmentData);
+
       const response = await api.post('/shipments', shipmentData);
       
       if (response.data) {
         toast.success('Shipment created successfully!');
         
-        // If driver assigned, show option to notify
         if (formData.driver_id) {
           toast.success('Driver has been notified');
         }
@@ -558,7 +581,7 @@ export const CreateShipment: React.FC = () => {
             </div>
           </div>
 
-          {/* Customer Information (for creating shipments on behalf of customers) */}
+          {/* Customer Information */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <User className="w-5 h-5 text-green-600" /> Customer Information
@@ -569,7 +592,11 @@ export const CreateShipment: React.FC = () => {
                 <input
                   type="radio"
                   checked={isNewCustomer}
-                  onChange={() => setIsNewCustomer(true)}
+                  onChange={() => {
+                    setIsNewCustomer(true);
+                    setCustomerName('');
+                    setCustomerEmail('');
+                  }}
                   className="w-4 h-4"
                 />
                 <span>New Customer</span>
@@ -578,7 +605,11 @@ export const CreateShipment: React.FC = () => {
                 <input
                   type="radio"
                   checked={!isNewCustomer}
-                  onChange={() => setIsNewCustomer(false)}
+                  onChange={() => {
+                    setIsNewCustomer(false);
+                    setCustomerName('');
+                    setCustomerEmail('');
+                  }}
                   className="w-4 h-4"
                 />
                 <span>Existing Customer</span>
@@ -588,23 +619,25 @@ export const CreateShipment: React.FC = () => {
             {isNewCustomer ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Customer Name</label>
+                  <label className="block text-sm font-medium mb-2">Customer Name *</label>
                   <input
                     type="text"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Full name"
+                    required={isNewCustomer}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Customer Email</label>
+                  <label className="block text-sm font-medium mb-2">Customer Email *</label>
                   <input
                     type="email"
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
                     className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="email@example.com"
+                    required={isNewCustomer}
                   />
                 </div>
               </div>

@@ -8,7 +8,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
-import {UserRole} from "../../common/enums/roles.enum";
+import { UserRole } from '../../common/enums/roles.enum';
 
 @ApiTags('Invoices')
 @ApiBearerAuth()
@@ -38,6 +38,14 @@ export class InvoicesController {
   @ApiOperation({ summary: 'Get overdue invoices' })
   getOverdue() {
     return this.invoicesService.getOverdueInvoices();
+  }
+
+  // ✅ ENDPOINT I RI PËR TË MARRE FATURAT SIPAS ORGANIZATËS
+  @Get('organization/:organizationId')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
+  @ApiOperation({ summary: 'Get invoices by organization ID' })
+  async getInvoicesByOrganization(@Param('organizationId') organizationId: string) {
+    return this.invoicesService.getInvoicesByOrganization(organizationId);
   }
 
   @Get(':id')

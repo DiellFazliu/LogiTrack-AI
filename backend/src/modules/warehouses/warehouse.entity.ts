@@ -1,3 +1,4 @@
+// src/modules/warehouses/warehouse.entity.ts
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { Organization } from '../organizations/organization.entity';
 

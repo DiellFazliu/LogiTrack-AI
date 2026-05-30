@@ -4,7 +4,7 @@ import { SuperAdminDashboard } from '../pages/super-admin/SuperAdminDashboard';
 import { CompanyDashboard } from '../pages/company-admin/CompanyDashboard';
 import { DispatcherDashboard } from '../pages/dispatcher/DispatcherDashboard';
 import { DriverDashboard } from '../pages/driver/DriverDashboard';
-import { CustomerDashboard } from '../pages/costumer/CostumerDashboard';
+import { CustomerDashboard } from '../pages/customer/CustomerDashboard';
 
 export const RoleBasedDashboard: React.FC = () => {
   const { user, loading } = useAuth();

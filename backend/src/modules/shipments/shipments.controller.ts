@@ -1,16 +1,17 @@
-// src/modules/shipments/shipments.controller.ts
 import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ShipmentsService } from './shipments.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
+import { UpdateCoordinatesDto } from './dto/update-coordinates.dto';
 import { ShipmentQueryDto } from './dto/shipment-query.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/roles.enum';
-import { DriversService } from '../drivers/drivers.service';  // ✅ Shto importin
+import { DriversService } from '../drivers/drivers.service';
+import { ReportProblemDto } from './dto/report-problem.dto';
 
 @ApiTags('Shipments')
 @ApiBearerAuth()
@@ -19,11 +20,11 @@ import { DriversService } from '../drivers/drivers.service';  // ✅ Shto import
 export class ShipmentsController {
   constructor(
     private shipmentsService: ShipmentsService,
-    private driversService: DriversService,  // ✅ Shto DriversService në constructor
+    private driversService: DriversService,
   ) {}
 
   @Post()
-  @Roles(UserRole.CUSTOMER, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.CUSTOMER, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Create a new shipment' })
   create(@Body() createDto: CreateShipmentDto, @Request() req) {
     const organizationId = createDto.organizationId || req.user.organizationId;
@@ -31,78 +32,119 @@ export class ShipmentsController {
   }
 
   @Get()
-  @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Get all shipments with filters' })
   findAll(@Query() query: ShipmentQueryDto, @Request() req) {
     return this.shipmentsService.findAll(query, req.user.organizationId, req.user.role, req.user.id);
   }
 
   @Get('my')
-  @Roles(UserRole.DRIVER)
-  @ApiOperation({ summary: 'Get my assigned shipments (for drivers)' })
-  getMyShipments(@Query() query: ShipmentQueryDto, @Request() req) {
-    return this.shipmentsService.getMyShipments(req.user.id, req.user.organizationId, query);
+  @Roles(UserRole.SUPER_ADMIN, UserRole.CUSTOMER, UserRole.DRIVER)
+  @ApiOperation({ summary: 'Get my shipments (for customers and drivers)' })
+  async getMyShipments(@Query() query: ShipmentQueryDto, @Request() req) {
+    if (req.user.role === UserRole.CUSTOMER) {
+      return this.shipmentsService.getMyShipments(req.user.id, req.user.organizationId, query);
+    } else if (req.user.role === UserRole.DRIVER) {
+      return this.shipmentsService.getMyShipments(req.user.id, req.user.organizationId, query);
+    }
+    return this.shipmentsService.findAll(query, req.user.organizationId, req.user.role, req.user.id);
   }
+
+  @Get('stats')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
+  @ApiOperation({ summary: 'Get shipment statistics for the caller organization' })
+  async getStats(@Request() req) {
+    // Scope to organization; super_admin is also treated as allowed to any organization through role/guard
+    return this.shipmentsService.getStats(req.user.organizationId);
+  }
+  
 
   @Get('track/:trackingNumber')
   @ApiOperation({ summary: 'Track shipment by tracking number (public)' })
   async trackShipment(@Param('trackingNumber') trackingNumber: string) {
     return this.shipmentsService.getTracking(trackingNumber);
   }
+  @Post('report-problem')
+@Roles(UserRole.DRIVER, UserRole.DISPATCHER, UserRole.COMPANY_ADMIN)
+@ApiOperation({ summary: 'Report a problem with a shipment' })
+async reportProblem(@Body() reportDto: ReportProblemDto, @Request() req) {
+  return this.shipmentsService.reportProblem(reportDto, req.user.id, req.user.organizationId);
+}
+@Get(':id/problems')
+@Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.SUPER_ADMIN)
+@ApiOperation({ summary: 'Get reported problems for a shipment' })
+async getShipmentProblems(@Param('id') id: string, @Request() req) {
+  return this.shipmentsService.getShipmentProblems(id, req.user.organizationId);
+}
 
-    @Get(':id')
-    @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.CUSTOMER)
-    @ApiOperation({ summary: 'Get shipment by ID' })
-    async findOne(@Param('id') id: string, @Request() req) {
-      // Për driver, kalojmë userId, JO driver.id
-      if (req.user.role === 'driver') {
-        // ✅ Kalo req.user.id, jo driver.id
-        return this.shipmentsService.findOne(id, req.user.organizationId, req.user.role, req.user.id);
-      }
-      
+  @Get(':id')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.CUSTOMER)
+  @ApiOperation({ summary: 'Get shipment by ID' })
+  async findOne(@Param('id') id: string, @Request() req) {
+    if (req.user.role === 'driver') {
       return this.shipmentsService.findOne(id, req.user.organizationId, req.user.role, req.user.id);
     }
+    return this.shipmentsService.findOne(id, req.user.organizationId, req.user.role, req.user.id);
+  }
 
-    @Get(':id/history')
-    @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.CUSTOMER)
-    @ApiOperation({ summary: 'Get shipment status history' })
-    async getHistory(@Param('id') id: string, @Request() req) {
-      // ✅ Kalo req.user.id për driver
-      return this.shipmentsService.getHistory(id, req.user.organizationId, req.user.role, req.user.id);
-    }
+  @Get('customer/my')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.CUSTOMER)
+  @ApiOperation({ summary: 'Get my shipments (for customers)' })
+  async getCustomerShipments(@Query() query: ShipmentQueryDto, @Request() req) {
+    return this.shipmentsService.findByCustomer(req.user.id, req.user.organizationId, query);
+  }
+
+  @Get(':id/history')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER, UserRole.CUSTOMER)
+  @ApiOperation({ summary: 'Get shipment status history' })
+  async getHistory(@Param('id') id: string, @Request() req) {
+    return this.shipmentsService.getHistory(id, req.user.organizationId, req.user.role, req.user.id);
+  }
 
   @Put(':id')
-  @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Update shipment' })
   update(@Param('id') id: string, @Body() updateDto: UpdateShipmentDto, @Request() req) {
-    return this.shipmentsService.update(id, updateDto, req.user.organizationId);
+    return this.shipmentsService.update(id, updateDto, req.user.organizationId, req.user.id);
   }
 
   @Patch(':id/status')
-  @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER, UserRole.DRIVER)
   @ApiOperation({ summary: 'Update shipment status' })
   updateStatus(@Param('id') id: string, @Body() statusDto: UpdateStatusDto, @Request() req) {
     return this.shipmentsService.updateStatus(id, statusDto, req.user.organizationId, req.user.id);
   }
 
+  @Patch(':id/coordinates')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
+  @ApiOperation({ summary: 'Update shipment pickup/delivery coordinates' })
+  updateCoordinates(
+    @Param('id') id: string,
+    @Body() updateCoordinatesDto: UpdateCoordinatesDto,
+    @Request() req,
+  ) {
+    return this.shipmentsService.updateCoordinates(id, updateCoordinatesDto, req.user.organizationId, req.user.id);
+  }
+  
+
   @Patch(':id/assign-driver/:driverId')
-  @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Assign driver to shipment' })
   assignDriver(@Param('id') id: string, @Param('driverId') driverId: string, @Request() req) {
-    return this.shipmentsService.assignDriver(id, driverId, req.user.organizationId);
+    return this.shipmentsService.assignDriver(id, driverId, req.user.organizationId, req.user.id);
   }
 
   @Patch(':id/assign-vehicle/:vehicleId')
-  @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Assign vehicle to shipment' })
   assignVehicle(@Param('id') id: string, @Param('vehicleId') vehicleId: string, @Request() req) {
-    return this.shipmentsService.assignVehicle(id, vehicleId, req.user.organizationId);
+    return this.shipmentsService.assignVehicle(id, vehicleId, req.user.organizationId, req.user.id);
   }
 
   @Delete(':id')
-  @Roles(UserRole.COMPANY_ADMIN, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
   @ApiOperation({ summary: 'Delete shipment' })
   remove(@Param('id') id: string, @Request() req) {
-    return this.shipmentsService.remove(id, req.user.organizationId);
+    return this.shipmentsService.remove(id, req.user.organizationId, req.user.id);
   }
 }

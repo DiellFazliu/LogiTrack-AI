@@ -10,19 +10,25 @@ import { Organization } from '../modules/organizations/organization.entity';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { RolesModule } from '../modules/roles/roles.module';
-import { Driver } from '../modules/drivers/driver.entity';  // ✅ Shto importin
+import { Driver } from '../modules/drivers/driver.entity';
 
 @Module({
   imports: [
     RolesModule,
-    TypeOrmModule.forFeature([User, Organization, Driver]),  // ✅ Shto Driver këtu
+    TypeOrmModule.forFeature([User, Organization, Driver]),
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        secret: configService.get('JWT_SECRET'),
-        signOptions: { expiresIn: configService.get('JWT_EXPIRES_IN') },
-      }),
+      useFactory: (configService: ConfigService) => {
+        let expiresIn = configService.get('JWT_EXPIRES_IN');
+        if (typeof expiresIn === 'string' && /^\d+$/.test(expiresIn)) {
+          expiresIn = parseInt(expiresIn, 10);
+        }
+        return {
+          secret: configService.get('JWT_SECRET'),
+          signOptions: { expiresIn },
+        };
+      },
     }),
   ],
   providers: [AuthService, LocalStrategy, JwtStrategy],

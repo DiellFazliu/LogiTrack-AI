@@ -32,6 +32,8 @@ import { AuditModule } from './modules/audit/audit.module';
 import { ReturnsModule } from './modules/returns/returns.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
+import { TrackingModule } from './modules/tracking/tracking.module';
+import { WaybillsModule } from './modules/waybills/waybills.module';
 
 @Module({
   imports: [
@@ -102,6 +104,8 @@ import { InvoicesModule } from './modules/invoices/invoices.module';
     ReturnsModule,
     DocumentsModule,
     InvoicesModule,
+    TrackingModule,
+    WaybillsModule,
   ],
   providers: [
     {

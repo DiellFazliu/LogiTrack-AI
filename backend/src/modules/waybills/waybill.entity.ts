@@ -1,3 +1,4 @@
+// waybill.entity.ts
 import {
   Entity,
   Column,
@@ -28,45 +29,23 @@ export class Waybill {
   waybillNumber!: string;
 
   @Column({ name: 'pdf_url', nullable: true })
-  pdfUrl!: string;
+  pdfUrl?: string;
 
   @Column({ name: 'qr_code', type: 'text', nullable: true })
-  qrCode!: string;
+  qrCode?: string;
 
   @Column({ type: 'text', nullable: true })
-  signature!: string;
+  signature?: string;
 
   @Column({ name: 'signed_at', type: 'timestamp', nullable: true })
-  signedAt!: Date;
-
-  @Column({ name: 'signed_by', nullable: true })
-  signedBy!: string;
-
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'signed_by' })
-  signer!: User;
+  signedAt?: Date;
 
   @Column({ name: 'generated_by', nullable: true })
-  generatedBy!: string;
+  generatedBy?: string;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'generated_by' })
-  generator!: User;
-
-  @Column({ name: 'pdf_data', type: 'bytea', nullable: true })
-  pdfData!: Buffer;
-
-  @Column({ name: 'is_signed', default: false })
-  isSigned!: boolean;
-
-  @Column({ name: 'is_printed', default: false })
-  isPrinted!: boolean;
-
-  @Column({ name: 'printed_at', type: 'timestamp', nullable: true })
-  printedAt!: Date;
-
-  @Column({ name: 'notes', type: 'text', nullable: true })
-  notes!: string;
+  generator?: User;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

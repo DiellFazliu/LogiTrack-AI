@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+// src/modules/products/products.controller.ts
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -19,34 +20,34 @@ export class ProductsController {
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Create a new product' })
   create(@Body() createDto: CreateProductDto, @Request() req) {
-    return this.productsService.create(createDto, req.user.organizationId);
+    return this.productsService.create(createDto, req.user.organizationId, req.user.id);
   }
 
   @Get()
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Get all products' })
-  findAll(@Query('category') category: string, @Request() req) {
-    return this.productsService.findAll(req.user.organizationId, category);
+  findAll(@Request() req) {
+    return this.productsService.findAll(req.user.organizationId, req.user.id);
   }
 
   @Get(':id')
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Get product by ID' })
   findOne(@Param('id') id: string, @Request() req) {
-    return this.productsService.findOne(id, req.user.organizationId);
+    return this.productsService.findOne(id, req.user.organizationId, req.user.id);
   }
 
   @Put(':id')
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Update product' })
   update(@Param('id') id: string, @Body() updateDto: UpdateProductDto, @Request() req) {
-    return this.productsService.update(id, updateDto, req.user.organizationId);
+    return this.productsService.update(id, updateDto, req.user.organizationId, req.user.id);
   }
 
   @Delete(':id')
   @Roles(UserRole.COMPANY_ADMIN)
   @ApiOperation({ summary: 'Delete product' })
   remove(@Param('id') id: string, @Request() req) {
-    return this.productsService.remove(id, req.user.organizationId);
+    return this.productsService.remove(id, req.user.organizationId, req.user.id);
   }
 }

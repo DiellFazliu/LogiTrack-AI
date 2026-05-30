@@ -11,14 +11,32 @@ export enum DriverStatus {
 }
 
 export class CreateDriverDto {
+  // Either provide an existing userId (link driver to existing user)
+  // OR provide user fields so the backend can create the user and the driver.
   @ApiProperty({ required: false })
   @IsOptional()
   @IsUUID()
   userId?: string;
 
-  @ApiProperty({ example: 'AB123456' })
+  @ApiProperty({ required: false, example: 'AB123456' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiProperty({ required: false, example: 'driver@example.com' })
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @ApiProperty({ required: false, example: 'password123' })
+  @IsOptional()
+  @IsString()
+  password?: string;
+
+  @ApiProperty({ required: false, example: 'AB123456' })
   @IsString()
   licenseNumber!: string;
+
 
   @ApiProperty({ example: '+38344123456' })
   @IsPhoneNumber()

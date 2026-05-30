@@ -1,95 +1,525 @@
-// src/modules/drivers/drivers.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+// backend/src/modules/drivers/drivers.service.ts
+import {
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { Driver, DriverStatus } from './driver.entity';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
-
+import { User } from '../users/user.entity';
+import { UsersService } from '../users/users.service';
+import { DriverLocation } from './location.entity';
+import { AuditService } from '../audit/audit.service';
+import { Between } from 'typeorm';
+import { Shipment, ShipmentStatus } from '../shipments/shipment.entity';
+import { ConflictException } from '@nestjs/common';
 @Injectable()
 export class DriversService {
+
   constructor(
     @InjectRepository(Driver)
     private driverRepository: Repository<Driver>,
+    @InjectRepository(DriverLocation)
+    private locationRepository: Repository<DriverLocation>,
+      @InjectRepository(Shipment)  // ✅ Shto këtë
+  private shipmentRepository: Repository<Shipment>,
+    private usersService: UsersService,
+    private dataSource: DataSource,
+    private auditService: AuditService,
   ) {}
 
-  async create(createDto: CreateDriverDto, organizationId: string): Promise<Driver> {
-    const driver = this.driverRepository.create({
-      ...createDto,
+  async create(createDto: CreateDriverDto, organizationId: string, userId: string): Promise<Driver> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      let savedUser: User | null = null;
+
+      if (createDto.userId) {
+        savedUser = await queryRunner.manager.findOne(User, {
+          where: { id: createDto.userId, organizationId },
+        });
+
+        if (!savedUser) {
+          throw new ConflictException('User not found in this organization');
+        }
+      } else {
+        if (!createDto.email || !createDto.password || !createDto.name) {
+          throw new ConflictException(
+            'Provide either userId OR { name, email, password } to create a driver user',
+          );
+        }
+
+        const existingUser = await queryRunner.manager.findOne(User, {
+          where: { email: createDto.email },
+        });
+
+        if (existingUser) {
+          if (existingUser.organizationId !== organizationId) {
+            throw new ConflictException('User already exists in a different organization');
+          }
+          savedUser = existingUser;
+        } else {
+          const hashedPassword = await bcrypt.hash(createDto.password, 10);
+
+          const user = queryRunner.manager.create(User, {
+            email: createDto.email,
+            name: createDto.name,
+            password: hashedPassword,
+            organizationId,
+            phone: createDto.phone,
+            isActive: true,
+          });
+
+          savedUser = await queryRunner.manager.save(user);
+
+          await queryRunner.manager.query(
+            `
+            INSERT INTO user_roles (user_id, role_id)
+            SELECT $1, id FROM roles WHERE name = 'driver'
+            `,
+            [savedUser.id],
+          );
+        }
+      }
+
+      await queryRunner.manager.query(
+        `
+        INSERT INTO user_roles (user_id, role_id)
+        SELECT $1, id FROM roles WHERE name = 'driver'
+        `,
+        [savedUser!.id],
+      );
+
+      const driver = queryRunner.manager.create(Driver, {
+        userId: savedUser!.id,
+        organizationId,
+        licenseNumber: createDto.licenseNumber,
+        phone: createDto.phone,
+        emergencyContact: createDto.emergencyContact ?? undefined,
+        emergencyPhone: createDto.emergencyPhone ?? undefined,
+        status: DriverStatus.AVAILABLE,
+        isActive: true,
+        totalDeliveries: 0,
+        rating: 0,
+      });
+
+      const savedDriver = await queryRunner.manager.save(driver);
+
+      await queryRunner.commitTransaction();
+
+      // ✅ Audit log for driver creation
+      await this.auditService.log({
+        organizationId,
+        userId,
+        action: 'CREATE_DRIVER',
+        entityType: 'driver',
+        entityId: savedDriver.id,
+        newValues: {
+          name: savedUser?.name,
+          email: savedUser?.email,
+          licenseNumber: savedDriver.licenseNumber,
+          phone: savedDriver.phone,
+          status: savedDriver.status,
+        },
+      });
+
+      return savedDriver;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+  // backend/src/modules/drivers/drivers.service.ts
+
+async getDailyReport(driverId: string, date: string, organizationId: string): Promise<any> {
+  const startDate = new Date(date);
+  startDate.setHours(0, 0, 0, 0);
+  const endDate = new Date(date);
+  endDate.setHours(23, 59, 59, 999);
+
+  const shipments = await this.shipmentRepository.find({
+    where: {
+      driverId,
       organizationId,
-      status: DriverStatus.AVAILABLE,
-      isActive: true,
-      totalDeliveries: 0,
-      rating: 0,
-    });
-    return this.driverRepository.save(driver);
+      status: ShipmentStatus.DELIVERED,
+      actualDelivery: Between(startDate, endDate),
+    },
+    order: { actualDelivery: 'ASC' },
+  });
+
+  // Kontrollo nëse dita është konfirmuar
+  const dayConfirmed = await this.auditService.findAll({
+    organizationId,
+    action: 'CONFIRM_DAY',
+    entityType: 'driver',
+    entityId: driverId,
+    fromDate: startDate.toISOString(),
+    toDate: endDate.toISOString(),
+    limit: 1,
+  });
+
+  // Funksioni për të llogaritur distancën midis dy pikave
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    if (!lat1 || !lng1 || !lat2 || !lng2) return 0;
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  // Përllogarit distancën dhe kohën për çdo shipment
+  const deliveries = await Promise.all(shipments.map(async (shipment) => {
+    let distance = shipment.estimatedDistanceKm || 0;
+    let duration = shipment.estimatedDurationMin || 0;
+    
+    // Nëse nuk ka distancë të ruajtur, llogarite nga koordinatat
+    if (distance === 0 && shipment.pickupLatitude && shipment.pickupLongitude && 
+        shipment.deliveryLatitude && shipment.deliveryLongitude) {
+      distance = calculateDistance(
+        shipment.pickupLatitude, shipment.pickupLongitude,
+        shipment.deliveryLatitude, shipment.deliveryLongitude
+      );
+      // Koha e përafërt: 1 orë = 60 km (mesatarisht)
+      duration = Math.round(distance * 1.5);
+    }
+    
+    return {
+      id: shipment.id,
+      trackingNumber: shipment.trackingNumber,
+      deliveryAddress: shipment.deliveryAddress,
+      status: shipment.status,
+      completedAt: shipment.actualDelivery,
+      distance,
+      duration,
+    };
+  }));
+
+  const totalDeliveries = shipments.length;
+  const completedDeliveries = deliveries.filter(s => s.status === ShipmentStatus.DELIVERED).length;
+  const totalDistance = deliveries.reduce((sum, s) => sum + (s.distance || 0), 0);
+  const totalDuration = deliveries.reduce((sum, s) => sum + (s.duration || 0), 0);
+  const earnings = completedDeliveries * 50;
+
+  return {
+    date,
+    totalDeliveries,
+    completedDeliveries,
+    cancelledDeliveries: 0,
+    totalDistance,
+    totalDuration,
+    earnings,
+    deliveries,
+    dayConfirmed: dayConfirmed.data.length > 0,
+  };
+}
+
+async confirmDay(driverId: string, date: string, userId: string, organizationId: string): Promise<any> {
+  const startDate = new Date(date);
+  startDate.setHours(0, 0, 0, 0);
+  const endDate = new Date(date);
+  endDate.setHours(23, 59, 59, 999);
+
+  // Kontrollo nëse tashmë është konfirmuar
+  const existingConfirm = await this.auditService.findAll({
+    organizationId,
+    action: 'CONFIRM_DAY',
+    entityType: 'driver',
+    entityId: driverId,
+    fromDate: startDate.toISOString(),
+    toDate: endDate.toISOString(),
+    limit: 1,
+  });
+
+  if (existingConfirm.data.length > 0) {
+    throw new ConflictException('Day already confirmed');
   }
 
-  async findAll(organizationId: string, status?: DriverStatus): Promise<Driver[]> {
+  // Ruaj konfirmimin në audit_logs
+  await this.auditService.log({
+    organizationId,
+    userId,
+    action: 'CONFIRM_DAY',
+    entityType: 'driver',
+    entityId: driverId,
+    newValues: {
+      date,
+      confirmedAt: new Date().toISOString(),
+    },
+  });
+
+  return {
+    success: true,
+    message: 'Day confirmed successfully',
+  };
+}
+
+  async findAll(organizationId: string, userId: string, status?: DriverStatus): Promise<Driver[]> {
     const where: any = { organizationId, isActive: true };
     if (status) where.status = status;
-    
-    return this.driverRepository.find({
+
+    const drivers = await this.driverRepository.find({
       where,
       relations: ['user', 'organization'],
       order: { createdAt: 'DESC' },
     });
+
+    // ✅ Audit log for viewing drivers list
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'VIEW_DRIVERS_LIST',
+      entityType: 'driver',
+      newValues: { count: drivers.length },
+    });
+
+    return drivers;
   }
 
-  async findOne(id: string, organizationId: string): Promise<Driver> {
+  async findOne(id: string, organizationId: string, userId: string): Promise<Driver> {
     const driver = await this.driverRepository.findOne({
       where: { id, organizationId, isActive: true },
       relations: ['user', 'organization', 'shipments'],
     });
+
     if (!driver) throw new NotFoundException('Driver not found');
+    
+    // ✅ Audit log for viewing driver details
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'VIEW_DRIVER_DETAILS',
+      entityType: 'driver',
+      entityId: driver.id,
+      newValues: { name: driver.user?.name, status: driver.status },
+    });
+    
     return driver;
   }
-      // src/modules/drivers/drivers.service.ts
-    async findByUserId(userId: string): Promise<Driver | null> {
-      return this.driverRepository.findOne({
-        where: { userId: userId, isActive: true },
+
+  async getLastLocationByDriverId(driverId: string): Promise<DriverLocation | null> {
+    const lastLocation = await this.locationRepository.findOne({
+      where: { driverId },
+      order: { createdAt: 'DESC' },
+    });
+    return lastLocation;
+  }
+
+  async findByUserId(userId: string): Promise<Driver | null> {
+    return this.driverRepository.findOne({
+      where: { userId: userId, isActive: true },
+    });
+  }
+
+  async update(
+    id: string,
+    updateDto: UpdateDriverDto,
+    organizationId: string,
+    userId: string,
+  ): Promise<Driver> {
+    const oldDriver = await this.findOne(id, organizationId, userId);
+    
+    const changes: any = {};
+    if (updateDto.licenseNumber !== undefined && updateDto.licenseNumber !== oldDriver.licenseNumber) {
+      changes.licenseNumber = { old: oldDriver.licenseNumber, new: updateDto.licenseNumber };
+    }
+    if (updateDto.phone !== undefined && updateDto.phone !== oldDriver.phone) {
+      changes.phone = { old: oldDriver.phone, new: updateDto.phone };
+    }
+    if (updateDto.status !== undefined && updateDto.status !== oldDriver.status) {
+      changes.status = { old: oldDriver.status, new: updateDto.status };
+    }
+    
+    await this.driverRepository.update(id, updateDto);
+    const updatedDriver = await this.findOne(id, organizationId, userId);
+    
+    // ✅ Audit log for driver update
+    if (Object.keys(changes).length > 0) {
+      await this.auditService.log({
+        organizationId,
+        userId,
+        action: 'UPDATE_DRIVER',
+        entityType: 'driver',
+        entityId: id,
+        oldValues: changes,
+        newValues: {
+          licenseNumber: updatedDriver.licenseNumber,
+          phone: updatedDriver.phone,
+          status: updatedDriver.status,
+        },
       });
     }
-
-  async update(id: string, updateDto: UpdateDriverDto, organizationId: string): Promise<Driver> {
-    await this.findOne(id, organizationId);
-    await this.driverRepository.update(id, updateDto);
-    return this.findOne(id, organizationId);
+    
+    return updatedDriver;
   }
 
-  async updateStatus(id: string, status: DriverStatus, organizationId: string): Promise<Driver> {
-    await this.findOne(id, organizationId);
+  async updateStatus(
+    id: string,
+    status: DriverStatus,
+    organizationId: string,
+    userId: string,
+  ): Promise<Driver> {
+    const oldDriver = await this.findOne(id, organizationId, userId);
+    const oldStatus = oldDriver.status;
+    
     await this.driverRepository.update(id, { status });
-    return this.findOne(id, organizationId);
+    const updatedDriver = await this.findOne(id, organizationId, userId);
+    
+    // ✅ Audit log for driver status change
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'UPDATE_DRIVER_STATUS',
+      entityType: 'driver',
+      entityId: id,
+      oldValues: { status: oldStatus },
+      newValues: { status },
+    });
+    
+    return updatedDriver;
   }
 
-  async remove(id: string, organizationId: string): Promise<void> {
-    await this.findOne(id, organizationId);
+  async remove(id: string, organizationId: string, userId: string): Promise<void> {
+    const driver = await this.findOne(id, organizationId, userId);
+    
+    // ✅ Audit log for driver deletion
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'DELETE_DRIVER',
+      entityType: 'driver',
+      entityId: id,
+      oldValues: {
+        name: driver.user?.name,
+        licenseNumber: driver.licenseNumber,
+        status: driver.status,
+      },
+    });
+    
     await this.driverRepository.update(id, { isActive: false });
   }
 
-  // ✅ Rregullo getAvailable për të marrë emrin dhe email-in nga User
-  async getAvailable(organizationId: string): Promise<any[]> {
+  async getAvailable(organizationId: string, userId: string): Promise<any[]> {
     const drivers = await this.driverRepository.find({
-      where: { 
-        organizationId, 
+      where: {
+        organizationId,
         status: DriverStatus.AVAILABLE,
-        isActive: true 
+        isActive: true,
       },
-      relations: ['user'], // Join me tabelën users
+      relations: ['user'],
       order: { createdAt: 'DESC' },
     });
 
-    // Transformo të dhënat për të përfshirë emrin dhe email-in nga user
-    return drivers.map(driver => ({
+    // ✅ Audit log for viewing available drivers
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: 'VIEW_AVAILABLE_DRIVERS',
+      entityType: 'driver',
+      newValues: { count: drivers.length },
+    });
+
+    return drivers.map((driver) => ({
       id: driver.id,
-      name: driver.user?.name || 'N/A',
-      email: driver.user?.email || 'N/A',
+      name: driver.user?.name ?? '',
+      email: driver.user?.email ?? '',
       phone: driver.phone,
       status: driver.status,
       totalDeliveries: driver.totalDeliveries,
       rating: driver.rating,
       licenseNumber: driver.licenseNumber,
     }));
+  }
+
+  // ==================== LOCATION METHODS ====================
+
+  async updateLocation(
+    driverId: string,
+    latitude: number,
+    longitude: number,
+    userId: string,
+    address?: string,
+  ): Promise<DriverLocation> {
+    console.log('updateLocation called with driverId:', driverId);
+    
+    const driver = await this.driverRepository.findOne({
+      where: { id: driverId, isActive: true }
+    });
+    
+    if (!driver) {
+      throw new NotFoundException('Driver not found');
+    }
+
+    const location = this.locationRepository.create({
+      driverId: driver.id,
+      latitude,
+      longitude,
+      address,
+    });
+
+    const saved = await this.locationRepository.save(location);
+    console.log('Location saved:', saved);
+    
+    // ✅ Audit log for location update
+    await this.auditService.log({
+      organizationId: driver.organizationId,
+      userId,
+      action: 'UPDATE_DRIVER_LOCATION',
+      entityType: 'driver',
+      entityId: driver.id,
+      newValues: {
+        latitude,
+        longitude,
+        address: address || null,
+      },
+    });
+    
+    return saved;
+  }
+
+  async getLocationHistory(
+    userId: string,
+    limit: number = 50,
+    offset: number = 0,
+  ): Promise<{ items: DriverLocation[]; total: number }> {
+    const driver = await this.findByUserId(userId);
+    
+    if (!driver) {
+      throw new NotFoundException('Driver not found');
+    }
+
+    const [items, total] = await this.locationRepository.findAndCount({
+      where: { driverId: driver.id },
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: offset,
+    });
+
+    return { items, total };
+  }
+
+  async getLastLocation(userId: string): Promise<DriverLocation | null> {
+    const driver = await this.findByUserId(userId);
+    
+    if (!driver) {
+      throw new NotFoundException('Driver not found');
+    }
+
+    const lastLocation = await this.locationRepository.findOne({
+      where: { driverId: driver.id },
+      order: { createdAt: 'DESC' },
+    });
+
+    return lastLocation;
   }
 }

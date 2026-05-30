@@ -1,6 +1,6 @@
-// src/modules/products/dto/create-product.dto.ts
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsNumber, IsBoolean, Min, IsUUID } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsOptional, IsNumber, IsBoolean, Min } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 
 export class CreateProductDto {
   @ApiProperty({ example: 'SKU-001', description: 'Stock Keeping Unit - unique identifier' })
@@ -11,40 +11,49 @@ export class CreateProductDto {
   @IsString()
   name!: string;
 
-  @ApiProperty({ required: false, description: 'Product description' })
+  @ApiPropertyOptional({ description: 'Product description' })
   @IsOptional()
   @IsString()
   description?: string;
 
-  @ApiProperty({ required: false, example: 'Electronics', description: 'Product category' })
+  @ApiPropertyOptional({ example: 'Electronics', description: 'Product category' })
   @IsOptional()
   @IsString()
   category?: string;
 
-  @ApiProperty({ required: false, description: 'Weight in kilograms' })
+  @ApiPropertyOptional({ example: 2.5, description: 'Weight in kilograms' })
   @IsOptional()
+  @Transform(({ value }) => value !== undefined && value !== null && value !== '' ? Number(value) : null)
   @IsNumber()
   @Min(0)
-  weightKg?: number;
+  weight_kg?: number | null;
 
-  @ApiProperty({ required: false, description: 'Volume in cubic meters' })
+  @ApiPropertyOptional({ example: 0.05, description: 'Volume in cubic meters' })
   @IsOptional()
+  @Transform(({ value }) => value !== undefined && value !== null && value !== '' ? Number(value) : null)
   @IsNumber()
   @Min(0)
-  volumeM3?: number;
+  volume_m3?: number | null;
 
-  @ApiProperty({ required: false, default: false, description: 'Is product hazardous?' })
+  @ApiPropertyOptional({ default: false, description: 'Is product hazardous?' })
   @IsOptional()
   @IsBoolean()
   hazardous?: boolean;
 
-  @ApiProperty({ required: false, default: false, description: 'Is product fragile?' })
+  @ApiPropertyOptional({ default: false, description: 'Is product fragile?' })
   @IsOptional()
   @IsBoolean()
   fragile?: boolean;
 
-  @ApiProperty({ required: false, description: 'Product image URL' })
+  @ApiPropertyOptional({ description: 'Product image URL' })
   @IsOptional()
   @IsString()
   imageUrl?: string;
+
+  @ApiPropertyOptional({ example: 999.99, description: 'Product price' })
+  @IsOptional()
+  @Transform(({ value }) => value !== undefined && value !== null && value !== '' ? Number(value) : null)
+  @IsNumber()
+  @Min(0)
+  price?: number | null;
 }

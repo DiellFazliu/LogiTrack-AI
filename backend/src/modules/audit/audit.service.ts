@@ -32,25 +32,52 @@ export class AuditService {
       userId: auditLog.userId,
       userName,
       action: auditLog.action,
-      method: auditLog.method,
-      url: auditLog.url,
+      method: null,
+      url: null,
       entityType: auditLog.entityType,
       entityId: auditLog.entityId,
       oldValues: auditLog.oldValues,
       newValues: auditLog.newValues,
       ipAddress: auditLog.ipAddress,
       userAgent: auditLog.userAgent,
-      statusCode: auditLog.statusCode,
-      responseTimeMs: auditLog.responseTimeMs,
-      errorMessage: auditLog.errorMessage,
+      statusCode: null,
+      responseTimeMs: null,
+      errorMessage: null,
       createdAt: auditLog.createdAt,
     };
   }
 
-  async log(createDto: CreateAuditLogDto): Promise<AuditLogResponseDto> {
-    const auditLog = this.auditRepository.create(createDto);
-    const savedLog = await this.auditRepository.save(auditLog);
-    return this.toResponseDto(savedLog);
+  async log(createDto: CreateAuditLogDto): Promise<AuditLogResponseDto | null> {
+    try {
+      console.log('📝 AUDIT LOG BEING CREATED:', {
+        action: createDto.action,
+        entityType: createDto.entityType,
+        entityId: createDto.entityId,
+        userId: createDto.userId,
+        organizationId: createDto.organizationId,
+      });
+      
+      // Krijo audit log VETËM me fushat që ekzistojnë në tabelë
+      const auditLog = new AuditLog();
+      auditLog.organizationId = createDto.organizationId || null;
+      auditLog.userId = createDto.userId || null;
+      auditLog.action = createDto.action;
+      auditLog.entityType = createDto.entityType || null;
+      auditLog.entityId = createDto.entityId || null;
+      auditLog.oldValues = createDto.oldValues || null;
+      auditLog.newValues = createDto.newValues || null;
+      auditLog.ipAddress = createDto.ipAddress || null;
+      auditLog.userAgent = createDto.userAgent || null;
+      
+      const savedLog = await this.auditRepository.save(auditLog);
+      console.log('✅ AUDIT LOG SAVED:', savedLog.id);
+      
+      return this.toResponseDto(savedLog);
+    } catch (error) {
+      const err = error as Error;
+      console.error('❌ AUDIT LOG ERROR:', err.message);
+      return null;
+    }
   }
 
   async findAll(filters: FilterAuditDto): Promise<{
@@ -65,11 +92,9 @@ export class AuditService {
       action,
       entityType,
       entityId,
-      method,
       actions,
       fromDate,
       toDate,
-      statusCode,
       page = 1,
       limit = 50,
       sortBy = 'createdAt',
@@ -83,9 +108,7 @@ export class AuditService {
     if (action) where.action = ILike(`%${action}%`);
     if (entityType) where.entityType = entityType;
     if (entityId) where.entityId = entityId;
-    if (method) where.method = method;
-    if (actions) where.action = In(actions);
-    if (statusCode) where.statusCode = statusCode;
+    if (actions && actions.length > 0) where.action = In(actions);
 
     if (fromDate && toDate) {
       where.createdAt = Between(new Date(fromDate), new Date(toDate));
@@ -143,11 +166,13 @@ export class AuditService {
     if (organizationId) where.organizationId = organizationId;
 
     const totalLogs = await this.auditRepository.count({ where });
-    const uniqueUsers = await this.auditRepository
+    
+    const uniqueUsersResult = await this.auditRepository
       .createQueryBuilder('audit')
       .select('COUNT(DISTINCT audit.user_id)', 'count')
       .where(organizationId ? 'audit.organization_id = :orgId' : '1=1', { orgId: organizationId })
       .getRawOne();
+    const uniqueUsers = parseInt(uniqueUsersResult?.count || '0');
 
     const actionsByType = await this.auditRepository
       .createQueryBuilder('audit')
@@ -180,22 +205,12 @@ export class AuditService {
       .limit(10)
       .getRawMany();
 
-    const methods = await this.auditRepository
-      .createQueryBuilder('audit')
-      .select('audit.method', 'method')
-      .addSelect('COUNT(*)', 'count')
-      .where(organizationId ? 'audit.organization_id = :orgId' : '1=1', { orgId: organizationId })
-      .groupBy('audit.method')
-      .orderBy('count', 'DESC')
-      .getRawMany();
-
     return {
       totalLogs,
-      uniqueUsers: parseInt(uniqueUsers?.count || '0'),
+      uniqueUsers,
       actionsByType,
       activityByDay,
       entityTypes,
-      methods,
     };
   }
 
