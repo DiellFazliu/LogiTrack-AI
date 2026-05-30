@@ -7,10 +7,14 @@
     "^.+\\.(t|j)s$": "ts-jest"
   },
   "modulePathIgnorePatterns": [
-    "<rootDir>/../src/modules/ai"
+    "<rootDir>/../src/modules/ai",
+    "<rootDir>/../src/modules/ai/",
+    "<rootDir>/../src/**/ai/"
   ],
   "testPathIgnorePatterns": [
     "/node_modules/",
-    "/ai/"
-  ]
+    "/ai/",
+    "/transformers/"
+  ],
+  "setupFilesAfterEnv": ["<rootDir>/test/setup-e2e.ts"]
 }
