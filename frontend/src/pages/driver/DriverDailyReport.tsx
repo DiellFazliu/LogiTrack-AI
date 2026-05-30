@@ -5,10 +5,12 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   Calendar, CheckCircle, XCircle, Truck, MapPin, 
   DollarSign, TrendingUp, Clock, Save, Flag, 
-  AlertCircle, ArrowLeft, Download 
+  AlertCircle, ArrowLeft, Download, Package
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 
 interface DeliverySummary {
   id: string;
@@ -32,6 +34,25 @@ interface DailyReport {
   dayConfirmed: boolean;
 }
 
+// StatCard component
+const StatCard = ({ title, value, icon: Icon, bgColor, subtext }: any) => (
+  <motion.div
+    whileHover={{ y: -2 }}
+    className={`${bgColor} rounded-xl shadow-md p-4 border border-black/10`}
+  >
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-white/80">{title}</p>
+        <p className="text-2xl font-extrabold text-white mt-1">{value}</p>
+        {subtext && <p className="text-[10px] text-white/70 mt-1">{subtext}</p>}
+      </div>
+      <div className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center">
+        <Icon className="w-5 h-5 text-white" />
+      </div>
+    </div>
+  </motion.div>
+);
+
 export const DriverDailyReport: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -47,7 +68,7 @@ export const DriverDailyReport: React.FC = () => {
   const fetchDailyReport = async () => {
     setLoading(true);
     try {
-const response = await api.get(`/drivers/daily-report?date=${selectedDate}`);
+      const response = await api.get(`/drivers/daily-report?date=${selectedDate}`);
       setReport(response.data);
     } catch (error: any) {
       console.error('Error fetching daily report:', error);
@@ -103,45 +124,45 @@ const response = await api.get(`/drivers/daily-report?date=${selectedDate}`);
     return `${hours}h ${mins}m`;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner fullScreen />;
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="bg-white shadow">
-        <div className="container mx-auto px-4 py-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
+        {/* Header */}
+        <div className="mb-6">
           <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/driver')} className="text-gray-600 hover:text-gray-800">
-              <ArrowLeft className="w-5 h-5" />
+            <button
+              onClick={() => navigate('/driver')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-200 transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Back</span>
             </button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">Daily Report</h1>
-              <p className="text-gray-500 text-sm">View your daily performance and earnings</p>
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-6 bg-blue-700 rounded-full" />
+              <h1 className="text-2xl font-extrabold text-gray-900">Daily Report</h1>
             </div>
           </div>
+          <p className="text-sm text-gray-600 pl-3 mt-1">View your daily performance and earnings</p>
         </div>
-      </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-5xl">
-        {/* Date Selector */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
+        {/* Date Selector & Actions */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
             <div className="flex items-center gap-3">
-              <Calendar className="w-5 h-5 text-gray-500" />
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                />
+              </div>
               <button
                 onClick={fetchDailyReport}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-semibold hover:bg-blue-800 transition"
               >
                 Load Report
               </button>
@@ -150,7 +171,7 @@ const response = await api.get(`/drivers/daily-report?date=${selectedDate}`);
               <button
                 onClick={downloadReport}
                 disabled={!report || report.totalDeliveries === 0}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 bg-gray-700 text-white rounded-lg text-sm font-semibold hover:bg-gray-800 transition disabled:opacity-50 flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
                 Download Report
@@ -159,7 +180,7 @@ const response = await api.get(`/drivers/daily-report?date=${selectedDate}`);
                 <button
                   onClick={confirmDay}
                   disabled={confirming}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                  className="px-4 py-2 bg-green-700 text-white rounded-lg text-sm font-semibold hover:bg-green-800 transition disabled:opacity-50 flex items-center gap-2"
                 >
                   <Flag className="w-4 h-4" />
                   {confirming ? 'Confirming...' : 'Confirm Day'}
@@ -170,7 +191,7 @@ const response = await api.get(`/drivers/daily-report?date=${selectedDate}`);
         </div>
 
         {!report || report.totalDeliveries === 0 ? (
-          <div className="bg-white rounded-lg shadow p-12 text-center">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
             <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-700 mb-2">No deliveries found</h3>
             <p className="text-gray-500">No deliveries completed on this date.</p>
@@ -179,108 +200,91 @@ const response = await api.get(`/drivers/daily-report?date=${selectedDate}`);
           <>
             {/* Status Banner */}
             {report.dayConfirmed && (
-              <div className="bg-green-100 border border-green-400 rounded-lg p-4 mb-6 flex items-center gap-3">
-                <CheckCircle className="w-6 h-6 text-green-600" />
+              <div className="bg-green-100 border border-green-300 rounded-xl p-4 mb-6 flex items-center gap-3">
+                <CheckCircle className="w-6 h-6 text-green-700" />
                 <div>
-                  <p className="font-semibold text-green-800">Day Confirmed!</p>
+                  <p className="font-bold text-green-800">Day Confirmed!</p>
                   <p className="text-sm text-green-700">You have confirmed the completion of this day.</p>
                 </div>
               </div>
             )}
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-500 text-sm">Total Deliveries</p>
-                    <p className="text-2xl font-bold">{report.totalDeliveries}</p>
-                  </div>
-                  <Truck className="w-8 h-8 text-blue-500" />
-                </div>
-                <div className="mt-2 flex gap-2 text-xs">
-                  <span className="text-green-600">✓ {report.completedDeliveries} completed</span>
-                  <span className="text-red-600">✗ {report.cancelledDeliveries} cancelled</span>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-500 text-sm">Total Distance</p>
-                    <p className="text-2xl font-bold">{report.totalDistance.toFixed(1)} km</p>
-                  </div>
-                  <MapPin className="w-8 h-8 text-green-500" />
-                </div>
-                <p className="text-xs text-gray-500 mt-2">Distance driven today</p>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-500 text-sm">Total Time</p>
-                    <p className="text-2xl font-bold">{formatDuration(report.totalDuration)}</p>
-                  </div>
-                  <Clock className="w-8 h-8 text-yellow-500" />
-                </div>
-                <p className="text-xs text-gray-500 mt-2">Active driving time</p>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-500 text-sm">Earnings</p>
-                    <p className="text-2xl font-bold text-green-600">€{report.earnings.toFixed(2)}</p>
-                  </div>
-                  <DollarSign className="w-8 h-8 text-green-500" />
-                </div>
-                <p className="text-xs text-gray-500 mt-2">€{report.completedDeliveries > 0 ? (report.earnings / report.completedDeliveries).toFixed(2) : 0} per delivery</p>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              <StatCard 
+                title="TOTAL DELIVERIES" 
+                value={report.totalDeliveries} 
+                icon={Truck} 
+                bgColor="bg-blue-800" 
+                subtext={`${report.completedDeliveries} completed, ${report.cancelledDeliveries} cancelled`}
+              />
+              <StatCard 
+                title="TOTAL DISTANCE" 
+                value={`${report.totalDistance.toFixed(1)} km`} 
+                icon={MapPin} 
+                bgColor="bg-green-800" 
+              />
+              <StatCard 
+                title="TOTAL TIME" 
+                value={formatDuration(report.totalDuration)} 
+                icon={Clock} 
+                bgColor="bg-yellow-800" 
+              />
+              <StatCard 
+                title="EARNINGS" 
+                value={`€${report.earnings.toFixed(2)}`} 
+                icon={DollarSign} 
+                bgColor="bg-purple-800" 
+                subtext={`€${report.completedDeliveries > 0 ? (report.earnings / report.completedDeliveries).toFixed(2) : 0} per delivery`}
+              />
             </div>
 
             {/* Deliveries Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="p-4 border-b">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-200 bg-gray-50">
+                <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                  <Package className="w-5 h-5 text-green-700" />
                   Delivery Details
                 </h2>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tracking</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Address</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Distance</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Completed</th>
+                      <th className="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase">Tracking</th>
+                      <th className="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase">Address</th>
+                      <th className="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase">Status</th>
+                      <th className="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase">Distance</th>
+                      <th className="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase">Time</th>
+                      <th className="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase">Completed</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y divide-gray-200">
                     {report.deliveries.map((delivery) => (
-                      <tr key={delivery.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 font-mono text-sm">{delivery.trackingNumber}</td>
-                        <td className="px-4 py-3 text-sm">{delivery.deliveryAddress.substring(0, 50)}...</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded-full text-xs ${
+                      <tr key={delivery.id} className="hover:bg-gray-50 transition">
+                        <td className="px-5 py-3 whitespace-nowrap font-mono text-sm font-bold text-gray-900">{delivery.trackingNumber}</td>
+                        <td className="px-5 py-3 text-sm text-gray-800 max-w-xs truncate">{delivery.deliveryAddress}</td>
+                        <td className="px-5 py-3 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
                             delivery.status === 'delivered' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-red-100 text-red-800'
+                              ? 'bg-green-200 text-green-800' 
+                              : 'bg-red-200 text-red-800'
                           }`}>
-                            {delivery.status}
+                            {delivery.status === 'delivered' ? 'Delivered' : 'Cancelled'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm">{delivery.distance.toFixed(1)} km</td>
-                        <td className="px-4 py-3 text-sm">{formatDuration(delivery.duration)}</td>
-                        <td className="px-4 py-3 text-sm">
+                        <td className="px-5 py-3 whitespace-nowrap text-sm text-gray-800">{delivery.distance.toFixed(1)} km</td>
+                        <td className="px-5 py-3 whitespace-nowrap text-sm text-gray-800">{formatDuration(delivery.duration)}</td>
+                        <td className="px-5 py-3 whitespace-nowrap text-sm text-gray-800">
                           {delivery.completedAt ? new Date(delivery.completedAt).toLocaleTimeString() : '-'}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+              <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 text-sm text-gray-600">
+                Total earnings for this day: <span className="font-bold text-green-700">€{report.earnings.toFixed(2)}</span>
               </div>
             </div>
           </>
@@ -289,3 +293,5 @@ const response = await api.get(`/drivers/daily-report?date=${selectedDate}`);
     </div>
   );
 };
+
+export default DriverDailyReport;

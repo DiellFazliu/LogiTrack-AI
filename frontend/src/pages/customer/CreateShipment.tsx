@@ -1,7 +1,8 @@
 // frontend/src/pages/customer/CreateShipment.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, AlertCircle, Navigation, Loader, Building2, Check, ChevronDown } from 'lucide-react';
+import { MapPin, AlertCircle, Navigation, Loader, Building2, Check, ChevronDown, ArrowLeft } from 'lucide-react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -56,7 +57,7 @@ export const CreateShipment: React.FC = () => {
     is_express: false,
     notes: '',
   });
-  // ✅ DEKLARO FUNKSIONIN PARA useEffect
+
   const fetchOrganizations = async () => {
     setLoadingOrgs(true);
     try {
@@ -80,11 +81,9 @@ export const CreateShipment: React.FC = () => {
     }
   };
 
-  // ✅ TANI useEffect mund ta përdorë fetchOrganizations
   useEffect(() => {
     fetchOrganizations();
   }, []);
-
 
   const selectOrganization = (org: Organization) => {
     setSelectedOrganization(org);
@@ -92,13 +91,11 @@ export const CreateShipment: React.FC = () => {
     setSearchOrg('');
     toast.success(`Selected company: ${org.name}`);
     
-    // Nëse është hera e parë që zgjedh një kompani, përditëso user-in
     if (!user?.organizationId && updateUser) {
       updateUser({ organizationId: org.id, organizationName: org.name });
     }
   };
 
-  // Generate tracking number
   const generateTrackingNumber = () => {
     const prefix = 'TRK';
     const timestamp = Date.now().toString().slice(-8);
@@ -106,7 +103,6 @@ export const CreateShipment: React.FC = () => {
     return `${prefix}${timestamp}${random}`;
   };
 
-  // Search address using OpenStreetMap Nominatim
   const searchAddress = async (query: string, type: 'pickup' | 'delivery') => {
     if (!query || query.length < 3) {
       if (type === 'pickup') {
@@ -119,18 +115,14 @@ export const CreateShipment: React.FC = () => {
       return;
     }
 
-    if (type === 'pickup') {
-      setSearchingPickup(true);
-    } else {
-      setSearchingDelivery(true);
-    }
+    if (type === 'pickup') setSearchingPickup(true);
+    else setSearchingDelivery(true);
 
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`
       );
       const data = await response.json();
-      
       const suggestions = data.map((item: any) => ({
         place_id: item.place_id,
         display_name: item.display_name,
@@ -149,15 +141,11 @@ export const CreateShipment: React.FC = () => {
       }
     } catch (error) {
       console.error('Error searching address:', error);
-      if (type === 'pickup') {
-        setSearchingPickup(false);
-      } else {
-        setSearchingDelivery(false);
-      }
+      if (type === 'pickup') setSearchingPickup(false);
+      else setSearchingDelivery(false);
     }
   };
 
-  // Debounced search
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (formData.pickup_address && formData.pickup_address.length > 2) {
@@ -176,18 +164,11 @@ export const CreateShipment: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [formData.delivery_address]);
 
-  // Close suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (pickupRef.current && !pickupRef.current.contains(event.target as Node)) {
-        setShowPickupSuggestions(false);
-      }
-      if (deliveryRef.current && !deliveryRef.current.contains(event.target as Node)) {
-        setShowDeliverySuggestions(false);
-      }
-      if (orgRef.current && !orgRef.current.contains(event.target as Node)) {
-        setShowOrgDropdown(false);
-      }
+      if (pickupRef.current && !pickupRef.current.contains(event.target as Node)) setShowPickupSuggestions(false);
+      if (deliveryRef.current && !deliveryRef.current.contains(event.target as Node)) setShowDeliverySuggestions(false);
+      if (orgRef.current && !orgRef.current.contains(event.target as Node)) setShowOrgDropdown(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -226,7 +207,6 @@ export const CreateShipment: React.FC = () => {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-        
         try {
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
@@ -249,7 +229,6 @@ export const CreateShipment: React.FC = () => {
               delivery_longitude: longitude.toString(),
             });
           }
-          
           toast.success(`${type === 'pickup' ? 'Pickup' : 'Delivery'} location set`, { id: 'location' });
         } catch (error) {
           console.error('Error reverse geocoding:', error);
@@ -268,67 +247,57 @@ export const CreateShipment: React.FC = () => {
     );
   };
 
-// frontend/src/pages/customer/CreateShipment.tsx
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  // Përdor organizationId nga selectedOrganization ose user
-  const orgId = selectedOrganization?.id || user?.organizationId;
-  
-  if (!orgId) {
-    toast.error('Please select a company first');
-    return;
-  }
-  
-  if (!formData.pickup_address) {
-    toast.error('Please enter pickup address');
-    return;
-  }
-  
-  if (!formData.delivery_address) {
-    toast.error('Please enter delivery address');
-    return;
-  }
-  
-  setLoading(true);
-  
-  try {
-    const trackingNumber = generateTrackingNumber();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    const shipmentData = {
-      trackingNumber,
-      pickupAddress: formData.pickup_address,
-      pickupLatitude: formData.pickup_latitude ? parseFloat(formData.pickup_latitude) : undefined,
-      pickupLongitude: formData.pickup_longitude ? parseFloat(formData.pickup_longitude) : undefined,
-      deliveryAddress: formData.delivery_address,
-      deliveryLatitude: formData.delivery_latitude ? parseFloat(formData.delivery_latitude) : undefined,
-      deliveryLongitude: formData.delivery_longitude ? parseFloat(formData.delivery_longitude) : undefined,
-      weightKg: parseFloat(formData.weight_kg) || undefined,
-      volumeM3: parseFloat(formData.volume_m3) || undefined,
-      priority: formData.priority,
-      isExpress: formData.is_express,
-      notes: formData.notes,
-      organizationId: orgId,  // ✅ Dërgo organizationId në body
-    };
-    
-    console.log('Sending shipment data:', shipmentData);
-    
-    const response = await api.post('/shipments', shipmentData);
-    
-    if (response.data) {
-      toast.success(`Shipment created! Tracking: ${trackingNumber}`);
-      navigate('/customer/history');
+    const orgId = selectedOrganization?.id || user?.organizationId;
+    if (!orgId) {
+      toast.error('Please select a company first');
+      return;
     }
-  } catch (error: any) {
-    console.error('Error:', error.response?.data || error.message);
-    const message = error.response?.data?.message || 'Failed to create shipment';
-    toast.error(message);
-  } finally {
-    setLoading(false);
-  }
-};
+    if (!formData.pickup_address) {
+      toast.error('Please enter pickup address');
+      return;
+    }
+    if (!formData.delivery_address) {
+      toast.error('Please enter delivery address');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const trackingNumber = generateTrackingNumber();
+      const shipmentData = {
+        trackingNumber,
+        pickupAddress: formData.pickup_address,
+        pickupLatitude: formData.pickup_latitude ? parseFloat(formData.pickup_latitude) : undefined,
+        pickupLongitude: formData.pickup_longitude ? parseFloat(formData.pickup_longitude) : undefined,
+        deliveryAddress: formData.delivery_address,
+        deliveryLatitude: formData.delivery_latitude ? parseFloat(formData.delivery_latitude) : undefined,
+        deliveryLongitude: formData.delivery_longitude ? parseFloat(formData.delivery_longitude) : undefined,
+        weightKg: parseFloat(formData.weight_kg) || undefined,
+        volumeM3: parseFloat(formData.volume_m3) || undefined,
+        priority: formData.priority,
+        isExpress: formData.is_express,
+        notes: formData.notes,
+        organizationId: orgId,
+      };
+      
+      console.log('Sending shipment data:', shipmentData);
+      const response = await api.post('/shipments', shipmentData);
+      if (response.data) {
+        toast.success(`Shipment created! Tracking: ${trackingNumber}`);
+        navigate('/customer/history');
+      }
+    } catch (error: any) {
+      console.error('Error:', error.response?.data || error.message);
+      const message = error.response?.data?.message || 'Failed to create shipment';
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Filter organizations based on search
   const filteredOrganizations = organizations.filter(org =>
     org.name.toLowerCase().includes(searchOrg.toLowerCase()) ||
     org.email.toLowerCase().includes(searchOrg.toLowerCase())
@@ -336,48 +305,58 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="bg-white shadow">
-        <div className="container mx-auto px-4 py-4">
-          <h1 className="text-3xl font-bold text-gray-800">Create New Shipment</h1>
-          <p className="text-gray-500 mt-1">Fill in the details to create a delivery shipment</p>
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/customer/history')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-200 transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Back</span>
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-6 bg-blue-700 rounded-full" />
+              <h1 className="text-2xl font-extrabold text-gray-900">Create New Shipment</h1>
+            </div>
+          </div>
+          <p className="text-sm text-gray-600 pl-3 mt-1">Fill in the details to create a delivery shipment</p>
         </div>
-      </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-3xl">
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6">
-          {/* Organization Selection - Show only if customer doesn't have an organization yet */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Organization Selection */}
           {!hasExistingOrg && !user?.organizationId && (
-            <div ref={orgRef} className="relative">
-              <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-purple-600" /> Select Company *
+            <div ref={orgRef} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+              <label className="block text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-purple-700" /> Select Company *
               </label>
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setShowOrgDropdown(!showOrgDropdown)}
-                  className="w-full border rounded-lg px-3 py-2 text-left flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 text-left flex justify-between items-center focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                 >
                   <span className={selectedOrganization ? 'text-gray-800' : 'text-gray-400'}>
                     {selectedOrganization ? selectedOrganization.name : 'Select a company...'}
                   </span>
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
                 </button>
-                
                 {showOrgDropdown && (
-                  <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                    <div className="p-2 border-b">
+                  <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                    <div className="sticky top-0 bg-white p-2 border-b">
                       <input
                         type="text"
                         placeholder="Search companies..."
                         value={searchOrg}
                         onChange={(e) => setSearchOrg(e.target.value)}
-                        className="w-full border rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-600"
                       />
                     </div>
                     {loadingOrgs ? (
                       <div className="p-4 text-center text-gray-500">
                         <Loader className="w-5 h-5 animate-spin mx-auto" />
-                        Loading...
+                        <p className="text-sm mt-1">Loading...</p>
                       </div>
                     ) : filteredOrganizations.length === 0 ? (
                       <div className="p-4 text-center">
@@ -390,14 +369,14 @@ const handleSubmit = async (e: React.FormEvent) => {
                           key={org.id}
                           type="button"
                           onClick={() => selectOrganization(org)}
-                          className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center justify-between"
+                          className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center justify-between transition"
                         >
                           <div>
-                            <p className="font-medium text-sm">{org.name}</p>
+                            <p className="font-medium text-sm text-gray-900">{org.name}</p>
                             <p className="text-xs text-gray-500">{org.email}</p>
                           </div>
                           {selectedOrganization?.id === org.id && (
-                            <Check className="w-4 h-4 text-green-500" />
+                            <Check className="w-4 h-4 text-green-600" />
                           )}
                         </button>
                       ))
@@ -405,18 +384,16 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </div>
                 )}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Select the company you want to ship with
-              </p>
+              <p className="text-xs text-gray-500 mt-2">Select the company you want to ship with</p>
             </div>
           )}
 
-          {/* Show selected organization info */}
+          {/* Selected organization info */}
           {(selectedOrganization || user?.organizationId) && (
-            <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+            <div className="bg-green-50 rounded-xl p-3 border border-green-200">
               <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-green-600" />
-                <span className="text-sm text-green-700">
+                <Building2 className="w-4 h-4 text-green-700" />
+                <span className="text-sm text-green-800">
                   Shipping with: <strong>{selectedOrganization?.name || 'Your Company'}</strong>
                 </span>
               </div>
@@ -424,18 +401,18 @@ const handleSubmit = async (e: React.FormEvent) => {
           )}
 
           {/* Pickup Address */}
-          <div ref={pickupRef} className="relative">
-            <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-green-600" /> Pickup Address *
+          <div ref={pickupRef} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <label className="block text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-green-700" /> Pickup Address *
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <div className="flex-1 relative">
                 <input
                   type="text"
                   required
                   value={formData.pickup_address}
                   onChange={(e) => setFormData({...formData, pickup_address: e.target.value})}
-                  className="w-full border rounded-lg px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 pr-8 focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                   placeholder="Start typing pickup address..."
                 />
                 {searchingPickup && (
@@ -447,23 +424,22 @@ const handleSubmit = async (e: React.FormEvent) => {
               <button
                 type="button"
                 onClick={() => getCurrentLocation('pickup')}
-                className="px-3 py-2 bg-gray-100 border rounded-lg hover:bg-gray-200 transition flex items-center gap-1"
+                className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition flex items-center gap-1 text-gray-700"
               >
                 <Navigation className="w-4 h-4" /> Current
               </button>
             </div>
-            
             {showPickupSuggestions && pickupSuggestions.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
                 {pickupSuggestions.map((suggestion) => (
                   <button
                     key={suggestion.place_id}
                     type="button"
                     onClick={() => selectPickupLocation(suggestion)}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-start gap-2 border-b last:border-b-0"
+                    className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-start gap-2 border-b last:border-b-0 transition"
                   >
-                    <MapPin className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm">{suggestion.display_name}</span>
+                    <MapPin className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm text-gray-800">{suggestion.display_name}</span>
                   </button>
                 ))}
               </div>
@@ -471,18 +447,18 @@ const handleSubmit = async (e: React.FormEvent) => {
           </div>
 
           {/* Delivery Address */}
-          <div ref={deliveryRef} className="relative">
-            <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-red-600" /> Delivery Address *
+          <div ref={deliveryRef} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <label className="block text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-red-700" /> Delivery Address *
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <div className="flex-1 relative">
                 <input
                   type="text"
                   required
                   value={formData.delivery_address}
                   onChange={(e) => setFormData({...formData, delivery_address: e.target.value})}
-                  className="w-full border rounded-lg px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 pr-8 focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                   placeholder="Start typing delivery address..."
                 />
                 {searchingDelivery && (
@@ -494,62 +470,60 @@ const handleSubmit = async (e: React.FormEvent) => {
               <button
                 type="button"
                 onClick={() => getCurrentLocation('delivery')}
-                className="px-3 py-2 bg-gray-100 border rounded-lg hover:bg-gray-200 transition flex items-center gap-1"
+                className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition flex items-center gap-1 text-gray-700"
               >
                 <Navigation className="w-4 h-4" /> Current
               </button>
             </div>
-            
             {showDeliverySuggestions && deliverySuggestions.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
                 {deliverySuggestions.map((suggestion) => (
                   <button
                     key={suggestion.place_id}
                     type="button"
                     onClick={() => selectDeliveryLocation(suggestion)}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-start gap-2 border-b last:border-b-0"
+                    className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-start gap-2 border-b last:border-b-0 transition"
                   >
-                    <MapPin className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm">{suggestion.display_name}</span>
+                    <MapPin className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm text-gray-800">{suggestion.display_name}</span>
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Rest of the form */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Weight (kg)</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.weight_kg}
-                onChange={(e) => setFormData({...formData, weight_kg: e.target.value})}
-                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Optional"
-              />
+          {/* Shipment Details */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-sm font-bold text-gray-800 mb-1">Weight (kg)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.weight_kg}
+                  onChange={(e) => setFormData({...formData, weight_kg: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  placeholder="Optional"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-800 mb-1">Volume (m³)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.volume_m3}
+                  onChange={(e) => setFormData({...formData, volume_m3: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  placeholder="Optional"
+                />
+              </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Volume (m³)</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.volume_m3}
-                onChange={(e) => setFormData({...formData, volume_m3: e.target.value})}
-                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Optional"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Priority</label>
+              <label className="block text-sm font-bold text-gray-800 mb-1">Priority</label>
               <select
                 value={formData.priority}
                 onChange={(e) => setFormData({...formData, priority: e.target.value})}
-                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-600"
               >
                 <option value="low">Low</option>
                 <option value="normal">Normal</option>
@@ -557,56 +531,56 @@ const handleSubmit = async (e: React.FormEvent) => {
                 <option value="urgent">Urgent</option>
               </select>
             </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="express"
+                checked={formData.is_express}
+                onChange={(e) => setFormData({...formData, is_express: e.target.checked})}
+                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+              />
+              <label htmlFor="express" className="text-sm font-medium text-gray-800">Express Delivery</label>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-800 mb-1">Notes / Special Instructions</label>
+              <textarea
+                rows={3}
+                value={formData.notes}
+                onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                placeholder="Special instructions..."
+              />
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="express"
-              checked={formData.is_express}
-              onChange={(e) => setFormData({...formData, is_express: e.target.checked})}
-              className="w-4 h-4"
-            />
-            <label htmlFor="express" className="text-sm font-medium">Express Delivery</label>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Notes / Special Instructions</label>
-            <textarea
-              rows={3}
-              value={formData.notes}
-              onChange={(e) => setFormData({...formData, notes: e.target.value})}
-              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Special instructions..."
-            />
-          </div>
-
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-blue-500 mt-0.5" />
-              <div className="text-sm text-blue-700">
-                <p className="font-medium">Note:</p>
+          {/* Info Note */}
+          <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-blue-700 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-800">
+                <p className="font-bold">Note:</p>
                 <p>Your shipment will be processed by the selected company. You can track its status in real-time.</p>
               </div>
             </div>
           </div>
 
+          {/* Buttons */}
           <div className="flex justify-end gap-3">
             <button
               type="button"
               onClick={() => navigate('/customer/history')}
-              className="px-4 py-2 border rounded-lg hover:bg-gray-50 transition"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-800 font-medium hover:bg-gray-50 transition"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || (!hasExistingOrg && !user?.organizationId && !selectedOrganization)}
-              className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50 transition flex items-center gap-2"
+              className="px-6 py-2 bg-blue-700 text-white rounded-lg font-bold hover:bg-blue-800 transition disabled:opacity-50 flex items-center gap-2"
             >
               {loading ? (
                 <>
-                  <Loader className="w-4 h-4 animate-spin" />
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
                   Creating...
                 </>
               ) : (

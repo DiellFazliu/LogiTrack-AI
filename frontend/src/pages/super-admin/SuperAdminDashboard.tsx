@@ -6,8 +6,10 @@ import {
   Settings, FileText, Activity, UserPlus, 
   CreditCard, AlertCircle, RefreshCw 
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 
 interface DashboardStats {
   totalOrganizations: number;
@@ -18,6 +20,26 @@ interface DashboardStats {
   totalVehicles: number;
   monthlyShipments: number;
 }
+
+// StatCard component for consistent styling
+const StatCard = ({ title, value, icon: Icon, bgColor, path, description }: any) => (
+  <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
+    <Link to={path}>
+      <div className={`${bgColor} rounded-xl shadow-md p-4 border border-black/10 hover:shadow-lg transition`}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-white/80">{title}</p>
+            <p className="text-2xl font-extrabold text-white mt-1">{value}</p>
+            <p className="text-[10px] text-white/70 mt-1">{description}</p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center">
+            <Icon className="w-5 h-5 text-white" />
+          </div>
+        </div>
+      </div>
+    </Link>
+  </motion.div>
+);
 
 export const SuperAdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats>({
@@ -38,7 +60,6 @@ export const SuperAdminDashboard: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      // Fetch data from endpoints that Super Admin CAN access
       const [orgsRes, usersRes, shipmentsRes] = await Promise.all([
         api.get('/organizations'),
         api.get('/users'),
@@ -49,33 +70,27 @@ export const SuperAdminDashboard: React.FC = () => {
       const users = usersRes.data || [];
       const shipments = shipmentsRes.data?.items || shipmentsRes.data || [];
       
-      // Calculate active subscriptions (organizations with active status)
       const activeSubscriptions = organizations.filter((org: any) => 
         org.subscription_status === 'active' || org.is_active === true
       ).length;
       
-      // Calculate monthly shipments (last 30 days)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const monthlyShipments = shipments.filter((s: any) => 
         new Date(s.created_at) >= thirtyDaysAgo
       ).length;
       
-      // Try to get drivers and vehicles from organization stats instead
       let totalDrivers = 0;
       let totalVehicles = 0;
       
-      // Aggregate drivers and vehicles from all organizations
       for (const org of organizations) {
         try {
-          // Try to get org stats - this endpoint might exist
           const orgStatsRes = await api.get(`/organizations/${org.id}/stats`);
           if (orgStatsRes.data) {
             totalDrivers += orgStatsRes.data.totalDrivers || 0;
             totalVehicles += orgStatsRes.data.totalVehicles || 0;
           }
         } catch (e) {
-          // If individual org stats fail, skip
           console.log(`Could not fetch stats for org ${org.id}`);
         }
       }
@@ -105,147 +120,60 @@ export const SuperAdminDashboard: React.FC = () => {
   };
 
   const cards = [
-    { 
-      title: 'Organizations', 
-      value: stats.totalOrganizations, 
-      icon: Building2, 
-      color: 'bg-blue-500', 
-      path: '/super-admin/organizations',
-      description: 'Total companies'
-    },
-    { 
-      title: 'Total Users', 
-      value: stats.totalUsers, 
-      icon: Users, 
-      color: 'bg-green-500', 
-      path: '/super-admin/users',
-      description: 'Across all orgs'
-    },
-    { 
-      title: 'Shipments', 
-      value: stats.totalShipments, 
-      icon: Package, 
-      color: 'bg-purple-500', 
-      path: '/super-admin/shipments',
-      description: 'All time'
-    },
-    { 
-      title: 'Active Subs', 
-      value: stats.activeSubscriptions, 
-      icon: CreditCard, 
-      color: 'bg-yellow-500', 
-      path: '/super-admin/subscriptions',
-      description: 'Active subscriptions'
-    },
-    { 
-      title: 'Drivers', 
-      value: stats.totalDrivers, 
-      icon: Users, 
-      color: 'bg-indigo-500', 
-      path: '/super-admin/drivers', 
-      description: 'Total drivers'
-    },
-    { 
-      title: 'Vehicles', 
-      value: stats.totalVehicles, 
-      icon: Building2, 
-      color: 'bg-teal-500', 
-      path: '/super-admin/vehicles',
-      description: 'Fleet size'
-    },
+    { title: 'Organizations', value: stats.totalOrganizations, icon: Building2, bgColor: 'bg-blue-800', path: '/super-admin/organizations', description: 'Total companies' },
+    { title: 'Total Users', value: stats.totalUsers, icon: Users, bgColor: 'bg-green-800', path: '/super-admin/users', description: 'Across all orgs' },
+    { title: 'Shipments', value: stats.totalShipments, icon: Package, bgColor: 'bg-purple-800', path: '/super-admin/shipments', description: 'All time' },
+    { title: 'Active Subs', value: stats.activeSubscriptions, icon: CreditCard, bgColor: 'bg-yellow-800', path: '/super-admin/subscriptions', description: 'Active subscriptions' },
+    { title: 'Drivers', value: stats.totalDrivers, icon: Users, bgColor: 'bg-indigo-800', path: '/super-admin/drivers', description: 'Total drivers' },
+    { title: 'Vehicles', value: stats.totalVehicles, icon: Building2, bgColor: 'bg-teal-800', path: '/super-admin/vehicles', description: 'Fleet size' },
   ];
 
   const quickActions = [
-    { 
-      title: 'Create Organization', 
-      icon: Building2, 
-      path: '/super-admin/organizations/create',
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50'
-    },
-    { 
-      title: 'View All Users', 
-      icon: Users, 
-      path: '/super-admin/users',
-      color: 'text-green-600',
-      bgColor: 'bg-green-50'
-    },
-    { 
-      title: 'System Settings', 
-      icon: Settings, 
-      path: '/super-admin/settings',
-      color: 'text-gray-600',
-      bgColor: 'bg-gray-50'
-    },
-    { 
-      title: 'Manage Plans', 
-      icon: CreditCard, 
-      path: '/super-admin/plans',
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50'
-    },
+    { title: 'Create Organization', icon: Building2, path: '/super-admin/organizations/create', color: 'text-blue-700', bgColor: 'bg-blue-50' },
+    { title: 'View All Users', icon: Users, path: '/super-admin/users', color: 'text-green-700', bgColor: 'bg-green-50' },
+    { title: 'System Settings', icon: Settings, path: '/super-admin/settings', color: 'text-gray-700', bgColor: 'bg-gray-50' },
+    { title: 'Manage Plans', icon: CreditCard, path: '/super-admin/plans', color: 'text-purple-700', bgColor: 'bg-purple-50' },
   ];
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner fullScreen />;
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex justify-between items-center flex-wrap gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">Super Admin Dashboard</h1>
-              <p className="text-gray-500 mt-1">System overview and management</p>
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-6 bg-blue-700 rounded-full" />
+                <h1 className="text-2xl font-extrabold text-gray-900">Super Admin Dashboard</h1>
+              </div>
+              <p className="text-sm text-gray-600 pl-3 mt-0.5">System overview and management</p>
             </div>
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-semibold rounded-lg transition disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
               {refreshing ? 'Refreshing...' : 'Refresh'}
             </button>
           </div>
         </div>
-      </div>
-      
-      <div className="container mx-auto px-4 py-8">
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
           {cards.map((card) => (
-            <Link key={card.title} to={card.path}>
-              <div className="bg-white rounded-lg shadow p-4 hover:shadow-lg transition cursor-pointer group">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-500 text-xs">{card.title}</p>
-                    <p className="text-2xl font-bold mt-1">{card.value}</p>
-                    <p className="text-xs text-gray-400 mt-1">{card.description}</p>
-                  </div>
-                  <div className={`${card.color} p-2 rounded-full group-hover:scale-110 transition`}>
-                    <card.icon className="w-5 h-5 text-white" />
-                  </div>
-                </div>
-              </div>
-            </Link>
+            <StatCard key={card.title} {...card} />
           ))}
         </div>
 
-        {/* Quick Actions & Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Quick Actions & System Status */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Quick Actions */}
-          <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-blue-600" /> 
+          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-blue-700" />
               Quick Actions
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -253,75 +181,79 @@ export const SuperAdminDashboard: React.FC = () => {
                 <Link
                   key={action.title}
                   to={action.path}
-                  className={`flex items-center gap-3 p-3 rounded-lg ${action.bgColor} hover:opacity-80 transition`}
+                  className={`flex items-center gap-3 p-3 rounded-lg ${action.bgColor} hover:opacity-80 transition group`}
                 >
-                  <action.icon className={`w-5 h-5 ${action.color}`} />
-                  <span className="font-medium text-gray-700">{action.title}</span>
+                  <div className="w-8 h-8 rounded-full bg-white/50 flex items-center justify-center group-hover:scale-105 transition">
+                    <action.icon className={`w-4 h-4 ${action.color}`} />
+                  </div>
+                  <span className="font-medium text-gray-800">{action.title}</span>
                 </Link>
               ))}
             </div>
           </div>
 
           {/* System Status */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-green-600" /> 
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-green-700" />
               System Status
             </h2>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">API Status</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs flex items-center gap-1">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-gray-700">API Status</span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800">
+                  <div className="w-1.5 h-1.5 bg-green-600 rounded-full animate-pulse" />
                   Operational
                 </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Database</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">Connected</span>
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-gray-700">Database</span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800">
+                  Connected
+                </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Monthly Shipments</span>
-                <span className="font-semibold">{stats.monthlyShipments}</span>
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-gray-700">Monthly Shipments</span>
+                <span className="font-bold text-gray-900">{stats.monthlyShipments}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Active Organizations</span>
-                <span className="font-semibold">{stats.activeSubscriptions}</span>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-gray-700">Active Organizations</span>
+                <span className="font-bold text-gray-900">{stats.activeSubscriptions}</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Recent Activity Section */}
-        <div className="mt-6 bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <Activity className="w-5 h-5 text-gray-500" /> 
+        {/* Recent Activity */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
+          <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <Activity className="w-5 h-5 text-gray-600" />
             Recent Activity
           </h2>
           <div className="space-y-3">
             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <div className="w-2 h-2 bg-green-600 rounded-full" />
               <div className="flex-1">
-                <p className="text-sm text-gray-600">System ready and operational</p>
-                <p className="text-xs text-gray-400">Current</p>
+                <p className="text-sm font-medium text-gray-800">System ready and operational</p>
+                <p className="text-xs text-gray-500">Current</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <div className="w-2 h-2 bg-blue-600 rounded-full" />
               <div className="flex-1">
-                <p className="text-sm text-gray-600">Dashboard loaded successfully</p>
-                <p className="text-xs text-gray-400">{new Date().toLocaleString()}</p>
+                <p className="text-sm font-medium text-gray-800">Dashboard loaded successfully</p>
+                <p className="text-xs text-gray-500">{new Date().toLocaleString()}</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Info Note */}
-        <div className="mt-6 bg-blue-50 rounded-lg p-4 border border-blue-200">
+        <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
           <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-blue-700 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-blue-800">Dashboard Information:</p>
+              <p className="text-sm font-semibold text-blue-800">Dashboard Information</p>
               <p className="text-sm text-blue-700">
                 Driver and vehicle statistics are aggregated from organization data. 
                 Some features may be expanded as the backend API develops.

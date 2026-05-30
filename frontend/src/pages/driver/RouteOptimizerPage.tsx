@@ -12,6 +12,7 @@ import { locationService } from '../../services/location.service';
 import { ArrowLeft, CheckCircle, Truck, Search, Navigation, LocateFixed, MapPin, Save, AlertTriangle } from 'lucide-react';
 import SimpleErrorBoundary from '../../components/common/SimpleErrorBoundary';
 import { ReportProblemModal } from '../../components/driver/ReportProblemModal';
+import { motion } from 'framer-motion';
 
 export const RouteOptimizerPage: React.FC = () => {
   const { user } = useAuth();
@@ -45,7 +46,6 @@ export const RouteOptimizerPage: React.FC = () => {
   const [optimizationId, setOptimizationId] = useState<string | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
 
-  // Initialize points from shipment data
   useEffect(() => {
     const initialPoints: Coordinate[] = [];
     const labels: string[] = [];
@@ -368,15 +368,15 @@ export const RouteOptimizerPage: React.FC = () => {
   if (!shipmentData.shipmentId) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow p-8 text-center max-w-md">
-          <Truck className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">No Shipment Data</h2>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center max-w-md">
+          <Truck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-800 mb-2">No Shipment Data</h2>
           <p className="text-gray-600 mb-4">
             Please go back to the shipment details and click "Start Delivery Procedure" again.
           </p>
           <button
             onClick={() => navigate('/driver')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-blue-700 text-white rounded-lg font-semibold hover:bg-blue-800 transition"
           >
             Go to Dashboard
           </button>
@@ -388,79 +388,88 @@ export const RouteOptimizerPage: React.FC = () => {
   return (
     <>
       <div className="min-h-screen bg-gray-100">
-        <div className="bg-white shadow">
-          <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
+          {/* Header */}
+          <div className="mb-6">
             <div className="flex items-center gap-4">
-              <button onClick={() => navigate('/driver')} className="text-gray-600 hover:text-gray-800">
-                <ArrowLeft className="w-5 h-5" />
+              <button
+                onClick={() => navigate('/driver')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-200 transition"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="text-sm font-medium">Back</span>
               </button>
-              <h1 className="text-xl font-bold text-blue-600">Route Optimizer</h1>
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-6 bg-blue-700 rounded-full" />
+                <h1 className="text-2xl font-extrabold text-gray-900">Route Optimizer</h1>
+              </div>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-gray-600">{user?.name}</span>
+            <div className="flex flex-wrap items-center justify-between gap-3 mt-2">
+              <p className="text-sm text-gray-600 pl-3">Optimize your delivery route</p>
               {shipmentData?.trackingNumber && (
-                <span className="text-sm bg-blue-100 text-blue-600 px-2 py-1 rounded">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+                  <Truck className="w-3 h-3 mr-1" />
                   {shipmentData.trackingNumber}
                 </span>
               )}
             </div>
           </div>
-        </div>
 
-        <div className="container mx-auto px-4 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Panel */}
-            <div className="lg:col-span-1 space-y-4">
+            <div className="space-y-5">
               {/* Shipment Info */}
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="font-semibold mb-2 flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-blue-500" />
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-blue-700" />
                   Shipment Details
                 </h3>
-                <p className="text-sm"><span className="font-medium">Tracking:</span> {shipmentData.trackingNumber}</p>
-                {shipmentData.waybillNumber && (
-                  <p className="text-sm"><span className="font-medium">Waybill:</span> {shipmentData.waybillNumber}</p>
-                )}
-                <p className="text-sm mt-1"><span className="font-medium">Pickup:</span> {shipmentData.pickupAddress}</p>
-                <p className="text-sm"><span className="font-medium">Delivery:</span> {shipmentData.deliveryAddress}</p>
+                <div className="space-y-2 text-sm">
+                  <p><span className="font-semibold text-gray-700">Tracking:</span> <span className="text-gray-800">{shipmentData.trackingNumber}</span></p>
+                  {shipmentData.waybillNumber && (
+                    <p><span className="font-semibold text-gray-700">Waybill:</span> <span className="text-gray-800">{shipmentData.waybillNumber}</span></p>
+                  )}
+                  <p className="flex items-start gap-1"><span className="font-semibold text-gray-700 shrink-0">Pickup:</span> <span className="text-gray-800 break-words">{shipmentData.pickupAddress}</span></p>
+                  <p className="flex items-start gap-1"><span className="font-semibold text-gray-700 shrink-0">Delivery:</span> <span className="text-gray-800 break-words">{shipmentData.deliveryAddress}</span></p>
+                </div>
               </div>
 
-              {/* Use Saved Location Button */}
+              {/* Saved Location */}
               {!isRouteStarted && showSavedLocationSection && (
-                <div className="bg-white rounded-lg shadow p-4 border border-blue-200">
-                  <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <Save className="w-4 h-4 text-green-500" />
+                <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-5">
+                  <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                    <Save className="w-4 h-4 text-green-700" />
                     Saved Location
                   </h3>
                   <button
                     onClick={loadSavedLocation}
-                    className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 flex items-center justify-center gap-2 mb-2"
+                    className="w-full bg-green-700 text-white py-2 rounded-lg font-semibold hover:bg-green-800 transition flex items-center justify-center gap-2"
                   >
                     <MapPin className="w-4 h-4" />
                     Use Saved Location from Profile
                   </button>
-                  <p className="text-xs text-gray-500 text-center">
+                  <p className="text-xs text-gray-500 text-center mt-2">
                     Use the location you saved in your profile
                   </p>
                 </div>
               )}
 
-              {/* Current Location Button */}
+              {/* Current Location */}
               {!isRouteStarted && (
-                <div className="bg-white rounded-lg shadow p-4">
-                  <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <LocateFixed className="w-4 h-4 text-blue-500" />
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                  <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                    <LocateFixed className="w-4 h-4 text-blue-700" />
                     Starting Point
                   </h3>
                   <button
                     onClick={addCurrentLocation}
                     disabled={isGettingCurrentLocation}
-                    className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center gap-2 mb-2"
+                    className="w-full bg-blue-700 text-white py-2 rounded-lg font-semibold hover:bg-blue-800 transition disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     <Navigation className="w-4 h-4" />
                     {isGettingCurrentLocation ? 'Getting location...' : 'Use My Current Location (GPS)'}
                   </button>
-                  <p className="text-xs text-gray-500 text-center">
+                  <p className="text-xs text-gray-500 text-center mt-2">
                     Get your real-time GPS location
                   </p>
                 </div>
@@ -468,36 +477,25 @@ export const RouteOptimizerPage: React.FC = () => {
 
               {/* Add by Address */}
               {!isRouteStarted && (
-                <div className="bg-white rounded-lg shadow p-4">
-                  <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <Search className="w-4 h-4" />
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                  <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                    <Search className="w-4 h-4 text-blue-700" />
                     Add Point by Address
                   </h3>
                   <div className="flex gap-2 mb-3">
-                    <button
-                      onClick={() => setSelectedType('pickup')}
-                      className={`flex-1 py-1.5 px-2 rounded-lg text-sm transition ${
-                        selectedType === 'pickup' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'
-                      }`}
-                    >
-                      🟢 Pickup
-                    </button>
-                    <button
-                      onClick={() => setSelectedType('delivery')}
-                      className={`flex-1 py-1.5 px-2 rounded-lg text-sm transition ${
-                        selectedType === 'delivery' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700'
-                      }`}
-                    >
-                      🔴 Delivery
-                    </button>
-                    <button
-                      onClick={() => setSelectedType('warehouse')}
-                      className={`flex-1 py-1.5 px-2 rounded-lg text-sm transition ${
-                        selectedType === 'warehouse' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
-                      }`}
-                    >
-                      📍 Waypoint
-                    </button>
+                    {(['pickup', 'delivery', 'warehouse'] as const).map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => setSelectedType(type)}
+                        className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition ${
+                          selectedType === type
+                            ? type === 'pickup' ? 'bg-green-700 text-white' : type === 'delivery' ? 'bg-red-700 text-white' : 'bg-blue-700 text-white'
+                            : 'bg-gray-200 text-gray-700'
+                        }`}
+                      >
+                        {type === 'pickup' ? '🟢 Pickup' : type === 'delivery' ? '🔴 Delivery' : '📍 Waypoint'}
+                      </button>
+                    ))}
                   </div>
                   <div className="flex gap-2">
                     <input
@@ -505,13 +503,13 @@ export const RouteOptimizerPage: React.FC = () => {
                       value={addressInput}
                       onChange={(e) => setAddressInput(e.target.value)}
                       placeholder="Enter address..."
-                      className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                       onKeyPress={(e) => e.key === 'Enter' && handleSearchAddress()}
                     />
                     <button
                       onClick={handleSearchAddress}
                       disabled={isGeocoding}
-                      className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                      className="px-3 py-2 bg-blue-700 text-white rounded-lg font-semibold hover:bg-blue-800 disabled:opacity-50"
                     >
                       {isGeocoding ? '...' : 'Add'}
                     </button>
@@ -521,56 +519,45 @@ export const RouteOptimizerPage: React.FC = () => {
 
               {/* Add by Map Click */}
               {!isRouteStarted && (
-                <div className="bg-white rounded-lg shadow p-4">
-                  <h3 className="font-semibold mb-3">Add Point by Map Click</h3>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                  <h3 className="text-sm font-bold text-gray-800 mb-2">Add Point by Map Click</h3>
                   <div className="flex gap-2 mb-2">
-                    <button
-                      onClick={() => setSelectedType('pickup')}
-                      className={`flex-1 py-2 px-3 rounded-lg transition ${
-                        selectedType === 'pickup' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'
-                      }`}
-                    >
-                      🟢 Pickup
-                    </button>
-                    <button
-                      onClick={() => setSelectedType('delivery')}
-                      className={`flex-1 py-2 px-3 rounded-lg transition ${
-                        selectedType === 'delivery' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700'
-                      }`}
-                    >
-                      🔴 Delivery
-                    </button>
-                    <button
-                      onClick={() => setSelectedType('warehouse')}
-                      className={`flex-1 py-2 px-3 rounded-lg transition ${
-                        selectedType === 'warehouse' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
-                      }`}
-                    >
-                      📍 Waypoint
-                    </button>
+                    {(['pickup', 'delivery', 'warehouse'] as const).map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => setSelectedType(type)}
+                        className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition ${
+                          selectedType === type
+                            ? type === 'pickup' ? 'bg-green-700 text-white' : type === 'delivery' ? 'bg-red-700 text-white' : 'bg-blue-700 text-white'
+                            : 'bg-gray-200 text-gray-700'
+                        }`}
+                      >
+                        {type === 'pickup' ? '🟢' : type === 'delivery' ? '🔴' : '📍'} {type.charAt(0).toUpperCase() + type.slice(1)}
+                      </button>
+                    ))}
                   </div>
                   <p className="text-xs text-gray-500">Click directly on the map to add points</p>
                 </div>
               )}
 
               {/* Points List */}
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="font-semibold mb-3">Route Points ({points.length})</h3>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 className="text-sm font-bold text-gray-800 mb-3">Route Points ({points.length})</h3>
                 {points.length === 0 ? (
                   <p className="text-gray-500 text-sm">No points added</p>
                 ) : (
                   <div className="space-y-2 max-h-60 overflow-y-auto">
                     {points.map((point, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                         <div className="flex items-center gap-2">
                           <span className={getPointColor(pointLabels[index])}>
                             {getPointIcon(pointLabels[index])}
                           </span>
-                          <span className="text-sm">
+                          <span className="text-sm text-gray-800 font-mono">
                             {Number(point.latitude).toFixed(4)}, {Number(point.longitude).toFixed(4)}
                           </span>
                         </div>
-                        <span className="text-xs text-gray-400 capitalize">{pointLabels[index] || 'waypoint'}</span>
+                        <span className="text-xs text-gray-500 capitalize">{pointLabels[index] || 'waypoint'}</span>
                       </div>
                     ))}
                   </div>
@@ -585,21 +572,21 @@ export const RouteOptimizerPage: React.FC = () => {
                       <button
                         onClick={handleOptimizeRoute}
                         disabled={points.length < 2 || isLoading}
-                        className="flex-1 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                        className="flex-1 bg-blue-700 text-white py-2 rounded-lg font-semibold hover:bg-blue-800 disabled:opacity-50 transition"
                       >
-                        {isLoading ? 'Optimizing...' : '🗺️ Optimize'}
+                        {isLoading ? 'Optimizing...' : '🗺️ Optimize Route'}
                       </button>
                       <button
                         onClick={handleRemoveLastPoint}
                         disabled={points.length === 0}
-                        className="px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50"
+                        className="px-3 py-2 bg-yellow-700 text-white rounded-lg font-semibold hover:bg-yellow-800 disabled:opacity-50 transition"
                       >
                         ↶ Undo
                       </button>
                       <button
                         onClick={handleClearPoints}
                         disabled={points.length === 0}
-                        className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
+                        className="px-3 py-2 bg-red-700 text-white rounded-lg font-semibold hover:bg-red-800 disabled:opacity-50 transition"
                       >
                         ✕ Clear
                       </button>
@@ -608,7 +595,7 @@ export const RouteOptimizerPage: React.FC = () => {
                     <button
                       onClick={handleCompleteDelivery}
                       disabled={isLoading}
-                      className="w-full bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 flex items-center justify-center gap-2 text-lg font-semibold"
+                      className="w-full bg-green-700 text-white py-3 rounded-lg font-bold hover:bg-green-800 transition flex items-center justify-center gap-2 text-base"
                     >
                       <CheckCircle className="w-5 h-5" />
                       {isLoading ? 'Completing...' : '✓ Complete Delivery'}
@@ -620,7 +607,7 @@ export const RouteOptimizerPage: React.FC = () => {
                 {isRouteStarted && (
                   <button
                     onClick={() => setShowReportModal(true)}
-                    className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 flex items-center justify-center gap-2"
+                    className="w-full bg-red-700 text-white py-2 rounded-lg font-semibold hover:bg-red-800 transition flex items-center justify-center gap-2"
                   >
                     <AlertTriangle className="w-4 h-4" />
                     Report Problem
@@ -631,7 +618,7 @@ export const RouteOptimizerPage: React.FC = () => {
               {routeData && !isRouteStarted && (
                 <button
                   onClick={handleStartRoute}
-                  className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600"
+                  className="w-full bg-green-700 text-white py-2 rounded-lg font-semibold hover:bg-green-800 transition"
                 >
                   🚀 Start Route
                 </button>
@@ -640,14 +627,14 @@ export const RouteOptimizerPage: React.FC = () => {
 
             {/* Map */}
             <div className="lg:col-span-2">
-              <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div className="p-3 border-b bg-gray-50 flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-600">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+                  <span className="text-sm font-semibold text-gray-700">
                     {isRouteStarted ? 'Route in Progress' : `Click map to add ${selectedType}`}
                   </span>
                   {isRouteStarted && (
-                    <span className="text-sm bg-green-100 text-green-600 px-2 py-1 rounded">
-                      <Navigation className="w-3 h-3 inline mr-1" />
+                    <span className="inline-flex items-center gap-1 text-xs font-bold bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                      <Navigation className="w-3 h-3" />
                       Navigation Active
                     </span>
                   )}

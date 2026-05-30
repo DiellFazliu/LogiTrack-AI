@@ -1,9 +1,11 @@
 // frontend/src/pages/super-admin/BillingPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard, Calendar, DollarSign, FileText } from 'lucide-react';
+import { ArrowLeft, CreditCard, Calendar, DollarSign, FileText, Building2, Clock, AlertCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 
 interface BillingInfo {
   organizationName: string;
@@ -28,18 +30,14 @@ export const BillingPage: React.FC = () => {
 
   const fetchBillingInfo = async () => {
     try {
-      // Fetch organization details
       const orgRes = await api.get(`/organizations/${id}`);
       const org = orgRes.data;
 
-      // Try to fetch billing/invoice data if available
       let invoiceData = null;
       try {
         const invoiceRes = await api.get(`/invoices/organization/${id}`);
         invoiceData = invoiceRes.data;
-      } catch (e) {
-        // No invoices yet
-      }
+      } catch (e) {}
 
       setBillingInfo({
         organizationName: org.name,
@@ -70,87 +68,113 @@ export const BillingPage: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
+  if (loading) return <LoadingSpinner fullScreen />;
   if (!billingInfo) return null;
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="bg-white shadow">
-        <div className="container mx-auto px-4 py-4">
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
+        {/* Header */}
+        <div className="mb-6">
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate('/super-admin/subscriptions')}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-200 transition"
             >
-              <ArrowLeft className="w-5 h-5" /> Back
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Back</span>
             </button>
-            <h1 className="text-2xl font-bold">Billing & Subscription</h1>
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-6 bg-blue-700 rounded-full" />
+              <h1 className="text-2xl font-extrabold text-gray-900">Billing & Subscription</h1>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-3xl">
-        {/* Subscription Summary */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="flex items-center gap-3 mb-4">
-            <CreditCard className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-semibold">{billingInfo.organizationName}</h2>
+        {/* Subscription Summary Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+              <Building2 className="w-4 h-4 text-blue-700" />
+            </div>
+            <h2 className="text-lg font-bold text-gray-800">{billingInfo.organizationName}</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-gray-500">Current Plan</p>
-              <p className="text-lg font-semibold capitalize">{billingInfo.plan_type}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {/* Plan */}
+            <div className="border-l-4 border-blue-600 pl-3">
+              <p className="text-xs font-bold uppercase text-gray-500 tracking-wider">Current Plan</p>
+              <p className="text-xl font-extrabold text-gray-900 mt-1 capitalize">{billingInfo.plan_type}</p>
             </div>
-            <div>
-              <p className="text-sm text-gray-500">Status</p>
-              <p className={`text-lg font-semibold capitalize ${billingInfo.subscription_status === 'active' ? 'text-green-600' : 'text-red-600'}`}>
+
+            {/* Status */}
+            <div className="border-l-4 border-green-600 pl-3">
+              <p className="text-xs font-bold uppercase text-gray-500 tracking-wider">Status</p>
+              <p className={`text-xl font-extrabold mt-1 capitalize ${billingInfo.subscription_status === 'active' ? 'text-green-700' : 'text-red-700'}`}>
                 {billingInfo.subscription_status}
               </p>
             </div>
-            <div>
-              <p className="text-sm text-gray-500">Monthly Price</p>
-              <p className="text-lg font-semibold">{billingInfo.currency} {billingInfo.amount.toFixed(2)}</p>
+
+            {/* Monthly Price */}
+            <div className="border-l-4 border-purple-600 pl-3">
+              <p className="text-xs font-bold uppercase text-gray-500 tracking-wider">Monthly Price</p>
+              <p className="text-xl font-extrabold text-gray-900 mt-1">{billingInfo.currency} {billingInfo.amount.toFixed(2)}</p>
             </div>
-            <div>
-              <p className="text-sm text-gray-500">Renewal / Expiry</p>
-              <p className="text-lg font-semibold">
+
+            {/* Renewal / Expiry */}
+            <div className="border-l-4 border-orange-600 pl-3">
+              <p className="text-xs font-bold uppercase text-gray-500 tracking-wider">Renewal / Expiry</p>
+              <p className="text-lg font-bold text-gray-900 mt-1">
                 {billingInfo.subscription_ends_at
                   ? new Date(billingInfo.subscription_ends_at).toLocaleDateString()
                   : 'N/A'}
               </p>
             </div>
-            <div>
-              <p className="text-sm text-gray-500">Payment Method</p>
-              <p className="text-lg font-semibold">{billingInfo.payment_method}</p>
+
+            {/* Payment Method */}
+            <div className="border-l-4 border-teal-600 pl-3">
+              <p className="text-xs font-bold uppercase text-gray-500 tracking-wider">Payment Method</p>
+              <p className="text-lg font-bold text-gray-900 mt-1">{billingInfo.payment_method}</p>
             </div>
-            <div>
-              <p className="text-sm text-gray-500">Last Invoice</p>
-              <p className="text-lg font-semibold">
+
+            {/* Last Invoice */}
+            <div className="border-l-4 border-gray-600 pl-3">
+              <p className="text-xs font-bold uppercase text-gray-500 tracking-wider">Last Invoice</p>
+              <p className="text-lg font-bold text-gray-900 mt-1">
                 {billingInfo.last_invoice_date
                   ? new Date(billingInfo.last_invoice_date).toLocaleDateString()
-                  : 'No invoices yet'}
+                  : 'No invoices'}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Invoice History (Placeholder) */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <FileText className="w-5 h-5 text-gray-600" />
-            <h3 className="text-lg font-semibold">Invoice History</h3>
+        {/* Invoice History Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+              <FileText className="w-4 h-4 text-gray-700" />
+            </div>
+            <h3 className="text-base font-bold text-gray-800">Invoice History</h3>
           </div>
-          <div className="text-center py-8 text-gray-500">
-            <p>No invoices available for this organization.</p>
-            <p className="text-sm mt-2">Invoices will appear here once generated.</p>
+
+          <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-100">
+            <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-600 font-medium">No invoices available for this organization.</p>
+            <p className="text-sm text-gray-500 mt-1">Invoices will appear here once generated.</p>
+          </div>
+        </div>
+
+        {/* Optional: Info note about billing */}
+        <div className="mt-6 bg-blue-50 rounded-xl p-4 border border-blue-200">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-blue-700 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-blue-800">Billing Information</p>
+              <p className="text-sm text-blue-700">
+                For any billing inquiries or to change subscription, please contact support.
+              </p>
+            </div>
           </div>
         </div>
       </div>
