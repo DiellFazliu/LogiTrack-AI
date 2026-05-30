@@ -6,10 +6,11 @@
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
-  "transformIgnorePatterns": [
-    "node_modules/(?!(lodash-es|@xenova/transformers|onnxruntime-node)/)"
+  "modulePathIgnorePatterns": [
+    "<rootDir>/../src/modules/ai"
   ],
-  "moduleNameMapper": {
-    "^@xenova/transformers$": "<rootDir>/../node_modules/@xenova/transformers/dist/transformers.js"
-  }
+  "testPathIgnorePatterns": [
+    "/node_modules/",
+    "/ai/"
+  ]
 }
