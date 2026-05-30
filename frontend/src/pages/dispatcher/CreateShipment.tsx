@@ -1,11 +1,13 @@
 // frontend/src/pages/dispatcher/CreateShipment.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, AlertCircle, Truck, User, Package, Plus, X, Calculator } from 'lucide-react';
+import { MapPin, AlertCircle, Truck, User, Package, Plus, X, Calculator, ArrowLeft } from 'lucide-react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
+// ---- Interfaces unchanged ----
 interface Product {
   id: string;
   name: string;
@@ -47,6 +49,15 @@ interface SelectedProduct {
   quantity: number;
 }
 
+// Helper component for section header
+const SectionHeader = ({ icon: Icon, title, color = 'blue' }: { icon: any; title: string; color?: string }) => (
+  <div className="flex items-center gap-2 pb-3 mb-4 border-b border-gray-200">
+    <div className={`w-1 h-5 bg-${color}-600 rounded-full`} />
+    <Icon className={`w-5 h-5 text-${color}-700`} />
+    <h2 className="text-base font-bold text-gray-800">{title}</h2>
+  </div>
+);
+
 export const CreateShipment: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -79,11 +90,12 @@ export const CreateShipment: React.FC = () => {
     estimated_delivery: '',
   });
 
-  // Customer info (for customer shipments)
+  // Customer info
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerName, setCustomerName] = useState('');
-  const [isNewCustomer, setIsNewCustomer] = useState(false); // ✅ Ndrysho në false fillimisht
+  const [isNewCustomer, setIsNewCustomer] = useState(false);
 
+  // ----- All original useEffect and functions remain exactly the same -----
   useEffect(() => {
     fetchProducts();
     fetchDrivers();
@@ -91,7 +103,6 @@ export const CreateShipment: React.FC = () => {
     fetchWarehouses();
   }, []);
 
-  // Recalculate weight and volume when products change
   useEffect(() => {
     const totalWeight = selectedProducts.reduce((sum, item) => 
       sum + (item.product.weight_kg * item.quantity), 0);
@@ -220,7 +231,6 @@ export const CreateShipment: React.FC = () => {
       return;
     }
     
-    // ✅ VALIDIMI PËR NEW CUSTOMER
     if (isNewCustomer && (!customerName || !customerEmail)) {
       toast.error('Please enter customer name and email for new customer');
       return;
@@ -250,7 +260,6 @@ export const CreateShipment: React.FC = () => {
         estimatedDelivery: formData.estimated_delivery || undefined,
       };
 
-      // ✅ SHTIMI I CUSTOMERIT
       if (isNewCustomer && customerName && customerEmail) {
         shipmentData.customerName = customerName;
         shipmentData.customerEmail = customerEmail;
@@ -296,35 +305,42 @@ export const CreateShipment: React.FC = () => {
     };
     return colors[status] || 'text-gray-600';
   };
+  // ----- End of original logic -----
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="bg-white shadow">
-        <div className="container mx-auto px-4 py-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">Create New Shipment</h1>
-            <p className="text-gray-500 mt-1">Fill in the details to create a delivery shipment</p>
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
+        {/* Header with back button */}
+        <div className="mb-6">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/dispatcher/shipments')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-200 transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Back</span>
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-6 bg-blue-700 rounded-full" />
+              <h1 className="text-2xl font-extrabold text-gray-900">Create New Shipment</h1>
+            </div>
           </div>
+          <p className="text-sm text-gray-600 pl-3 mt-1">Fill in the details to create a delivery shipment</p>
         </div>
-      </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* Pickup Information */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-green-600" /> Pickup Information
-            </h2>
-            
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <SectionHeader icon={MapPin} title="Pickup Information" color="green" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Pickup from Warehouse</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Pickup from Warehouse</label>
                 <select
                   value={formData.pickup_warehouse_id}
                   onChange={(e) => {
                     setFormData({...formData, pickup_warehouse_id: e.target.value, pickup_address: ''});
                   }}
-                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                 >
                   <option value="">-- Select Warehouse --</option>
                   {warehouses.map((warehouse) => (
@@ -334,16 +350,15 @@ export const CreateShipment: React.FC = () => {
                   ))}
                 </select>
               </div>
-              
               <div>
-                <label className="block text-sm font-medium mb-2">OR Manual Pickup Address</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">OR Manual Pickup Address</label>
                 <textarea
                   rows={2}
                   value={formData.pickup_address}
                   onChange={(e) => {
                     setFormData({...formData, pickup_address: e.target.value, pickup_warehouse_id: ''});
                   }}
-                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                   placeholder="Full pickup address..."
                   disabled={!!formData.pickup_warehouse_id}
                 />
@@ -352,35 +367,29 @@ export const CreateShipment: React.FC = () => {
           </div>
 
           {/* Delivery Information */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-red-600" /> Delivery Information
-            </h2>
-            
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <SectionHeader icon={MapPin} title="Delivery Information" color="red" />
             <div>
-              <label className="block text-sm font-medium mb-2">Delivery Address *</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Delivery Address *</label>
               <textarea
                 required
                 rows={2}
                 value={formData.delivery_address}
                 onChange={(e) => setFormData({...formData, delivery_address: e.target.value})}
-                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                 placeholder="Full delivery address..."
               />
             </div>
           </div>
 
           {/* Products Section */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Package className="w-5 h-5 text-blue-600" /> Products
-            </h2>
-            
-            <div className="flex gap-2 mb-4">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <SectionHeader icon={Package} title="Products" color="blue" />
+            <div className="flex flex-wrap gap-2 mb-4">
               <select
                 value={selectedProductId}
                 onChange={(e) => setSelectedProductId(e.target.value)}
-                className="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:ring-2 focus:ring-blue-600"
               >
                 <option value="">Select a product...</option>
                 {products.map((product) => (
@@ -389,59 +398,52 @@ export const CreateShipment: React.FC = () => {
                   </option>
                 ))}
               </select>
-              
               <input
                 type="number"
                 min="1"
                 value={productQuantity}
                 onChange={(e) => setProductQuantity(parseInt(e.target.value) || 1)}
-                className="w-24 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-20 border border-gray-300 rounded-lg px-2 py-2 text-center focus:ring-2 focus:ring-blue-600"
               />
-              
               <button
                 type="button"
                 onClick={addProduct}
-                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-1"
+                className="bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-800 transition flex items-center gap-1"
               >
                 <Plus className="w-4 h-4" /> Add
               </button>
             </div>
-            
             {selectedProducts.length > 0 && (
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Product</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">SKU</th>
-                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Qty</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Weight</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Volume</th>
-                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Actions</th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-gray-600">Product</th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-gray-600">SKU</th>
+                      <th className="px-3 py-2 text-center text-xs font-bold text-gray-600">Qty</th>
+                      <th className="px-3 py-2 text-right text-xs font-bold text-gray-600">Weight</th>
+                      <th className="px-3 py-2 text-right text-xs font-bold text-gray-600">Volume</th>
+                      <th className="px-3 py-2 text-center text-xs font-bold text-gray-600">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {selectedProducts.map((item) => (
                       <tr key={item.productId}>
-                        <td className="px-4 py-2 text-sm">{item.product.name}</td>
-                        <td className="px-4 py-2 text-sm text-gray-500">{item.product.sku}</td>
-                        <td className="px-4 py-2 text-center">
+                        <td className="px-3 py-2 text-sm text-gray-800">{item.product.name}</td>
+                        <td className="px-3 py-2 text-sm text-gray-500">{item.product.sku}</td>
+                        <td className="px-3 py-2 text-center">
                           <input
                             type="number"
                             min="1"
                             value={item.quantity}
                             onChange={(e) => updateProductQuantity(item.productId, parseInt(e.target.value) || 1)}
-                            className="w-16 border rounded px-2 py-1 text-center"
+                            className="w-16 border border-gray-300 rounded px-1 py-1 text-center focus:ring-2 focus:ring-blue-600"
                           />
                         </td>
-                        <td className="px-4 py-2 text-right text-sm">{(item.product.weight_kg * item.quantity).toFixed(2)} kg</td>
-                        <td className="px-4 py-2 text-right text-sm">{(item.product.volume_m3 * item.quantity).toFixed(2)} m³</td>
-                        <td className="px-4 py-2 text-center">
-                          <button
-                            type="button"
-                            onClick={() => removeProduct(item.productId)}
-                            className="text-red-600 hover:text-red-800"
-                          >
+                        <td className="px-3 py-2 text-right text-sm text-gray-800">{(item.product.weight_kg * item.quantity).toFixed(2)} kg</td>
+                        <td className="px-3 py-2 text-right text-sm text-gray-800">{(item.product.volume_m3 * item.quantity).toFixed(2)} m³</td>
+                        <td className="px-3 py-2 text-center">
+                          <button type="button" onClick={() => removeProduct(item.productId)} className="text-red-600 hover:text-red-800">
                             <X className="w-4 h-4" />
                           </button>
                         </td>
@@ -450,9 +452,9 @@ export const CreateShipment: React.FC = () => {
                   </tbody>
                   <tfoot className="bg-gray-50">
                     <tr>
-                      <td colSpan={3} className="px-4 py-2 text-right font-medium">Total:</td>
-                      <td className="px-4 py-2 text-right font-medium">{formData.weight_kg.toFixed(2)} kg</td>
-                      <td className="px-4 py-2 text-right font-medium">{formData.volume_m3.toFixed(2)} m³</td>
+                      <td colSpan={3} className="px-3 py-2 text-right font-bold text-gray-800">Total:</td>
+                      <td className="px-3 py-2 text-right font-bold text-gray-800">{formData.weight_kg.toFixed(2)} kg</td>
+                      <td className="px-3 py-2 text-right font-bold text-gray-800">{formData.volume_m3.toFixed(2)} m³</td>
                       <td></td>
                     </tr>
                   </tfoot>
@@ -462,18 +464,15 @@ export const CreateShipment: React.FC = () => {
           </div>
 
           {/* Shipment Details */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Calculator className="w-5 h-5 text-purple-600" /> Shipment Details
-            </h2>
-            
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <SectionHeader icon={Calculator} title="Shipment Details" color="purple" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Priority</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Priority</label>
                 <select
                   value={formData.priority}
                   onChange={(e) => setFormData({...formData, priority: e.target.value})}
-                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-blue-600"
                 >
                   <option value="low">Low</option>
                   <option value="normal">Normal</option>
@@ -481,66 +480,58 @@ export const CreateShipment: React.FC = () => {
                   <option value="urgent">Urgent</option>
                 </select>
               </div>
-              
               <div>
-                <label className="block text-sm font-medium mb-2">Estimated Delivery Date</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Estimated Delivery Date</label>
                 <div className="flex gap-2">
                   <input
                     type="date"
                     value={formData.estimated_delivery}
                     onChange={(e) => setFormData({...formData, estimated_delivery: e.target.value})}
-                    className="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-blue-600"
                   />
                   <button
                     type="button"
                     onClick={calculateEstimatedDelivery}
                     disabled={calculating}
-                    className="bg-gray-500 text-white px-3 py-2 rounded-lg hover:bg-gray-600 disabled:opacity-50"
+                    className="px-3 py-2 bg-gray-700 text-white rounded-lg font-semibold hover:bg-gray-800 disabled:opacity-50"
                   >
                     {calculating ? '...' : 'Auto'}
                   </button>
                 </div>
               </div>
             </div>
-            
-            <div className="flex items-center gap-2 mt-4">
+            <div className="flex items-center gap-2 mt-3">
               <input
                 type="checkbox"
                 id="express"
                 checked={formData.is_express}
                 onChange={(e) => setFormData({...formData, is_express: e.target.checked})}
-                className="w-4 h-4"
+                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
               />
-              <label htmlFor="express" className="text-sm font-medium">Express Delivery (Faster shipping)</label>
+              <label htmlFor="express" className="text-sm font-semibold text-gray-700">Express Delivery (Faster shipping)</label>
             </div>
-            
-            <div className="mt-4">
-              <label className="block text-sm font-medium mb-2">Notes / Special Instructions</label>
+            <div className="mt-3">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Notes / Special Instructions</label>
               <textarea
                 rows={3}
                 value={formData.notes}
                 onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-blue-600"
                 placeholder="Special instructions for driver..."
               />
             </div>
           </div>
 
           {/* Assignment Section */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <User className="w-5 h-5 text-indigo-600" /> Assignment (Optional)
-            </h2>
-            
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <SectionHeader icon={User} title="Assignment (Optional)" color="indigo" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2 flex items-center gap-1">
-                  <Truck className="w-4 h-4" /> Assign Driver
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Assign Driver</label>
                 <select
                   value={formData.driver_id}
                   onChange={(e) => setFormData({...formData, driver_id: e.target.value})}
-                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-blue-600"
                 >
                   <option value="">-- Select Driver (Optional) --</option>
                   {drivers.map((driver) => (
@@ -550,20 +541,15 @@ export const CreateShipment: React.FC = () => {
                   ))}
                 </select>
                 {formData.driver_id && drivers.find(d => d.id === formData.driver_id) && (
-                  <div className="mt-2 text-sm text-gray-500">
-                    {drivers.find(d => d.id === formData.driver_id)?.phone}
-                  </div>
+                  <div className="mt-1 text-sm text-gray-600">{drivers.find(d => d.id === formData.driver_id)?.phone}</div>
                 )}
               </div>
-              
               <div>
-                <label className="block text-sm font-medium mb-2 flex items-center gap-1">
-                  <Package className="w-4 h-4" /> Assign Vehicle
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Assign Vehicle</label>
                 <select
                   value={formData.vehicle_id}
                   onChange={(e) => setFormData({...formData, vehicle_id: e.target.value})}
-                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-blue-600"
                 >
                   <option value="">-- Select Vehicle (Optional) --</option>
                   {vehicles.map((vehicle) => (
@@ -573,69 +559,55 @@ export const CreateShipment: React.FC = () => {
                   ))}
                 </select>
                 {formData.vehicle_id && vehicles.find(v => v.id === formData.vehicle_id) && (
-                  <div className="mt-2 text-sm text-gray-500">
-                    Capacity: {vehicles.find(v => v.id === formData.vehicle_id)?.capacity_kg}kg
-                  </div>
+                  <div className="mt-1 text-sm text-gray-600">Capacity: {vehicles.find(v => v.id === formData.vehicle_id)?.capacity_kg}kg</div>
                 )}
               </div>
             </div>
           </div>
 
           {/* Customer Information */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <User className="w-5 h-5 text-green-600" /> Customer Information
-            </h2>
-            
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <SectionHeader icon={User} title="Customer Information" color="green" />
             <div className="flex items-center gap-4 mb-4">
               <label className="flex items-center gap-2">
                 <input
                   type="radio"
                   checked={isNewCustomer}
-                  onChange={() => {
-                    setIsNewCustomer(true);
-                    setCustomerName('');
-                    setCustomerEmail('');
-                  }}
-                  className="w-4 h-4"
+                  onChange={() => { setIsNewCustomer(true); setCustomerName(''); setCustomerEmail(''); }}
+                  className="w-4 h-4 text-blue-600"
                 />
-                <span>New Customer</span>
+                <span className="text-gray-800">New Customer</span>
               </label>
               <label className="flex items-center gap-2">
                 <input
                   type="radio"
                   checked={!isNewCustomer}
-                  onChange={() => {
-                    setIsNewCustomer(false);
-                    setCustomerName('');
-                    setCustomerEmail('');
-                  }}
-                  className="w-4 h-4"
+                  onChange={() => { setIsNewCustomer(false); setCustomerName(''); setCustomerEmail(''); }}
+                  className="w-4 h-4 text-blue-600"
                 />
-                <span>Existing Customer</span>
+                <span className="text-gray-800">Existing Customer</span>
               </label>
             </div>
-            
             {isNewCustomer ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Customer Name *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Customer Name *</label>
                   <input
                     type="text"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-blue-600"
                     placeholder="Full name"
                     required={isNewCustomer}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Customer Email *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Customer Email *</label>
                   <input
                     type="email"
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-blue-600"
                     placeholder="email@example.com"
                     required={isNewCustomer}
                   />
@@ -643,57 +615,56 @@ export const CreateShipment: React.FC = () => {
               </div>
             ) : (
               <div>
-                <label className="block text-sm font-medium mb-2">Search Customer</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Search Customer</label>
                 <input
                   type="text"
                   placeholder="Search by email or name..."
-                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-blue-600"
                 />
               </div>
             )}
           </div>
 
           {/* Summary & Submit */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="bg-blue-50 p-4 rounded-lg mb-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <div className="bg-blue-50 rounded-xl p-3 mb-5 border border-blue-200">
               <div className="flex items-start gap-2">
-                <AlertCircle className="w-5 h-5 text-blue-500 mt-0.5" />
-                <div className="text-sm text-blue-700">
-                  <p className="font-medium">Summary:</p>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
+                <AlertCircle className="w-5 h-5 text-blue-700 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <p className="font-bold">Summary:</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-1">
                     <div>Total Weight:</div>
-                    <div className="font-medium">{formData.weight_kg.toFixed(2)} kg</div>
+                    <div className="font-bold">{formData.weight_kg.toFixed(2)} kg</div>
                     <div>Total Volume:</div>
-                    <div className="font-medium">{formData.volume_m3.toFixed(2)} m³</div>
+                    <div className="font-bold">{formData.volume_m3.toFixed(2)} m³</div>
                     <div>Priority:</div>
-                    <div className="font-medium capitalize">{formData.priority}</div>
+                    <div className="font-bold capitalize">{formData.priority}</div>
                     {formData.driver_id && (
                       <>
                         <div>Driver:</div>
-                        <div className="font-medium">Assigned</div>
+                        <div className="font-bold">Assigned</div>
                       </>
                     )}
                   </div>
                 </div>
               </div>
             </div>
-            
             <div className="flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => navigate('/dispatcher/shipments')}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-800 font-semibold hover:bg-gray-50 transition"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50 flex items-center gap-2"
+                className="px-6 py-2 bg-blue-700 text-white rounded-lg font-bold hover:bg-blue-800 transition disabled:opacity-50 flex items-center gap-2"
               >
                 {loading ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
                     Creating...
                   </>
                 ) : (
@@ -707,5 +678,3 @@ export const CreateShipment: React.FC = () => {
     </div>
   );
 };
-
-export default CreateShipment;

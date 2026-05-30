@@ -1,9 +1,11 @@
 // frontend/src/pages/super-admin/EditOrganizationPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Building2, Save, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Building2, Save, ArrowLeft, AlertCircle, Mail, Phone, MapPin, Users, Package, CreditCard, Calendar } from 'lucide-react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 
 interface Organization {
   id: string;
@@ -89,87 +91,104 @@ export const EditOrganizationPage: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner fullScreen />;
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="bg-white shadow">
-        <div className="container mx-auto px-4 py-4">
+      <div className="max-w-3xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
+        {/* Header */}
+        <div className="mb-6">
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate('/super-admin/subscriptions')}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-200 transition"
             >
-              <ArrowLeft className="w-5 h-5" /> Back
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Back</span>
             </button>
-            <h1 className="text-2xl font-bold">Edit Organization</h1>
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-6 bg-blue-700 rounded-full" />
+              <h1 className="text-2xl font-extrabold text-gray-900">Edit Organization</h1>
+            </div>
           </div>
+          <p className="text-sm text-gray-600 pl-3 mt-1">Update organization details and settings</p>
         </div>
-      </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Organization Name *</label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
+        {/* Form Card */}
+        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Organization Name */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-bold text-gray-800 mb-1">Organization Name *</label>
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                />
+              </div>
             </div>
 
+            {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
+              <label className="block text-sm font-bold text-gray-800 mb-1">Email *</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                />
+              </div>
             </div>
 
+            {/* Phone */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-              <input
-                type="text"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
+              <label className="block text-sm font-bold text-gray-800 mb-1">Phone</label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
+                <input
+                  type="text"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-              <textarea
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
+            {/* Address */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-bold text-gray-800 mb-1">Address</label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-3 w-4 h-4 text-gray-500" />
+                <textarea
+                  name="address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  rows={3}
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                />
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Plan Type</label>
+            {/* Plan Type */}
+            <div>
+              <label className="block text-sm font-bold text-gray-800 mb-1">Plan Type</label>
+              <div className="relative">
+                <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
                 <select
                   name="plan_type"
                   value={formData.plan_type}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-600"
                 >
                   <option value="free">Free</option>
                   <option value="basic">Basic</option>
@@ -177,14 +196,18 @@ export const EditOrganizationPage: React.FC = () => {
                   <option value="enterprise">Enterprise</option>
                 </select>
               </div>
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Subscription Status</label>
+            {/* Subscription Status */}
+            <div>
+              <label className="block text-sm font-bold text-gray-800 mb-1">Subscription Status</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
                 <select
                   name="subscription_status"
                   value={formData.subscription_status}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-600"
                 >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
@@ -194,32 +217,39 @@ export const EditOrganizationPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Max Users</label>
+            {/* Max Users */}
+            <div>
+              <label className="block text-sm font-bold text-gray-800 mb-1">Max Users</label>
+              <div className="relative">
+                <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
                 <input
                   type="number"
                   name="max_users"
                   value={formData.max_users}
                   onChange={handleChange}
                   min="1"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600"
                 />
               </div>
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Max Shipments / Month</label>
+            {/* Max Shipments / Month */}
+            <div>
+              <label className="block text-sm font-bold text-gray-800 mb-1">Max Shipments / Month</label>
+              <div className="relative">
+                <Package className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
                 <input
                   type="number"
                   name="max_shipments_per_month"
                   value={formData.max_shipments_per_month}
                   onChange={handleChange}
                   min="1"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600"
                 />
               </div>
             </div>
 
+            {/* Active Checkbox */}
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -228,22 +258,37 @@ export const EditOrganizationPage: React.FC = () => {
                 onChange={handleChange}
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
-              <label className="ml-2 block text-sm text-gray-700">Organization is active</label>
+              <label className="ml-2 block text-sm font-medium text-gray-800">Organization is active</label>
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end gap-3">
+          {/* Info Note */}
+          <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-blue-700 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Important</p>
+                <p className="text-sm text-blue-700">
+                  Changes to plan type and limits will affect the organization's available features and user quotas.
+                  Subscription status determines whether the organization can access the system.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
             <button
               type="button"
               onClick={() => navigate('/super-admin/subscriptions')}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-800 font-medium hover:bg-gray-50 transition"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="px-6 py-2 bg-blue-700 text-white rounded-lg font-bold hover:bg-blue-800 transition disabled:opacity-50 flex items-center gap-2"
             >
               <Save className="w-4 h-4" />
               {saving ? 'Saving...' : 'Save Changes'}

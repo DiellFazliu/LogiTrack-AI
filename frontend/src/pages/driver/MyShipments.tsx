@@ -1,11 +1,12 @@
 // frontend/src/pages/driver/MyShipments.tsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Package, MapPin, Clock, AlertCircle, Eye } from 'lucide-react';
+import { Package, MapPin, Clock, AlertCircle, Eye, Truck } from 'lucide-react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 
-// ✅ Përdor snake_case siç vjen nga backend-i
 interface Shipment {
   id: string;
   trackingNumber: string;
@@ -46,14 +47,14 @@ export const MyShipments: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      picked_up: 'bg-blue-100 text-blue-800',
-      in_transit: 'bg-purple-100 text-purple-800',
-      delivered: 'bg-green-100 text-green-800',
-      failed: 'bg-red-100 text-red-800',
-      cancelled: 'bg-gray-100 text-gray-800',
+      pending: 'bg-yellow-200 text-yellow-800',
+      picked_up: 'bg-blue-200 text-blue-800',
+      in_transit: 'bg-purple-200 text-purple-800',
+      delivered: 'bg-green-200 text-green-800',
+      failed: 'bg-red-200 text-red-800',
+      cancelled: 'bg-gray-200 text-gray-800',
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return colors[status] || 'bg-gray-200 text-gray-800';
   };
 
   const getPriorityIcon = (priority: string) => {
@@ -62,77 +63,89 @@ export const MyShipments: React.FC = () => {
     return <Package className="w-4 h-4 text-gray-500" />;
   };
 
-  if (loading) {
-    return <div className="min-h-screen bg-gray-100 flex items-center justify-center">Loading...</div>;
-  }
+  if (loading) return <LoadingSpinner fullScreen />;
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="bg-white shadow">
-        <div className="container mx-auto px-4 py-4">
-          <h1 className="text-3xl font-bold text-gray-800">My Shipments</h1>
-          <p className="text-gray-500 mt-1">Shipments assigned to you</p>
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-6 bg-blue-700 rounded-full" />
+            <h1 className="text-2xl font-extrabold text-gray-900">My Shipments</h1>
+          </div>
+          <p className="text-sm text-gray-600 pl-3 mt-0.5">Shipments assigned to you</p>
         </div>
-      </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 gap-5">
           {shipments.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-12 text-center">
-              <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No shipments assigned yet</p>
-              <p className="text-sm text-gray-400 mt-1">When a dispatcher assigns you a shipment, it will appear here</p>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+              <Truck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">No shipments assigned yet</h3>
+              <p className="text-gray-500">When a dispatcher assigns you a shipment, it will appear here</p>
             </div>
           ) : (
             shipments.map((shipment) => (
-              <Link key={shipment.id} to={`/driver/shipments/${shipment.id}`}>
-                <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        {getPriorityIcon(shipment.priority)}
-                        <h3 className="text-lg font-semibold">#{shipment.trackingNumber}</h3>
-                      </div>
-                      <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(shipment.status)}`}>
-                        {shipment.status?.replace('_', ' ')}
-                      </span>
-                    </div>
-                    {shipment.estimatedDelivery && (
-                      <div className="text-right">
-                        <div className="text-sm text-gray-500 flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> Estimated
-                        </div>
-                        <div className="text-sm font-medium">
-                          {new Date(shipment.estimatedDelivery).toLocaleDateString()}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-start gap-2">
-                      <MapPin className="w-4 h-4 text-green-600 mt-1" />
+              <motion.div
+                key={shipment.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Link to={`/driver/shipments/${shipment.id}`}>
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:shadow-md transition cursor-pointer">
+                    <div className="flex justify-between items-start mb-4 flex-wrap gap-3">
                       <div>
-                        <div className="text-xs text-gray-500">Pickup</div>
-                        <div className="text-sm">{shipment.pickupAddress}</div>
+                        <div className="flex items-center gap-2 mb-2">
+                          {getPriorityIcon(shipment.priority)}
+                          <h3 className="text-lg font-bold text-gray-900 font-mono">#{shipment.trackingNumber}</h3>
+                        </div>
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${getStatusColor(shipment.status)}`}>
+                          {shipment.status?.replace('_', ' ')}
+                        </span>
+                        {shipment.is_express && (
+                          <span className="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-orange-200 text-orange-800">
+                            Express
+                          </span>
+                        )}
                       </div>
+                      {shipment.estimatedDelivery && (
+                        <div className="text-right">
+                          <div className="text-xs text-gray-500 flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> Estimated
+                          </div>
+                          <div className="text-sm font-bold text-gray-800">
+                            {new Date(shipment.estimatedDelivery).toLocaleDateString()}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-start gap-2">
-                      <MapPin className="w-4 h-4 text-red-600 mt-1" />
-                      <div>
-                        <div className="text-xs text-gray-500">Delivery</div>
-                        <div className="text-sm">{shipment.deliveryAddress}</div>
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="mt-4 flex justify-end">
-                    <button className="text-blue-600 hover:text-blue-800 flex items-center gap-1">
-                      <Eye className="w-4 h-4" /> View Details
-                    </button>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-2">
+                        <MapPin className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Pickup</div>
+                          <div className="text-sm text-gray-800">{shipment.pickupAddress}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <MapPin className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Delivery</div>
+                          <div className="text-sm text-gray-800">{shipment.deliveryAddress}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex justify-end">
+                      <div className="text-blue-700 font-medium text-sm flex items-center gap-1 hover:text-blue-900">
+                        <Eye className="w-4 h-4" /> View Details
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </Link>
+                </Link>
+              </motion.div>
             ))
           )}
         </div>
