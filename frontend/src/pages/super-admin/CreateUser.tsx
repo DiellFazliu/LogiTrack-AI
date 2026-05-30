@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, User, Phone, Shield, AlertCircle, Loader } from 'lucide-react';
+import { Mail, User, Phone, Shield, AlertCircle, Loader, ArrowLeft, Building2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 
 interface Organization {
   id: string;
@@ -66,27 +68,39 @@ export const CreateUser: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="bg-white shadow">
-        <div className="container mx-auto px-4 py-4">
-          <h1 className="text-3xl font-bold text-gray-800">Create New User</h1>
-          <p className="text-gray-500 mt-1">Add a new user to the platform</p>
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/super-admin/users')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-200 transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Back</span>
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-6 bg-blue-700 rounded-full" />
+              <h1 className="text-2xl font-extrabold text-gray-900">Create New User</h1>
+            </div>
+          </div>
+          <p className="text-sm text-gray-600 pl-3 mt-1">Add a new user to the platform</p>
         </div>
-      </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-3xl">
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Emri */}
+        {/* Form Card */}
+        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Full Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+              <label className="block text-sm font-bold text-gray-800 mb-1">Full Name *</label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
                 <input
                   type="text"
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                   placeholder="John Doe"
                 />
               </div>
@@ -94,15 +108,15 @@ export const CreateUser: React.FC = () => {
 
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
+              <label className="block text-sm font-bold text-gray-800 mb-1">Email Address *</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
                 <input
                   type="email"
                   required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                   placeholder="user@example.com"
                 />
               </div>
@@ -110,31 +124,32 @@ export const CreateUser: React.FC = () => {
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+              <label className="block text-sm font-bold text-gray-800 mb-1">Password *</label>
               <div className="relative">
-                <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
                 <input
                   type="password"
                   required
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                   placeholder="••••••••"
                   minLength={6}
                 />
               </div>
+              <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
             </div>
 
             {/* Phone */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+              <label className="block text-sm font-bold text-gray-800 mb-1">Phone Number</label>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
                 <input
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                   placeholder="+383 44 123 456"
                 />
               </div>
@@ -142,13 +157,13 @@ export const CreateUser: React.FC = () => {
 
             {/* Role */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
+              <label className="block text-sm font-bold text-gray-800 mb-1">Role *</label>
               <div className="relative">
-                <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
                 <select
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent bg-white"
                 >
                   <option value="super_admin">Super Admin</option>
                   <option value="company_admin">Company Admin</option>
@@ -161,28 +176,35 @@ export const CreateUser: React.FC = () => {
 
             {/* Organization (optional) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Organization (optional)</label>
-              <select
-                value={formData.organizationId}
-                onChange={(e) => setFormData({ ...formData, organizationId: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={loadingOrgs}
-              >
-                <option value="">-- No organization --</option>
-                {organizations.map((org) => (
-                  <option key={org.id} value={org.id}>{org.name}</option>
-                ))}
-              </select>
-              {loadingOrgs && <Loader className="w-4 h-4 animate-spin mt-1" />}
+              <label className="block text-sm font-bold text-gray-800 mb-1">Organization (optional)</label>
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
+                <select
+                  value={formData.organizationId}
+                  onChange={(e) => setFormData({ ...formData, organizationId: e.target.value })}
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent bg-white"
+                  disabled={loadingOrgs}
+                >
+                  <option value="">-- No organization --</option>
+                  {organizations.map((org) => (
+                    <option key={org.id} value={org.id}>{org.name}</option>
+                  ))}
+                </select>
+                {loadingOrgs && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <Loader className="w-4 h-4 text-gray-400 animate-spin" />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Info Note */}
-          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+          <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
             <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-5 h-5 text-blue-700 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-blue-800">About User Roles:</p>
+                <p className="text-sm font-semibold text-blue-800">About User Roles:</p>
                 <p className="text-sm text-blue-700">
                   <strong>Super Admin:</strong> Full system access<br />
                   <strong>Company Admin:</strong> Manages their own company<br />
@@ -194,22 +216,23 @@ export const CreateUser: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          {/* Buttons */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
             <button
               type="button"
               onClick={() => navigate('/super-admin/users')}
-              className="px-4 py-2 border rounded-lg hover:bg-gray-50 transition"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-800 font-medium hover:bg-gray-50 transition"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition disabled:opacity-50 flex items-center gap-2"
+              className="px-6 py-2 bg-blue-700 text-white rounded-lg font-bold hover:bg-blue-800 transition disabled:opacity-50 flex items-center gap-2"
             >
               {loading ? (
                 <>
-                  <Loader className="w-4 h-4 animate-spin" />
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
                   Creating...
                 </>
               ) : (
