@@ -6,7 +6,10 @@
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
+  "transformIgnorePatterns": [
+    "node_modules/(?!(lodash-es|@xenova/transformers|onnxruntime-node)/)"
+  ],
   "moduleNameMapper": {
-    "^src/(.*)$": "<rootDir>/../src/$1"
+    "^@xenova/transformers$": "<rootDir>/../node_modules/@xenova/transformers/dist/transformers.js"
   }
 }
