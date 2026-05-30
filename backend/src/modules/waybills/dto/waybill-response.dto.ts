@@ -1,3 +1,4 @@
+// dto/waybill-response.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ShipmentInfoDto {
@@ -34,35 +35,23 @@ export class WaybillResponseDto {
   waybillNumber!: string;
 
   @ApiPropertyOptional()
-  pdfUrl!: string | null;
+  pdfUrl?: string | null;
 
   @ApiPropertyOptional()
-  qrCode!: string | null;
+  qrCode?: string | null;
 
   @ApiPropertyOptional()
-  signature!: string | null;
+  signature?: string | null;
 
   @ApiPropertyOptional()
-  signedAt!: Date | null;
+  signedAt?: Date | null;
 
   @ApiPropertyOptional()
-  signedBy!: string | null;
-
-  @ApiPropertyOptional()
-  generatedBy!: string | null;
-
-  @ApiProperty()
-  isSigned!: boolean;
-
-  @ApiProperty()
-  isPrinted!: boolean;
-
-  @ApiPropertyOptional()
-  printedAt!: Date | null;
-
-  @ApiPropertyOptional()
-  notes!: string | null;
+  generatedBy?: string | null;
 
   @ApiProperty()
   createdAt!: Date;
+
+  @ApiProperty()
+  isSigned!: boolean;
 }

@@ -7,13 +7,18 @@ import api from '../../services/api';
 
 interface Driver {
   id: string;
-  name: string;
-  email: string;
-  phone: string;
+  name?: string;
+  email?: string;
+  phone?: string;
   status: string;
-  totalDeliveries: number;
-  rating: number;
+  totalDeliveries?: number;
+  rating?: number;
+
+  // backend may return extra fields; keep these optional
+  licenseNumber?: string;
 }
+
+
 
 interface Shipment {
   id: string;
@@ -21,6 +26,14 @@ interface Shipment {
   pickupAddress: string;
   deliveryAddress: string;
   status: string;
+
+  // Optional driver details (may not exist depending on backend serialization)
+  driver?: {
+    id?: string;
+    name?: string;
+    phone?: string;
+    email?: string;
+  };
 }
 
 export const AssignDriver: React.FC = () => {
@@ -196,9 +209,10 @@ export const AssignDriver: React.FC = () => {
                     <option value="">Choose a driver...</option>
                     {drivers.map((driver) => (
                       <option key={driver.id} value={driver.id}>
-                        {driver.name} - {driver.status} ({driver.totalDeliveries || 0} deliveries) ⭐ {driver.rating || 0}
+                        {(driver.name?.trim() ? driver.name : 'Not provided')} - {driver.status} ({driver.totalDeliveries || 0} deliveries) ⭐ {driver.rating || 0}
                       </option>
                     ))}
+
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
                     Showing {drivers.length} available driver(s)
@@ -215,9 +229,10 @@ export const AssignDriver: React.FC = () => {
                 </div>
                 {drivers.filter(d => d.id === selectedDriver).map(driver => (
                   <div key={driver.id} className="space-y-1 text-sm">
-                    <p><span className="text-gray-500">Name:</span> {driver.name}</p>
-                    <p><span className="text-gray-500">Email:</span> {driver.email}</p>
-                    <p><span className="text-gray-500">Phone:</span> {driver.phone || 'N/A'}</p>
+                    <p><span className="text-gray-500">Name:</span> {driver.name?.trim() ? driver.name : 'Not provided'}</p>
+                    <p><span className="text-gray-500">Email:</span> {driver.email?.trim() ? driver.email : 'Not provided'}</p>
+                    <p><span className="text-gray-500">Phone:</span> {driver.phone?.trim() ? driver.phone : 'N/A'}</p>
+
                     <p><span className="text-gray-500">Status:</span> {driver.status}</p>
                     <p><span className="text-gray-500">Total Deliveries:</span> {driver.totalDeliveries || 0}</p>
                     <p><span className="text-gray-500">Rating:</span> ⭐ {driver.rating || 0}/5</p>

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Vehicle, VehicleStatus } from './vehicle.entity';
@@ -13,6 +13,20 @@ export class VehiclesService {
   ) {}
 
   async create(createDto: CreateVehicleDto, organizationId: string): Promise<Vehicle> {
+    const existing = await this.vehicleRepository.findOne({
+      where: {
+        organizationId,
+        licensePlate: createDto.licensePlate,
+      },
+    });
+
+
+    if (existing) {
+      throw new ConflictException(
+        `Vehicle with license plate '${createDto.licensePlate}' already exists.`,
+      );
+    }
+
     const vehicle = this.vehicleRepository.create({
       ...createDto,
       organizationId,
@@ -20,11 +34,17 @@ export class VehiclesService {
     return this.vehicleRepository.save(vehicle);
   }
 
-  async findAll(organizationId: string, status?: string): Promise<Vehicle[]> {
-    const where: any = { organizationId };
-    if (status) where.status = status;
-    
-    return this.vehicleRepository.find({ where, relations: ['organization'] });
+
+  async findAll(organizationId: string, status?: string, page = 1, limit = 20) {
+  const where: any = { organizationId };
+  if (status) where.status = status;
+  const [data, total] = await this.vehicleRepository.findAndCount({
+    where,
+    skip: (page - 1) * limit,
+    take: limit,
+    order: { createdAt: 'DESC' },
+  });
+  return { data, total, page, limit };
   }
 
   async findOne(id: string, organizationId: string): Promise<Vehicle> {

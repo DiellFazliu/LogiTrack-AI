@@ -2,6 +2,7 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateCol
 import { Organization } from '../organizations/organization.entity';
 import { User } from '../users/user.entity';
 import { Shipment } from '../shipments/shipment.entity';
+import { Unique } from 'typeorm';
 
 export enum DriverStatus {
   AVAILABLE = 'available',
@@ -11,8 +12,8 @@ export enum DriverStatus {
   SICK = 'sick',
   VACATION = 'vacation'
 }
-
 @Entity('drivers')
+@Unique(['userId'])
 export class Driver {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

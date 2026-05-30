@@ -26,8 +26,13 @@ export class VehiclesController {
   @Get()
   @Roles(UserRole.COMPANY_ADMIN, UserRole.DISPATCHER)
   @ApiOperation({ summary: 'Get all vehicles' })
-  findAll(@Query('status') status: string, @Request() req) {
-    return this.vehiclesService.findAll(req.user.organizationId, status);
+  async findAll(
+    @Query('status') status: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+    @Request() req
+  ) {
+    return this.vehiclesService.findAll(req.user.organizationId, status, +page, +limit);
   }
 
   @Get('available')

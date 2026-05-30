@@ -33,29 +33,44 @@ export const OrganizationsList: React.FC = () => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+  const [updatingPlanId, setUpdatingPlanId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchOrganizations();
   }, []);
 
+  // ✅ Funksioni i përmirësuar për marrjen e të dhënave me mapping
   const fetchOrganizations = async () => {
     try {
-      // Përdor endpoint-in e saktë që ekziston
       const response = await api.get('/organizations');
       let orgsData = response.data;
       
-      // Nëse response është array, përdor drejtpërsëdrejti
+      // Funksioni për të mapuar të dhënat nga backend në frontend
+      const mapOrganization = (org: any): Organization => ({
+        id: org.id,
+        name: org.name,
+        email: org.email,
+        phone: org.phone || '',
+        address: org.address || '',
+        plan_type: org.planType || org.plan_type || 'free',
+        subscription_status: org.subscriptionStatus || org.subscription_status || 'trial',
+        subscription_ends_at: org.subscriptionEndsAt || org.subscription_ends_at,
+        max_users: org.maxUsers || org.max_users || 5,
+        max_shipments_per_month: org.maxShipmentsPerMonth || org.max_shipments_per_month || 100,
+        logo_url: org.logoUrl || org.logo_url || '',
+        is_active: org.isActive !== undefined ? org.isActive : org.is_active,
+        created_at: org.createdAt || org.created_at,
+        updated_at: org.updatedAt || org.updated_at,
+      });
+
       if (Array.isArray(orgsData)) {
-        setOrganizations(orgsData);
-      } 
-      // Nëse response ka property 'items' ose 'data'
-      else if (orgsData.items) {
-        setOrganizations(orgsData.items);
-      }
-      else if (orgsData.data) {
-        setOrganizations(orgsData.data);
-      }
-      else {
+        setOrganizations(orgsData.map(mapOrganization));
+      } else if (orgsData.items) {
+        setOrganizations(orgsData.items.map(mapOrganization));
+      } else if (orgsData.data) {
+        setOrganizations(orgsData.data.map(mapOrganization));
+      } else {
         setOrganizations([]);
       }
     } catch (error: any) {
@@ -83,7 +98,7 @@ export const OrganizationsList: React.FC = () => {
     try {
       await api.delete(`/organizations/${id}`);
       toast.success('Organization deleted successfully');
-      fetchOrganizations();
+      await fetchOrganizations();
     } catch (error: any) {
       console.error('Error deleting organization:', error);
       if (error.response?.status === 403) {
@@ -100,25 +115,32 @@ export const OrganizationsList: React.FC = () => {
     }
   };
 
+  // ✅ PËRDOR PUT me isActive (camelCase)
   const toggleOrganizationStatus = async (id: string, currentStatus: boolean) => {
+    setUpdatingStatusId(id);
     try {
-      await api.patch(`/organizations/${id}`, { is_active: !currentStatus });
+      await api.put(`/organizations/${id}`, { isActive: !currentStatus });
       toast.success(`Organization ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
-      fetchOrganizations();
+      await fetchOrganizations();
     } catch (error: any) {
       console.error('Error updating organization status:', error);
       toast.error(error.response?.data?.message || 'Failed to update organization status');
+    } finally {
+      setUpdatingStatusId(null);
     }
   };
 
   const updatePlan = async (id: string, planType: string) => {
+    setUpdatingPlanId(id);
     try {
       await api.patch(`/organizations/${id}/plan`, { planType });
       toast.success(`Plan updated to ${planType}`);
-      fetchOrganizations();
+      await fetchOrganizations();
     } catch (error: any) {
       console.error('Error updating plan:', error);
       toast.error(error.response?.data?.message || 'Failed to update plan');
+    } finally {
+      setUpdatingPlanId(null);
     }
   };
 
@@ -140,6 +162,12 @@ export const OrganizationsList: React.FC = () => {
       expired: 'bg-gray-100 text-gray-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getActiveStatusBadge = (isActive: boolean) => {
+    return isActive 
+      ? 'bg-green-100 text-green-800'
+      : 'bg-red-100 text-red-800';
   };
 
   const filteredOrgs = organizations.filter(org => {
@@ -241,8 +269,7 @@ export const OrganizationsList: React.FC = () => {
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Search */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
@@ -253,8 +280,6 @@ export const OrganizationsList: React.FC = () => {
                 className="w-full pl-9 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            
-            {/* Plan Filter */}
             <select
               value={planFilter}
               onChange={(e) => setPlanFilter(e.target.value)}
@@ -266,8 +291,6 @@ export const OrganizationsList: React.FC = () => {
               <option value="pro">Pro</option>
               <option value="enterprise">Enterprise</option>
             </select>
-
-            {/* Status Filter */}
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -278,6 +301,19 @@ export const OrganizationsList: React.FC = () => {
               <option value="trial">Trial</option>
               <option value="expired">Expired</option>
               <option value="inactive">Inactive</option>
+            </select>
+            <select
+              value={statusFilter === 'active' ? 'active' : statusFilter === 'inactive' ? 'inactive' : 'all'}
+              onChange={(e) => {
+                if (e.target.value === 'active') setStatusFilter('active');
+                else if (e.target.value === 'inactive') setStatusFilter('inactive');
+                else setStatusFilter('all');
+              }}
+              className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All (Active/Inactive)</option>
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
             </select>
           </div>
         </div>
@@ -299,6 +335,7 @@ export const OrganizationsList: React.FC = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Active</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Users</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -323,26 +360,36 @@ export const OrganizationsList: React.FC = () => {
                         <select
                           value={org.plan_type}
                           onChange={(e) => updatePlan(org.id, e.target.value)}
-                          className={`px-2 py-1 rounded-full text-xs ${getPlanBadgeColor(org.plan_type)} border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer`}
+                          disabled={updatingPlanId === org.id}
+                          className={`px-2 py-1 rounded-full text-xs ${getPlanBadgeColor(org.plan_type)} border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:opacity-50`}
                         >
                           <option value="free">Free</option>
                           <option value="basic">Basic</option>
                           <option value="pro">Pro</option>
                           <option value="enterprise">Enterprise</option>
                         </select>
+                        {updatingPlanId === org.id && (
+                          <span className="ml-2 text-xs text-gray-400">Updating...</span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
-                        <button
-                          onClick={() => toggleOrganizationStatus(org.id, org.is_active)}
-                          className={`px-2 py-1 rounded-full text-xs ${getStatusBadgeColor(org.subscription_status)} transition`}
-                        >
-                          {org.subscription_status || (org.is_active ? 'active' : 'inactive')}
-                        </button>
+                        <span className={`px-2 py-1 rounded-full text-xs ${getStatusBadgeColor(org.subscription_status)}`}>
+                          {org.subscription_status}
+                        </span>
                         {org.subscription_ends_at && (
                           <p className="text-xs text-gray-400 mt-1">
                             Expires: {new Date(org.subscription_ends_at).toLocaleDateString()}
                           </p>
                         )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => toggleOrganizationStatus(org.id, org.is_active)}
+                          disabled={updatingStatusId === org.id}
+                          className={`px-2 py-1 rounded-full text-xs ${getActiveStatusBadge(org.is_active)} transition hover:opacity-70 disabled:opacity-50`}
+                        >
+                          {updatingStatusId === org.id ? 'Updating...' : (org.is_active ? 'Active' : 'Inactive')}
+                        </button>
                       </td>
                       <td className="px-6 py-4">
                         <div>

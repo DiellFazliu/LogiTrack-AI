@@ -1,7 +1,9 @@
+// backend/src/modules/waybills/waybills.service.ts
 import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,8 +13,6 @@ import { UpdateWaybillDto } from './dto/update-waybill.dto';
 import { SignWaybillDto } from './dto/sign-waybill.dto';
 import { WaybillResponseDto, ShipmentInfoDto } from './dto/waybill-response.dto';
 import { Shipment, ShipmentStatus } from '../shipments/shipment.entity';
-import { Driver } from '../drivers/driver.entity';
-import { Vehicle } from '../vehicles/vehicle.entity';
 import * as QRCode from 'qrcode';
 
 @Injectable()
@@ -22,14 +22,9 @@ export class WaybillsService {
     private waybillRepository: Repository<Waybill>,
     @InjectRepository(Shipment)
     private shipmentRepository: Repository<Shipment>,
-    @InjectRepository(Driver)
-    private driverRepository: Repository<Driver>,
-    @InjectRepository(Vehicle)
-    private vehicleRepository: Repository<Vehicle>,
   ) {}
 
   private toResponseDto(waybill: Waybill): WaybillResponseDto {
-    // Get driver name safely
     let driverName: string | undefined;
     if (waybill.shipment?.driver) {
       driverName = waybill.shipment.driver.user?.name || waybill.shipment.driver.licenseNumber;
@@ -53,13 +48,9 @@ export class WaybillsService {
       qrCode: waybill.qrCode,
       signature: waybill.signature,
       signedAt: waybill.signedAt,
-      signedBy: waybill.signedBy,
       generatedBy: waybill.generatedBy,
-      isSigned: waybill.isSigned,
-      isPrinted: waybill.isPrinted,
-      printedAt: waybill.printedAt,
-      notes: waybill.notes,
       createdAt: waybill.createdAt,
+      isSigned: !!waybill.signature,
     };
   }
 
@@ -84,7 +75,7 @@ export class WaybillsService {
   }
 
   async generate(createDto: CreateWaybillDto, userId: string): Promise<WaybillResponseDto> {
-    const { shipmentId, notes, generatePdf = true } = createDto;
+    const { shipmentId, generatePdf = true } = createDto;
 
     const shipment = await this.shipmentRepository.findOne({
       where: { id: shipmentId },
@@ -109,9 +100,6 @@ export class WaybillsService {
       waybillNumber,
       qrCode,
       generatedBy: userId,
-      notes,
-      isSigned: false,
-      isPrinted: false,
     });
 
     if (generatePdf) {
@@ -135,16 +123,42 @@ export class WaybillsService {
     return waybills.map(w => this.toResponseDto(w));
   }
 
-  async findByShipment(shipmentId: string, organizationId: string): Promise<WaybillResponseDto> {
+  // ✅ MODIFIKUAR - Kthen null në vend të error 404
+  async findByShipment(shipmentId: string, organizationId: string | null): Promise<WaybillResponseDto | null> {
+    console.log('findByShipment called with:', { shipmentId, organizationId });
+    
     const waybill = await this.waybillRepository.findOne({
       where: {
-        shipmentId,
-        shipment: { organizationId },
+        shipmentId: shipmentId,
       },
       relations: ['shipment', 'shipment.driver', 'shipment.driver.user', 'shipment.vehicle'],
     });
+    
+    console.log('Found waybill:', waybill);
+    
     if (!waybill) {
-      throw new NotFoundException(`Waybill for shipment ${shipmentId} not found`);
+      console.log('No waybill found for shipment:', shipmentId);
+      return null;
+    }
+    
+    // Kontrollo që shipment i përket organizatës së duhur (vetëm nëse organizationId është dhënë)
+    if (organizationId && waybill.shipment.organizationId !== organizationId) {
+      console.log('Organization mismatch');
+      return null;
+    }
+    
+    return this.toResponseDto(waybill);
+  }
+
+  async markAsPrinted(id: string, organizationId: string): Promise<WaybillResponseDto> {
+    const waybill = await this.waybillRepository.findOne({
+      where: {
+        id,
+        shipment: { organizationId },
+      },
+    });
+    if (!waybill) {
+      throw new NotFoundException(`Waybill with ID ${id} not found`);
     }
     return this.toResponseDto(waybill);
   }
@@ -191,40 +205,18 @@ export class WaybillsService {
       throw new NotFoundException(`Waybill with ID ${id} not found`);
     }
 
-    if (waybill.isSigned) {
+    if (waybill.signature) {
       throw new BadRequestException('Waybill is already signed');
     }
 
     waybill.signature = signWaybillDto.signature;
     waybill.signedAt = new Date();
-    waybill.signedBy = userId;
-    waybill.isSigned = true;
-    waybill.notes = signWaybillDto.notes || waybill.notes;
 
-    // Update shipment status if needed
     if (waybill.shipment && waybill.shipment.status === ShipmentStatus.PENDING) {
       waybill.shipment.status = ShipmentStatus.PICKED_UP;
       waybill.shipment.pickedUpAt = new Date();
       await this.shipmentRepository.save(waybill.shipment);
     }
-
-    const savedWaybill = await this.waybillRepository.save(waybill);
-    return this.toResponseDto(savedWaybill);
-  }
-
-  async markAsPrinted(id: string, organizationId: string): Promise<WaybillResponseDto> {
-    const waybill = await this.waybillRepository.findOne({
-      where: {
-        id,
-        shipment: { organizationId },
-      },
-    });
-    if (!waybill) {
-      throw new NotFoundException(`Waybill with ID ${id} not found`);
-    }
-
-    waybill.isPrinted = true;
-    waybill.printedAt = new Date();
 
     const savedWaybill = await this.waybillRepository.save(waybill);
     return this.toResponseDto(savedWaybill);
@@ -245,7 +237,10 @@ export class WaybillsService {
       throw new NotFoundException(`Waybill with ID ${id} not found`);
     }
 
-    Object.assign(waybill, updateDto);
+    if (updateDto.pdfUrl !== undefined) waybill.pdfUrl = updateDto.pdfUrl;
+    if (updateDto.qrCode !== undefined) waybill.qrCode = updateDto.qrCode;
+    if (updateDto.signature !== undefined) waybill.signature = updateDto.signature;
+    
     const savedWaybill = await this.waybillRepository.save(waybill);
     return this.toResponseDto(savedWaybill);
   }
@@ -260,7 +255,6 @@ export class WaybillsService {
     if (!waybill) {
       throw new NotFoundException(`Waybill with ID ${id} not found`);
     }
-
     await this.waybillRepository.remove(waybill);
   }
 }
