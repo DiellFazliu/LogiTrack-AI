@@ -1,24 +1,17 @@
-// Setup për E2E tests - Mock AI modules
-jest.mock('@xenova/transformers', () => {
-  return {
-    pipeline: jest.fn().mockImplementation(() => {
-      return async () => [[0.1, 0.2, 0.3]];
-    }),
-    env: {
-      localModelPath: '/tmp/models',
-      useBrowserCache: false,
-      allowRemoteModels: false,
-    },
-  };
-});
+// Mock kompletuar për AI modules
+jest.mock('@xenova/transformers', () => ({
+  pipeline: jest.fn().mockResolvedValue(jest.fn()),
+  env: {
+    localModelPath: '/tmp/mock',
+    useBrowserCache: false,
+    allowRemoteModels: false,
+  },
+}));
 
 // Mock AI Service
 jest.mock('../src/modules/ai/ai.service', () => ({
   AiService: jest.fn().mockImplementation(() => ({
-    generateResponse: jest.fn().mockResolvedValue({
-      response: 'Mock AI response for testing',
-      confidence: 0.95,
-    }),
+    generateResponse: jest.fn().mockResolvedValue('Mock response'),
     vectorizeText: jest.fn().mockResolvedValue([0.1, 0.2, 0.3]),
     searchKnowledge: jest.fn().mockResolvedValue([]),
   })),
@@ -34,18 +27,18 @@ jest.mock('../src/modules/ai/vector-store.service', () => ({
   })),
 }));
 
+// Mock AI Module
+jest.mock('../src/modules/ai/ai.module', () => ({
+  AiModule: class MockAiModule {},
+}));
+
 // Mock knowledge base
 jest.mock('../src/modules/ai/knowledge-base', () => ({
   knowledgeChunks: [],
   KnowledgeChunk: jest.fn(),
 }));
 
-// Shto global 'self' për Node.js
-if (typeof (global as any).self === 'undefined') {
+// Fix për Node.js environment
+if (typeof global.self === 'undefined') {
   (global as any).self = global;
-}
-
-// Shto global 'window' për compatibility
-if (typeof (global as any).window === 'undefined') {
-  (global as any).window = global;
 }
