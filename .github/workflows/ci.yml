@@ -7,7 +7,7 @@ on:
     branches: [ develop ]
 
 jobs:
-  # Job për testet e backend
+  # Job per testet e backend
   test-backend:
     runs-on: ubuntu-latest
     
@@ -72,7 +72,7 @@ jobs:
       - name: Build backend
         run: cd backend && npm run build
 
-  # Job për testet e frontend
+  # Job per testet e frontend
   test-frontend:
     runs-on: ubuntu-latest
     
@@ -93,6 +93,8 @@ jobs:
       
       - name: Build frontend
         run: cd frontend && npm run build
+        env:
+          VITE_API_URL: ${{ secrets.STAGING_API_URL }}
       
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -100,7 +102,7 @@ jobs:
           name: frontend-build
           path: frontend/dist/
 
-  # Job për linting
+  # Job per linting
   lint:
     runs-on: ubuntu-latest
     
@@ -122,7 +124,7 @@ jobs:
       - name: Check formatting
         run: cd backend && npx prettier --check "src/**/*.ts" || true
 
-  # Job për integrimin e të gjitha testeve
+  # Job per integrimin e te gjitha testeve
   integration-tests:
     runs-on: ubuntu-latest
     needs: [test-backend, test-frontend, lint]
@@ -173,7 +175,7 @@ jobs:
           JWT_SECRET: test-secret-key-for-ci-only
           SUPER_ADMIN_SECRET_KEY: test-super-secret-key-for-ci
 
-  # Job për deploy në staging (përdor GitHub Secrets)
+  # Job per deploy ne staging
   deploy-staging:
     runs-on: ubuntu-latest
     needs: [integration-tests]
@@ -183,16 +185,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Deploy to staging
+      - name: Setup SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      
+      - name: Deploy backend to staging
         run: |
-          echo "Deploying to staging environment..."
-          # Komandat e deploy-it për staging
+          echo "Deploying backend to staging..."
+          ssh -o StrictHostKeyChecking=no ${{ secrets.STAGING_SERVER_USER }}@${{ secrets.STAGING_SERVER_IP }} << 'EOF'
+            cd /var/www/logitrack/backend
+            git pull origin develop
+            npm ci
+            npm run build
+            npx prisma migrate deploy
+            pm2 restart logitrack-backend
+          EOF
         env:
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          SUPER_ADMIN_SECRET_KEY: ${{ secrets.SUPER_ADMIN_SECRET_KEY }}
+      
+      - name: Deploy frontend to staging
+        run: |
+          echo "Deploying frontend to staging..."
+          cd frontend
+          npm ci
+          npm run build
+          rsync -avz -e "ssh -o StrictHostKeyChecking=no" dist/ ${{ secrets.STAGING_SERVER_USER }}@${{ secrets.STAGING_SERVER_IP }}:/var/www/logitrack/frontend/dist/
+        env:
+          VITE_API_URL: ${{ secrets.STAGING_API_URL }}
 
-  # Job për deploy në production
+  # Job per deploy ne production
   deploy-production:
     runs-on: ubuntu-latest
     needs: [integration-tests]
@@ -202,11 +225,63 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Deploy to production
+      - name: Setup SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      
+      - name: Deploy backend to production
         run: |
-          echo "Deploying to production environment..."
-          # Komandat e deploy-it për production
+          echo "Deploying backend to production..."
+          ssh -o StrictHostKeyChecking=no ${{ secrets.PROD_SERVER_USER }}@${{ secrets.PROD_SERVER_IP }} << 'EOF'
+            cd /var/www/logitrack/backend
+            git pull origin main
+            npm ci
+            npm run build
+            npx prisma migrate deploy
+            pm2 restart logitrack-backend
+          EOF
         env:
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          SUPER_ADMIN_SECRET_KEY: ${{ secrets.SUPER_ADMIN_SECRET_KEY }}
+      
+      - name: Deploy frontend to production
+        run: |
+          echo "Deploying frontend to production..."
+          cd frontend
+          npm ci
+          npm run build
+          rsync -avz -e "ssh -o StrictHostKeyChecking=no" dist/ ${{ secrets.PROD_SERVER_USER }}@${{ secrets.PROD_SERVER_IP }}:/var/www/logitrack/frontend/dist/
+        env:
+          VITE_API_URL: ${{ secrets.PROD_API_URL }}
+      
+      - name: Send notification on success
+        if: success()
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+            -d '{"text": "✅ Deployment to production completed successfully!"}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }} || true
+
+  # Job per te gjeneruar dhe ruajtur coverage
+  coverage:
+    runs-on: ubuntu-latest
+    needs: [test-backend]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-coverage
+          path: coverage
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: backend-coverage
+          fail_ci_if_error: false
