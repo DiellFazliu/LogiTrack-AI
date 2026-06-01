@@ -8,6 +8,7 @@ import { Organization } from '../modules/organizations/organization.entity';
 import { Role } from '../modules/roles/role.entity';
 import { Driver } from '../modules/drivers/driver.entity';
 import { ConfigService } from '@nestjs/config';
+import { EmailService } from '../jobs/email/email.service'; // ✅ Shto import-in
 import { CreateUserRole } from './dto/create-user.dto';
 
 describe('AuthController', () => {
@@ -27,6 +28,27 @@ describe('AuthController', () => {
     refreshToken: jest.fn(),
     changePassword: jest.fn(),
     forgotPassword: jest.fn(),
+  };
+
+  // ✅ Shto mock për EmailService
+  const mockEmailService = {
+    sendEmail: jest.fn().mockResolvedValue({}),
+    sendWelcomeEmail: jest.fn().mockResolvedValue({}),
+    sendReminderEmail: jest.fn().mockResolvedValue({}),
+    sendShipmentCreatedEmail: jest.fn().mockResolvedValue({}),
+    sendShipmentDeliveredEmail: jest.fn().mockResolvedValue({}),
+    sendPasswordResetEmail: jest.fn().mockResolvedValue({}),
+    sendBulkEmails: jest.fn().mockResolvedValue([]),
+    sendDelayedEmail: jest.fn().mockResolvedValue({}),
+    getQueueStatus: jest.fn().mockResolvedValue({ waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0, paused: false }),
+    getFailedJobs: jest.fn().mockResolvedValue([]),
+    getJob: jest.fn().mockResolvedValue(null),
+    retryFailedJob: jest.fn().mockResolvedValue(true),
+    removeJob: jest.fn().mockResolvedValue(true),
+    cleanCompletedJobs: jest.fn().mockResolvedValue(0),
+    cleanFailedJobs: jest.fn().mockResolvedValue(0),
+    pauseQueue: jest.fn().mockResolvedValue(undefined),
+    resumeQueue: jest.fn().mockResolvedValue(undefined),
   };
 
   const mockJwtService = {
@@ -62,6 +84,10 @@ describe('AuthController', () => {
         {
           provide: AuthService,
           useValue: mockAuthService,
+        },
+        {
+          provide: EmailService, // ✅ Shto EmailService
+          useValue: mockEmailService,
         },
         {
           provide: JwtService,
@@ -106,25 +132,27 @@ describe('AuthController', () => {
         name: 'Test User',
       };
 
-      mockAuthService.register.mockResolvedValue({ token: 'jwt-token', user: registerDto });
+      const expectedResult = { token: 'jwt-token', user: registerDto };
+      mockAuthService.register.mockResolvedValue(expectedResult);
 
       const result = await controller.register(registerDto);
       
       expect(mockAuthService.register).toHaveBeenCalledWith(registerDto);
-      expect(result).toHaveProperty('token');
+      expect(result).toEqual(expectedResult);
     });
   });
 
   describe('login', () => {
     it('should call authService.login', async () => {
       const mockRequest = { user: { id: '1', email: 'test@example.com' } };
+      const expectedResult = { token: 'jwt-token' };
 
-      mockAuthService.login.mockResolvedValue({ token: 'jwt-token' });
+      mockAuthService.login.mockResolvedValue(expectedResult);
 
       const result = await controller.login(mockRequest);
       
       expect(mockAuthService.login).toHaveBeenCalledWith(mockRequest.user);
-      expect(result).toHaveProperty('token');
+      expect(result).toEqual(expectedResult);
     });
   });
 
@@ -153,7 +181,7 @@ describe('AuthController', () => {
         email: 'user@test.com', 
         password: 'pass', 
         name: 'User', 
-        role: CreateUserRole.CUSTOMER  // ✅ Rregulluar: Përdor enum
+        role: CreateUserRole.CUSTOMER
       };
       const mockRequest = { user: { id: 'admin', role: 'company_admin', organizationId: 'org-1' } };
       const expected = { user: { email: 'user@test.com' }, message: 'User created' };
