@@ -14,11 +14,15 @@ import { Public } from './decorators/public.decorator';
 import { Roles } from './decorators/roles.decorator';
 import { UserRole } from '../common/enums/roles.enum';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiOkResponse, ApiCreatedResponse } from '@nestjs/swagger';
+import { EmailService } from '../jobs/email/email.service';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService, 
+    private emailService: EmailService
+  ) {}
 
   @Public()
   @Post('register')
@@ -27,7 +31,24 @@ export class AuthController {
   @ApiCreatedResponse({ description: 'Customer registered successfully' })
   @ApiBody({ type: RegisterDto })
   async register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
+    // ✅ Regjistro user-in
+    const result = await this.authService.register(registerDto);
+    
+    // ✅ Dërgo email mirëseardhjeje (në background)
+    try {
+      await this.emailService.sendWelcomeEmail(
+        registerDto.email,
+        registerDto.name,
+        result.user.id
+      );
+      console.log(`📧 Welcome email queued for ${registerDto.email}`);
+    } catch (err) {
+      // ✅ Rregullimi: Përdor 'err' dhe 'instanceof Error'
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error(`❌ Failed to queue welcome email: ${errorMessage}`);
+    }
+    
+    return result;
   }
 
   @Public()
@@ -39,6 +60,22 @@ export class AuthController {
   @ApiBody({ type: LoginDto })
   async login(@Request() req) {
     return this.authService.login(req.user);
+  }
+
+  @Public()
+  @Post('test-email')
+  async testEmail(@Body() body: { to: string }) {
+    try {
+      await this.emailService.sendEmail(
+        body.to || 'dielli898@gmail.com',
+        'Test Email from LogiTrack-AI',
+        'This is a test email to verify SMTP configuration!'
+      );
+      return { message: 'Test email queued successfully' };
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      return { message: 'Failed to queue test email', error: errorMessage };
+    }
   }
 
   @Post('create-super-admin')
@@ -75,10 +112,28 @@ export class AuthController {
   @ApiCreatedResponse({ description: 'User created successfully' })
   @ApiBody({ type: CreateUserDto })
   async createUser(@Body() createUserDto: CreateUserDto, @Request() req) {
-    return this.authService.createUser(createUserDto, req.user);
+    const result = await this.authService.createUser(createUserDto, req.user);
+    
+    // ✅ Dërgo email mirëseardhjeje për përdoruesin e ri
+    if (result.user && result.user.email) {
+      try {
+        await this.emailService.sendWelcomeEmail(
+          result.user.email,
+          result.user.name,
+          result.user.id,
+          createUserDto.password
+        );
+        console.log(`📧 Welcome email queued for ${result.user.email}`);
+      } catch (err) {
+        // ✅ Rregullimi: Përdor 'err' dhe 'instanceof Error'
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        console.error(`❌ Failed to queue welcome email: ${errorMessage}`);
+      }
+    }
+    
+    return result;
   }
 
-  // ✅ GET /auth/me - Merr profilin e përdoruesit aktual
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
@@ -89,7 +144,6 @@ export class AuthController {
     return this.authService.getProfile(req.user.id);
   }
 
-  // ✅ PATCH /auth/me - Përditëso profilin e përdoruesit aktual
   @Patch('me')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
@@ -99,21 +153,21 @@ export class AuthController {
   async updateProfile(@Request() req, @Body() updateData: { name?: string; phone?: string; organizationId?: string }) {
     return this.authService.updateProfile(req.user.id, updateData);
   }
-  // src/modules/auth/auth.controller.ts
-@Post('sync-drivers')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.SUPER_ADMIN)
-@HttpCode(HttpStatus.OK)
-@ApiBearerAuth()
-@ApiOperation({ summary: 'Sync existing driver users to drivers table' })
-async syncDrivers() {
-  const result = await this.authService.syncExistingDrivers();
-  return { 
-    message: 'Sync completed', 
-    created: result.created, 
-    skipped: result.skipped 
-  };
-}
+
+  @Post('sync-drivers')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Sync existing driver users to drivers table' })
+  async syncDrivers() {
+    const result = await this.authService.syncExistingDrivers();
+    return { 
+      message: 'Sync completed', 
+      created: result.created, 
+      skipped: result.skipped 
+    };
+  }
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
