@@ -1,10 +1,12 @@
 // frontend/src/pages/driver/DriverDashboard.tsx
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Truck, MapPin, CheckCircle, Clock, User, AlertCircle, FileText, Package, ArrowRight, Navigation } from 'lucide-react';
+import { Truck, MapPin, CheckCircle, Clock, User, AlertCircle, FileText, Package, ArrowRight, Navigation, TrendingUp } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 
 interface ShipmentStats {
   total: number;
@@ -28,6 +30,25 @@ interface RecentShipment {
   waybillNumber?: string;
   isWaybillSigned?: boolean;
 }
+
+// StatCard component
+const StatCard = ({ title, value, icon: Icon, bgColor, path }: any) => (
+  <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
+    <Link to={path}>
+      <div className={`${bgColor} rounded-xl shadow-md p-4 border border-black/10 hover:shadow-lg transition`}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-white/80">{title}</p>
+            <p className="text-2xl font-extrabold text-white mt-1">{value}</p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center">
+            <Icon className="w-5 h-5 text-white" />
+          </div>
+        </div>
+      </div>
+    </Link>
+  </motion.div>
+);
 
 export const DriverDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -69,7 +90,6 @@ export const DriverDashboard: React.FC = () => {
   };
 
   const handleStartRoute = (shipment: RecentShipment) => {
-    // Navigate to route optimizer with shipment data
     navigate('/driver/route-optimizer', {
       state: {
         pickupAddress: shipment.pickupAddress,
@@ -86,14 +106,14 @@ export const DriverDashboard: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      picked_up: 'bg-blue-100 text-blue-800',
-      in_transit: 'bg-purple-100 text-purple-800',
-      delivered: 'bg-green-100 text-green-800',
-      failed: 'bg-red-100 text-red-800',
-      cancelled: 'bg-gray-100 text-gray-800',
+      pending: 'bg-yellow-200 text-yellow-800',
+      picked_up: 'bg-blue-200 text-blue-800',
+      in_transit: 'bg-purple-200 text-purple-800',
+      delivered: 'bg-green-200 text-green-800',
+      failed: 'bg-red-200 text-red-800',
+      cancelled: 'bg-gray-200 text-gray-800',
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return colors[status] || 'bg-gray-200 text-gray-800';
   };
 
   const getStatusText = (status: string) => {
@@ -109,82 +129,67 @@ export const DriverDashboard: React.FC = () => {
   };
 
   const cards = [
-    { title: 'My Shipments', value: stats.total, icon: Truck, color: 'bg-blue-500', path: '/driver/shipments' },
-    { title: 'In Progress', value: stats.inProgress, icon: Clock, color: 'bg-yellow-500', path: '/driver/shipments?status=in_progress' },
-    { title: 'Completed', value: stats.completed, icon: CheckCircle, color: 'bg-green-500', path: '/driver/shipments?status=delivered' },
-    { title: 'Pending Signature', value: stats.pendingSignature, icon: FileText, color: 'bg-orange-500', path: '/driver/shipments?status=pending_signature' },
+    { title: 'My Shipments', value: stats.total, icon: Truck, bgColor: 'bg-blue-800', path: '/driver/shipments' },
+    { title: 'In Progress', value: stats.inProgress, icon: Clock, bgColor: 'bg-yellow-800', path: '/driver/shipments?status=in_progress' },
+    { title: 'Completed', value: stats.completed, icon: CheckCircle, bgColor: 'bg-green-800', path: '/driver/shipments?status=delivered' },
+    { title: 'Pending Signature', value: stats.pendingSignature, icon: FileText, bgColor: 'bg-orange-800', path: '/driver/shipments?status=pending_signature' },
   ];
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner fullScreen />;
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="bg-white shadow">
-        <div className="container mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold text-gray-800">Driver Dashboard</h1>
-          <p className="text-gray-600 mt-1">Welcome back, {user?.name || 'Driver'}!</p>
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-6 bg-blue-700 rounded-full" />
+            <h1 className="text-2xl font-extrabold text-gray-900">Driver Dashboard</h1>
+          </div>
+          <p className="text-sm text-gray-600 pl-3 mt-0.5">Welcome back, {user?.name || 'Driver'}!</p>
         </div>
-      </div>
-      
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {cards.map((card) => (
-            <Link key={card.title} to={card.path}>
-              <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-500 text-sm">{card.title}</p>
-                    <p className="text-2xl font-bold mt-2">{card.value}</p>
-                  </div>
-                  <div className={`${card.color} p-3 rounded-full`}>
-                    <card.icon className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </div>
-            </Link>
+            <StatCard key={card.title} {...card} />
           ))}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Recent Shipments */}
-          <div className="lg:col-span-2 bg-white rounded-lg shadow">
-            <div className="p-6 border-b">
-              <h2 className="text-xl font-semibold flex items-center gap-2">
-                <Package className="w-5 h-5" />
+          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="px-5 py-4 border-b border-gray-200 bg-gray-50">
+              <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                <Package className="w-5 h-5 text-blue-700" />
                 My Shipments
               </h2>
             </div>
-            <div className="divide-y">
+            <div className="divide-y divide-gray-200">
               {recentShipments.length > 0 ? (
                 recentShipments.map((shipment) => (
                   <div key={shipment.id} className="p-4 hover:bg-gray-50 transition">
                     <div className="flex items-center justify-between flex-wrap gap-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2 flex-wrap">
-                          <span className="font-mono text-sm font-medium">
+                          <span className="font-mono text-sm font-bold text-gray-900">
                             {shipment.trackingNumber}
                           </span>
-                          <span className={`px-2 py-0.5 rounded-full text-xs ${getStatusColor(shipment.status)}`}>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${getStatusColor(shipment.status)}`}>
                             {getStatusText(shipment.status)}
                           </span>
                           {shipment.waybillNumber && (
-                            <span className={`px-2 py-0.5 rounded-full text-xs ${
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
                               shipment.isWaybillSigned 
-                                ? 'bg-green-100 text-green-700' 
-                                : 'bg-yellow-100 text-yellow-700'
+                                ? 'bg-green-200 text-green-800' 
+                                : 'bg-yellow-200 text-yellow-800'
                             }`}>
                               {shipment.isWaybillSigned ? '✓ Signed' : 'Awaiting Signature'}
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600 flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />
+                        <p className="text-sm text-gray-700 flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-gray-500" />
                           {shipment.deliveryAddress}
                         </p>
                         {shipment.estimatedDelivery && (
@@ -194,20 +199,18 @@ export const DriverDashboard: React.FC = () => {
                         )}
                       </div>
                       <div className="flex gap-2">
-                        {/* Start Route Button - shown only if waybill exists and not signed yet */}
                         {shipment.waybillNumber && !shipment.isWaybillSigned && shipment.status !== 'delivered' && (
                           <button
                             onClick={() => handleStartRoute(shipment)}
-                            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-1 text-sm"
+                            className="px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm font-semibold hover:bg-blue-800 transition flex items-center gap-1"
                           >
                             <Navigation className="w-4 h-4" />
                             Start Route
                           </button>
                         )}
                         <Link
-                          key={shipment.id}
                           to={`/driver/shipments/${shipment.id}`}
-                          className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm"
+                          className="px-3 py-1.5 border border-gray-300 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-50 transition"
                         >
                           View Details
                         </Link>
@@ -217,16 +220,16 @@ export const DriverDashboard: React.FC = () => {
                 ))
               ) : (
                 <div className="p-8 text-center text-gray-500">
-                  <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <p>No shipments assigned yet</p>
+                  <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="font-medium">No shipments assigned yet</p>
                 </div>
               )}
             </div>
             {recentShipments.length > 0 && (
-              <div className="p-4 border-t">
+              <div className="px-5 py-3 border-t border-gray-200 bg-gray-50">
                 <Link
                   to="/driver/shipments"
-                  className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
+                  className="text-blue-700 hover:text-blue-800 text-sm font-semibold flex items-center gap-1"
                 >
                   View all shipments
                   <ArrowRight className="w-4 h-4" />
@@ -235,99 +238,102 @@ export const DriverDashboard: React.FC = () => {
             )}
           </div>
 
-          {/* Quick Actions & Tips */}
+          {/* Right Sidebar */}
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <Clock className="w-5 h-5" />
+            {/* Quick Actions */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+              <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-blue-700" />
                 Quick Actions
               </h2>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <Link
                   to="/driver/shipments"
-                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition group"
                 >
-                  <Truck className="w-5 h-5 text-blue-500" />
+                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center group-hover:bg-blue-200">
+                    <Truck className="w-4 h-4 text-blue-700" />
+                  </div>
                   <div>
-                    <p className="font-medium">View My Shipments</p>
-                    <p className="text-xs text-gray-500">See all assigned deliveries</p>
+                    <p className="font-semibold text-gray-800">View My Shipments</p>
+                    <p className="text-xs text-gray-600">See all assigned deliveries</p>
                   </div>
                 </Link>
-                
                 <Link
                   to="/driver/update-location"
-                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition group"
                 >
-                  <MapPin className="w-5 h-5 text-green-500" />
+                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center group-hover:bg-green-200">
+                    <MapPin className="w-4 h-4 text-green-700" />
+                  </div>
                   <div>
-                    <p className="font-medium">Update Location</p>
-                    <p className="text-xs text-gray-500">Share your current position</p>
+                    <p className="font-semibold text-gray-800">Update Location</p>
+                    <p className="text-xs text-gray-600">Share your current position</p>
                   </div>
                 </Link>
-                
                 <Link
                   to="/driver/profile"
-                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition group"
                 >
-                  <User className="w-5 h-5 text-purple-500" />
+                  <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center group-hover:bg-purple-200">
+                    <User className="w-4 h-4 text-purple-700" />
+                  </div>
                   <div>
-                    <p className="font-medium">Update Profile</p>
-                    <p className="text-xs text-gray-500">Manage your account</p>
+                    <p className="font-semibold text-gray-800">Update Profile</p>
+                    <p className="text-xs text-gray-600">Manage your account</p>
                   </div>
                 </Link>
               </div>
             </div>
 
-            <div className="bg-blue-50 rounded-lg shadow p-6 border border-blue-100">
-              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2 text-blue-800">
+            {/* How It Works */}
+            <div className="bg-blue-50 rounded-xl p-5 border border-blue-200">
+              <h2 className="text-base font-bold text-blue-800 mb-3 flex items-center gap-2">
                 <AlertCircle className="w-5 h-5" />
                 How It Works
               </h2>
               <ul className="space-y-2 text-sm text-blue-700">
                 <li className="flex items-start gap-2">
-                  <span className="text-blue-500 font-bold">1.</span>
+                  <span className="font-bold text-blue-800">1.</span>
                   Generate waybill for your shipment
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-blue-500 font-bold">2.</span>
+                  <span className="font-bold text-blue-800">2.</span>
                   Click "Start Route" to optimize your route
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-blue-500 font-bold">3.</span>
+                  <span className="font-bold text-blue-800">3.</span>
                   Follow the optimized route on map
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-blue-500 font-bold">4.</span>
+                  <span className="font-bold text-blue-800">4.</span>
                   Complete delivery and sign waybill
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-blue-500 font-bold">5.</span>
+                  <span className="font-bold text-blue-800">5.</span>
                   Status automatically updates to "Delivered"
                 </li>
               </ul>
             </div>
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <FileText className="w-5 h-5" />
+            {/* Waybill Status */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+              <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-orange-600" />
                 Waybill Status
               </h2>
               <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Total Waybills</span>
-                  <span className="font-semibold">{recentShipments.filter(s => s.waybillNumber).length}</span>
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <span className="text-gray-700">Total Waybills</span>
+                  <span className="font-bold text-gray-900">{recentShipments.filter(s => s.waybillNumber).length}</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Signed</span>
-                  <span className="font-semibold text-green-600">
-                    {recentShipments.filter(s => s.isWaybillSigned).length}
-                  </span>
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <span className="text-gray-700">Signed</span>
+                  <span className="font-bold text-green-700">{recentShipments.filter(s => s.isWaybillSigned).length}</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Pending Signature</span>
-                  <span className="font-semibold text-orange-600">
-                    {recentShipments.filter(s => s.waybillNumber && !s.isWaybillSigned).length}
-                  </span>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-700">Pending Signature</span>
+                  <span className="font-bold text-orange-700">{recentShipments.filter(s => s.waybillNumber && !s.isWaybillSigned).length}</span>
                 </div>
               </div>
             </div>

@@ -8,6 +8,7 @@ import {
   Navigation, PhoneCall, FileText, 
   PenTool, Printer, X, PlayCircle
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -74,46 +75,39 @@ export const DriverShipmentDetails: React.FC = () => {
     fetchShipment();
     fetchHistory();
     autoGenerateAndFetchWaybill();
-  
   }, [id]);
 
-// frontend/src/pages/driver/ShipmentDetails.tsx
-// Zëvendëso këtë funksion:
-
-const autoGenerateAndFetchWaybill = async () => {
-  console.log('=== autoGenerateAndFetchWaybill START ===');
-  setLoadingWaybill(true);
-  try {
-    // First try to get existing waybill
-    const waybillData = await waybillsService.getByShipment(id!);
-    console.log('getByShipment result:', waybillData);
-    
-    if (waybillData) {
-      setWaybill(waybillData);
-      console.log('Waybill found');
+  const autoGenerateAndFetchWaybill = async () => {
+    console.log('=== autoGenerateAndFetchWaybill START ===');
+    setLoadingWaybill(true);
+    try {
+      const waybillData = await waybillsService.getByShipment(id!);
+      console.log('getByShipment result:', waybillData);
+      
+      if (waybillData) {
+        setWaybill(waybillData);
+        console.log('Waybill found');
+        setLoadingWaybill(false);
+        return;
+      }
+      
+      console.log('No waybill found, generating...');
+      setIsGeneratingWaybill(true);
+      const newWaybill = await waybillsService.generate(id!);
+      console.log('Generate result:', newWaybill);
+      setWaybill(newWaybill);
+      toast.success('Waybill generated successfully');
+    } catch (error: any) {
+      console.error('Error in autoGenerateAndFetchWaybill:', error);
+      console.error('Error response:', error.response);
+      toast.error(error.response?.data?.message || 'Failed to generate waybill');
+    } finally {
+      setIsGeneratingWaybill(false);
       setLoadingWaybill(false);
-      return;
     }
-    
-    // If no waybill, generate one
-    console.log('No waybill found, generating...');
-    setIsGeneratingWaybill(true);
-    const newWaybill = await waybillsService.generate(id!);
-    console.log('Generate result:', newWaybill);
-    setWaybill(newWaybill);
-    toast.success('Waybill generated successfully');
-  } catch (error: any) {
-    console.error('Error in autoGenerateAndFetchWaybill:', error);
-    console.error('Error response:', error.response);
-    toast.error(error.response?.data?.message || 'Failed to generate waybill');
-  } finally {
-    setIsGeneratingWaybill(false);
-    setLoadingWaybill(false);
-  }
-  console.log('=== autoGenerateAndFetchWaybill END ===');
-};
+    console.log('=== autoGenerateAndFetchWaybill END ===');
+  };
 
-  // Check if coming from route optimizer to open signature modal
   useEffect(() => {
     if (location.state?.openSignatureModal && waybill && !waybill.isSigned) {
       setShowSignatureModal(true);
@@ -148,35 +142,31 @@ const autoGenerateAndFetchWaybill = async () => {
     setShowWaybillModal(true);
   };
 
-// frontend/src/pages/driver/ShipmentDetails.tsx
-// Ndrysho handleStartDeliveryProcedure:
-
-const handleStartDeliveryProcedure = () => {
-  if (!shipment) {
-    toast.error('No shipment data');
-    return;
-  }
-  
-  if (!waybill) {
-    toast.error('Waybill not ready yet');
-    return;
-  }
-  
-  // Dërgo të dhënat si URL parameters
-  const params = new URLSearchParams({
-    shipmentId: shipment.id,
-    trackingNumber: shipment.trackingNumber,
-    waybillNumber: waybill.waybillNumber,
-    pickupAddress: shipment.pickupAddress || '',
-    deliveryAddress: shipment.deliveryAddress || '',
-    pickupLat: shipment.pickupLatitude?.toString() || '',
-    pickupLng: shipment.pickupLongitude?.toString() || '',
-    deliveryLat: shipment.deliveryLatitude?.toString() || '',
-    deliveryLng: shipment.deliveryLongitude?.toString() || '',
-  });
-  
-  navigate(`/driver/route-optimizer?${params.toString()}`);
-};
+  const handleStartDeliveryProcedure = () => {
+    if (!shipment) {
+      toast.error('No shipment data');
+      return;
+    }
+    
+    if (!waybill) {
+      toast.error('Waybill not ready yet');
+      return;
+    }
+    
+    const params = new URLSearchParams({
+      shipmentId: shipment.id,
+      trackingNumber: shipment.trackingNumber,
+      waybillNumber: waybill.waybillNumber,
+      pickupAddress: shipment.pickupAddress || '',
+      deliveryAddress: shipment.deliveryAddress || '',
+      pickupLat: shipment.pickupLatitude?.toString() || '',
+      pickupLng: shipment.pickupLongitude?.toString() || '',
+      deliveryLat: shipment.deliveryLatitude?.toString() || '',
+      deliveryLng: shipment.deliveryLongitude?.toString() || '',
+    });
+    
+    navigate(`/driver/route-optimizer?${params.toString()}`);
+  };
 
   const handleSignWaybill = async () => {
     if (!signature) {
@@ -355,24 +345,24 @@ const handleStartDeliveryProcedure = () => {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      picked_up: 'bg-blue-100 text-blue-800',
-      in_transit: 'bg-purple-100 text-purple-800',
-      delivered: 'bg-green-100 text-green-800',
-      failed: 'bg-red-100 text-red-800',
-      cancelled: 'bg-gray-100 text-gray-800',
+      pending: 'bg-yellow-200 text-yellow-800',
+      picked_up: 'bg-blue-200 text-blue-800',
+      in_transit: 'bg-purple-200 text-purple-800',
+      delivered: 'bg-green-200 text-green-800',
+      failed: 'bg-red-200 text-red-800',
+      cancelled: 'bg-gray-200 text-gray-800',
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return colors[status] || 'bg-gray-200 text-gray-800';
   };
 
   const getPriorityColor = (priority: string) => {
     const colors: Record<string, string> = {
-      low: 'bg-gray-100 text-gray-800',
-      normal: 'bg-blue-100 text-blue-800',
-      high: 'bg-orange-100 text-orange-800',
-      urgent: 'bg-red-100 text-red-800',
+      low: 'bg-gray-200 text-gray-800',
+      normal: 'bg-blue-200 text-blue-800',
+      high: 'bg-orange-200 text-orange-800',
+      urgent: 'bg-red-200 text-red-800',
     };
-    return colors[priority] || 'bg-gray-100 text-gray-800';
+    return colors[priority] || 'bg-gray-200 text-gray-800';
   };
 
   const isStatusCompleted = (statusToCheck: string): boolean => {
@@ -418,30 +408,30 @@ const handleStartDeliveryProcedure = () => {
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
-      <div className="bg-white shadow sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
+      <div className="bg-white shadow sticky top-0 z-10 border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <button 
                 onClick={() => navigate('/driver/shipments')}
-                className="text-gray-600 hover:text-gray-800"
+                className="text-gray-600 hover:text-gray-900 p-1 rounded-full hover:bg-gray-100 transition"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">Shipment Details</h1>
-                <p className="text-sm text-gray-500 font-mono mt-1">{shipment.trackingNumber}</p>
+                <h1 className="text-xl font-bold text-gray-900">Shipment Details</h1>
+                <p className="text-xs text-gray-500 font-mono">{shipment.trackingNumber}</p>
               </div>
             </div>
             <div className="flex gap-2">
-              <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(shipment.status)}`}>
+              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${getStatusColor(shipment.status)}`}>
                 {shipment.status?.replace('_', ' ')}
               </span>
-              <span className={`px-3 py-1 rounded-full text-sm ${getPriorityColor(shipment.priority)}`}>
+              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${getPriorityColor(shipment.priority)}`}>
                 {shipment.priority}
               </span>
               {shipment.is_express && (
-                <span className="px-3 py-1 rounded-full text-sm bg-orange-100 text-orange-800">
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-orange-200 text-orange-800">
                   Express
                 </span>
               )}
@@ -450,97 +440,92 @@ const handleStartDeliveryProcedure = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content - Left Side */}
           <div className="lg:col-span-2 space-y-6">
             {/* Waybill Section */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="font-semibold mb-4 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-blue-500" />
-                Waybill / Delivery Document
-              </h3>
-              
-              {loadingWaybill || isGeneratingWaybill ? (
-                <div className="flex justify-center py-4">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-                  <span className="ml-2 text-gray-500">Preparing waybill...</span>
-                </div>
-              ) : waybill ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div>
-                      <p className="text-sm text-gray-500">Waybill Number</p>
-                      <p className="font-mono font-medium">{waybill.waybillNumber}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Status</p>
-                      <span className={`px-2 py-1 rounded-full text-xs ${waybill.isSigned ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                        {waybill.isSigned ? '✓ Signed' : 'Pending Signature'}
-                      </span>
-                    </div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-800 to-blue-700 px-5 py-3">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Waybill / Delivery Document
+                </h3>
+              </div>
+              <div className="p-5">
+                {loadingWaybill || isGeneratingWaybill ? (
+                  <div className="flex justify-center py-4">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                    <span className="ml-2 text-sm text-gray-600">Preparing waybill...</span>
                   </div>
-                  
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleViewWaybill}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2"
-                    >
-                      <Printer className="w-4 h-4" />
-                      View & Print
-                    </button>
-                  </div>
+                ) : waybill ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                      <div>
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Waybill Number</p>
+                        <p className="font-mono font-bold text-gray-900">{waybill.waybillNumber}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Status</p>
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${waybill.isSigned ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
+                          {waybill.isSigned ? '✓ Signed' : 'Pending Signature'}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleViewWaybill}
+                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition flex items-center justify-center gap-2"
+                      >
+                        <Printer className="w-4 h-4" />
+                        View & Print
+                      </button>
+                    </div>
 
-                  {/* Main Action Button - Start Delivery Procedure */}
-                  {showStartButton && (
-                    <button
-                      onClick={handleStartDeliveryProcedure}
-                      className="w-full mt-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center justify-center gap-2 text-lg font-semibold"
-                    >
-                      <PlayCircle className="w-5 h-5" />
-                      Start Delivery Procedure
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-gray-500">Preparing waybill...</p>
-                </div>
-              )}
+                    {showStartButton && (
+                      <button
+                        onClick={handleStartDeliveryProcedure}
+                        className="w-full mt-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700 transition flex items-center justify-center gap-2"
+                      >
+                        <PlayCircle className="w-4 h-4" />
+                        Start Delivery Procedure
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500">Preparing waybill...</p>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Addresses - unchanged */}
-            <div className="bg-white rounded-lg shadow p-6">
+            {/* Addresses */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <MapPin className="w-4 h-4 text-green-600" />
+                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                    <MapPin className="w-4 h-4 text-green-700" />
                   </div>
                   <div className="flex-1">
-                    <div className="font-medium text-sm text-gray-500 mb-1">Pickup Address</div>
-                    <div className="text-gray-800">{shipment.pickupAddress}</div>
-                  </div>
-                </div>
-                
-                <div className="relative">
-                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
-                  <div className="pl-4">
-                    <Truck className="w-4 h-4 text-gray-400" />
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Pickup Address</p>
+                    <p className="text-sm text-gray-800 mt-0.5">{shipment.pickupAddress}</p>
                   </div>
                 </div>
                 
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <MapPin className="w-4 h-4 text-red-600" />
+                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                    <MapPin className="w-4 h-4 text-red-700" />
                   </div>
                   <div className="flex-1">
-                    <div className="font-medium text-sm text-gray-500 mb-1">Delivery Address</div>
-                    <div className="text-gray-800">{shipment.deliveryAddress}</div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Delivery Address</p>
+                    <p className="text-sm text-gray-800 mt-0.5">{shipment.deliveryAddress}</p>
                     <button
                       onClick={openMaps}
-                      className="mt-2 inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+                      className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:text-blue-800"
                     >
-                      <Navigation className="w-4 h-4" />
+                      <Navigation className="w-3.5 h-3.5" />
                       Get Directions
                     </button>
                   </div>
@@ -548,34 +533,34 @@ const handleStartDeliveryProcedure = () => {
               </div>
             </div>
 
-            {/* Customer Info - unchanged */}
+            {/* Customer Info */}
             {shipment.customer && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="font-semibold mb-4 flex items-center gap-2">
-                  <User className="w-5 h-5 text-gray-500" />
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                  <User className="w-4 h-4" />
                   Customer Information
                 </h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="font-medium">{shipment.customer.name}</p>
-                      <p className="text-sm text-gray-500">{shipment.customer.email}</p>
+                      <p className="font-bold text-gray-900">{shipment.customer.name}</p>
+                      <p className="text-sm text-gray-600">{shipment.customer.email}</p>
                     </div>
                     <div className="flex gap-2">
                       {shipment.customer.phone && (
                         <button
                           onClick={callCustomer}
-                          className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition"
+                          className="p-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition"
                           title="Call customer"
                         >
-                          <PhoneCall className="w-5 h-5" />
+                          <PhoneCall className="w-4 h-4" />
                         </button>
                       )}
                     </div>
                   </div>
                   {shipment.customer.phone && (
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Phone className="w-4 h-4" />
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Phone className="w-3.5 h-3.5" />
                       <span>{shipment.customer.phone}</span>
                     </div>
                   )}
@@ -583,18 +568,18 @@ const handleStartDeliveryProcedure = () => {
               </div>
             )}
 
-            {/* Status History - unchanged */}
+            {/* Status History */}
             {history.length > 0 && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="font-semibold mb-4">Status History</h3>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 className="text-sm font-bold text-gray-800 mb-3">Status History</h3>
                 <div className="space-y-3 max-h-80 overflow-y-auto">
                   {history.map((item) => (
                     <div key={item.id} className="flex gap-3 text-sm">
-                      <div className="w-32 text-gray-500 flex-shrink-0">
+                      <div className="w-28 text-gray-500 flex-shrink-0 text-xs">
                         {new Date(item.created_at).toLocaleString()}
                       </div>
                       <div>
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${getStatusColor(item.status)}`}>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${getStatusColor(item.status)}`}>
                           {item.status?.replace('_', ' ')}
                         </span>
                         {item.location && <span className="ml-2 text-gray-500">- {item.location}</span>}
@@ -607,12 +592,12 @@ const handleStartDeliveryProcedure = () => {
             )}
           </div>
 
-          {/* Sidebar - Right Side - unchanged except removing manual sign button */}
+          {/* Sidebar - Right Side */}
           <div className="space-y-6">
             {/* Update Status Section */}
             {canUpdateStatus() && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="font-semibold mb-4 flex items-center gap-2">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
                   <RefreshCw className="w-4 h-4" /> Update Delivery Status
                 </h3>
                 
@@ -621,9 +606,9 @@ const handleStartDeliveryProcedure = () => {
                     <button
                       onClick={markAsDelivered}
                       disabled={updating}
-                      className="w-full bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 transition flex items-center justify-center gap-2 text-lg font-semibold"
+                      className="w-full bg-green-700 text-white py-2.5 rounded-lg font-bold hover:bg-green-800 transition flex items-center justify-center gap-2"
                     >
-                      <CheckCircle className="w-5 h-5" />
+                      <CheckCircle className="w-4 h-4" />
                       {updating ? 'Updating...' : '✓ Mark as Delivered'}
                     </button>
                   </div>
@@ -642,7 +627,7 @@ const handleStartDeliveryProcedure = () => {
                   <select
                     value={newStatus}
                     onChange={(e) => setNewStatus(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-600"
                   >
                     <option value="pending">Pending</option>
                     <option value="picked_up">Picked Up</option>
@@ -655,12 +640,12 @@ const handleStartDeliveryProcedure = () => {
                     value={statusNote}
                     onChange={(e) => setStatusNote(e.target.value)}
                     rows={2}
-                    className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-600"
                   />
                   <button
                     onClick={updateStatus}
                     disabled={updating || newStatus === shipment.status}
-                    className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50 transition"
+                    className="w-full bg-blue-700 text-white py-2 rounded-lg font-semibold hover:bg-blue-800 transition disabled:opacity-50"
                   >
                     {updating ? 'Updating...' : 'Update Status'}
                   </button>
@@ -668,115 +653,111 @@ const handleStartDeliveryProcedure = () => {
               </div>
             )}
 
-            {/* Shipment Details - unchanged */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="font-semibold mb-4">Shipment Details</h3>
-              <div className="space-y-3 text-sm">
+            {/* Shipment Details */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+              <h3 className="text-sm font-bold text-gray-800 mb-3">Shipment Details</h3>
+              <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Tracking Number:</span>
-                  <span className="font-mono">{shipment.trackingNumber}</span>
+                  <span className="text-gray-600">Tracking Number:</span>
+                  <span className="font-mono font-bold text-gray-900">{shipment.trackingNumber}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Weight:</span>
-                  <span>{shipment.weightKg || 0} kg</span>
+                  <span className="text-gray-600">Weight:</span>
+                  <span className="font-semibold text-gray-800">{shipment.weightKg || 0} kg</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Volume:</span>
-                  <span>{shipment.volumeM3 || 0} m³</span>
+                  <span className="text-gray-600">Volume:</span>
+                  <span className="font-semibold text-gray-800">{shipment.volumeM3 || 0} m³</span>
                 </div>
                 {shipment.vehicle && (
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Assigned Vehicle:</span>
-                    <span>{shipment.vehicle.license_plate}</span>
+                    <span className="text-gray-600">Assigned Vehicle:</span>
+                    <span className="font-semibold text-gray-800">{shipment.vehicle.license_plate}</span>
                   </div>
                 )}
                 {shipment.estimatedDelivery && (
                   <div className="flex justify-between">
-                    <span className="text-gray-500 flex items-center gap-1">
-                      <Calendar className="w-3 h-3" /> Est. Delivery:
-                    </span>
-                    <span>{new Date(shipment.estimatedDelivery).toLocaleDateString()}</span>
+                    <span className="text-gray-600 flex items-center gap-1">Est. Delivery:</span>
+                    <span className="font-semibold text-gray-800">{new Date(shipment.estimatedDelivery).toLocaleDateString()}</span>
                   </div>
                 )}
                 {shipment.actualDelivery && (
                   <div className="flex justify-between">
-                    <span className="text-gray-500 flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3 text-green-500" /> Actual Delivery:
-                    </span>
-                    <span>{new Date(shipment.actualDelivery).toLocaleString()}</span>
+                    <span className="text-gray-600 flex items-center gap-1">Actual Delivery:</span>
+                    <span className="font-semibold text-green-700">{new Date(shipment.actualDelivery).toLocaleString()}</span>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Delivery Timeline - unchanged */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="font-semibold mb-4 flex items-center gap-2">
+            {/* Delivery Timeline */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+              <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <Clock className="w-4 h-4" /> Delivery Progress
               </h3>
               <div className="relative">
-                <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+                <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-gray-300"></div>
                 <div className="space-y-5">
                   <div className="flex gap-3">
-                    <div className="relative z-10 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <div className="relative z-10 w-6 h-6 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0">
                       <CheckCircle className="w-3 h-3 text-white" />
                     </div>
                     <div>
-                      <p className="font-medium text-sm">Order Created</p>
-                      <p className="text-xs text-gray-500">{new Date(shipment.created_at).toLocaleString()}</p>
+                      <p className="font-bold text-sm">Order Created</p>
+                      <p className="text-xs text-gray-600">{new Date(shipment.created_at).toLocaleString()}</p>
                     </div>
                   </div>
                   
                   <div className="flex gap-3">
                     <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      isStatusCompleted('picked_up') ? 'bg-blue-500' : 'bg-gray-300'
+                      isStatusCompleted('picked_up') ? 'bg-blue-600' : 'bg-gray-300'
                     }`}>
                       {isStatusCompleted('picked_up') && <CheckCircle className="w-3 h-3 text-white" />}
                     </div>
                     <div>
-                      <p className="font-medium text-sm">Picked Up</p>
+                      <p className="font-bold text-sm">Picked Up</p>
                       {shipment.picked_up_at ? (
-                        <p className="text-xs text-gray-500">{new Date(shipment.picked_up_at).toLocaleString()}</p>
+                        <p className="text-xs text-gray-600">{new Date(shipment.picked_up_at).toLocaleString()}</p>
                       ) : isStatusCompleted('picked_up') ? (
-                        <p className="text-xs text-green-600">Completed</p>
+                        <p className="text-xs text-green-700">Completed</p>
                       ) : (
-                        <p className="text-xs text-gray-400">Pending</p>
+                        <p className="text-xs text-gray-500">Pending</p>
                       )}
                     </div>
                   </div>
                   
                   <div className="flex gap-3">
                     <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      isStatusCompleted('in_transit') ? 'bg-purple-500' : 'bg-gray-300'
+                      isStatusCompleted('in_transit') ? 'bg-purple-600' : 'bg-gray-300'
                     }`}>
                       {isStatusCompleted('in_transit') && <Truck className="w-3 h-3 text-white" />}
                     </div>
                     <div>
-                      <p className="font-medium text-sm">In Transit</p>
+                      <p className="font-bold text-sm">In Transit</p>
                       {isStatusCompleted('in_transit') && !shipment.actualDelivery ? (
-                        <p className="text-xs text-purple-600">In progress</p>
+                        <p className="text-xs text-purple-700">In progress</p>
                       ) : isStatusCompleted('in_transit') ? (
-                        <p className="text-xs text-green-600">Completed</p>
+                        <p className="text-xs text-green-700">Completed</p>
                       ) : (
-                        <p className="text-xs text-gray-400">Pending</p>
+                        <p className="text-xs text-gray-500">Pending</p>
                       )}
                     </div>
                   </div>
                   
                   <div className="flex gap-3">
                     <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      shipment.status === 'delivered' ? 'bg-green-500' : 'bg-gray-300'
+                      shipment.status === 'delivered' ? 'bg-green-600' : 'bg-gray-300'
                     }`}>
                       {shipment.status === 'delivered' && <CheckCircle className="w-3 h-3 text-white" />}
                     </div>
                     <div>
-                      <p className="font-medium text-sm">Delivered</p>
+                      <p className="font-bold text-sm">Delivered</p>
                       {shipment.actualDelivery ? (
-                        <p className="text-xs text-gray-500">{new Date(shipment.actualDelivery).toLocaleString()}</p>
+                        <p className="text-xs text-gray-600">{new Date(shipment.actualDelivery).toLocaleString()}</p>
                       ) : shipment.status === 'delivered' ? (
-                        <p className="text-xs text-green-600">Completed</p>
+                        <p className="text-xs text-green-700">Completed</p>
                       ) : (
-                        <p className="text-xs text-gray-400">Pending</p>
+                        <p className="text-xs text-gray-500">Pending</p>
                       )}
                     </div>
                   </div>
@@ -784,27 +765,29 @@ const handleStartDeliveryProcedure = () => {
               </div>
             </div>
 
+            {/* Notes */}
             {shipment.notes && (
-              <div className="bg-yellow-50 rounded-lg shadow p-4 border border-yellow-200">
+              <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
                 <div className="flex items-start gap-2">
-                  <AlertCircle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                  <AlertCircle className="w-5 h-5 text-yellow-700 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-yellow-700 text-sm">Special Instructions</p>
-                    <p className="text-sm text-yellow-600 mt-1">{shipment.notes}</p>
+                    <p className="font-bold text-yellow-800 text-sm">Special Instructions</p>
+                    <p className="text-sm text-yellow-700 mt-1">{shipment.notes}</p>
                   </div>
                 </div>
               </div>
             )}
 
+            {/* Failed/Cancelled Alert */}
             {(shipment.status === 'failed' || shipment.status === 'cancelled') && (
-              <div className="bg-red-50 rounded-lg shadow p-4 border border-red-200">
+              <div className="bg-red-50 rounded-xl p-4 border border-red-200">
                 <div className="flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-500" />
-                  <span className="font-medium text-red-700">
+                  <AlertCircle className="w-5 h-5 text-red-700" />
+                  <span className="font-bold text-red-800">
                     {shipment.status === 'failed' ? 'Delivery Failed' : 'Shipment Cancelled'}
                   </span>
                 </div>
-                <p className="text-sm text-red-600 mt-2">
+                <p className="text-sm text-red-700 mt-2">
                   Please contact your dispatcher for more information.
                 </p>
               </div>
@@ -813,79 +796,79 @@ const handleStartDeliveryProcedure = () => {
         </div>
       </div>
 
-      {/* Waybill Modal for View & Print */}
+      {/* Waybill Modal */}
       {showWaybillModal && waybill && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white">
-              <h2 className="text-xl font-semibold">Waybill {waybill.waybillNumber}</h2>
-              <button onClick={() => setShowWaybillModal(false)} className="text-gray-400 hover:text-gray-600">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-blue-800 to-blue-700 px-5 py-3 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-white">Waybill {waybill.waybillNumber}</h2>
+              <button onClick={() => setShowWaybillModal(false)} className="text-white/80 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-6 space-y-4">
-              <div className="text-center">
-                <h1 className="text-2xl font-bold">LOGITRACK</h1>
-                <p className="text-lg mt-2">Waybill: {waybill.waybillNumber}</p>
+              <div className="text-center border-b pb-4">
+                <h1 className="text-2xl font-extrabold text-gray-900">LOGITRACK</h1>
+                <p className="text-md mt-2 font-semibold">Waybill: {waybill.waybillNumber}</p>
               </div>
               
-              <div className="border rounded-lg p-4">
-                <h3 className="font-semibold mb-3">Shipment Information</h3>
-                <div className="space-y-2">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="font-bold text-gray-800 mb-3">Shipment Information</h3>
+                <div className="space-y-2 text-sm">
                   <div className="flex">
-                    <span className="w-32 text-gray-500">Tracking:</span>
-                    <span className="font-mono">{waybill.shipment.trackingNumber}</span>
+                    <span className="w-32 font-medium text-gray-600">Tracking:</span>
+                    <span className="font-mono text-gray-900">{waybill.shipment.trackingNumber}</span>
                   </div>
                   <div className="flex">
-                    <span className="w-32 text-gray-500">Status:</span>
-                    <span>{waybill.shipment.status}</span>
+                    <span className="w-32 font-medium text-gray-600">Status:</span>
+                    <span className="capitalize text-gray-900">{waybill.shipment.status}</span>
                   </div>
                   <div className="flex">
-                    <span className="w-32 text-gray-500">Pickup:</span>
-                    <span>{waybill.shipment.pickupAddress}</span>
+                    <span className="w-32 font-medium text-gray-600">Pickup:</span>
+                    <span className="text-gray-900">{waybill.shipment.pickupAddress}</span>
                   </div>
                   <div className="flex">
-                    <span className="w-32 text-gray-500">Delivery:</span>
-                    <span>{waybill.shipment.deliveryAddress}</span>
+                    <span className="w-32 font-medium text-gray-600">Delivery:</span>
+                    <span className="text-gray-900">{waybill.shipment.deliveryAddress}</span>
                   </div>
                 </div>
               </div>
               
               {waybill.shipment.driverName && (
-                <div className="border rounded-lg p-4">
-                  <h3 className="font-semibold mb-3">Driver</h3>
-                  <p>{waybill.shipment.driverName}</p>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-bold text-gray-800 mb-2">Driver</h3>
+                  <p className="text-gray-900">{waybill.shipment.driverName}</p>
                 </div>
               )}
               
               {waybill.shipment.vehiclePlate && (
-                <div className="border rounded-lg p-4">
-                  <h3 className="font-semibold mb-3">Vehicle</h3>
-                  <p>{waybill.shipment.vehiclePlate}</p>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-bold text-gray-800 mb-2">Vehicle</h3>
+                  <p className="text-gray-900">{waybill.shipment.vehiclePlate}</p>
                 </div>
               )}
               
               {waybill.signature && (
                 <div className="border rounded-lg p-4 text-center">
-                  <h3 className="font-semibold mb-3">Signature</h3>
+                  <h3 className="font-bold text-gray-800 mb-3">Signature</h3>
                   <img src={waybill.signature} alt="Signature" className="max-w-full h-auto border rounded mx-auto" style={{ maxHeight: '150px' }} />
-                  <p className="text-sm text-gray-500 mt-2">
+                  <p className="text-xs text-gray-500 mt-2">
                     Signed at: {new Date(waybill.signedAt!).toLocaleString()}
                   </p>
                 </div>
               )}
               
-              <div className="flex justify-center pt-4 gap-3">
+              <div className="flex justify-center gap-3 pt-4">
                 <button
                   onClick={() => window.print()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                  className="px-4 py-2 bg-blue-700 text-white rounded-lg font-semibold hover:bg-blue-800 transition flex items-center gap-2"
                 >
                   <Printer className="w-4 h-4" />
                   Print Waybill
                 </button>
                 <button
                   onClick={() => setShowWaybillModal(false)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition"
                 >
                   Close
                 </button>
@@ -898,20 +881,20 @@ const handleStartDeliveryProcedure = () => {
       {/* Signature Modal */}
       {showSignatureModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="flex justify-between items-center p-4 border-b">
-              <h2 className="text-xl font-semibold">Sign Waybill</h2>
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="bg-gradient-to-r from-purple-800 to-purple-700 px-5 py-3 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-white">Sign Waybill</h2>
               <button
                 onClick={() => setShowSignatureModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-white/80 hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <div className="p-4 space-y-4">
+            <div className="p-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-bold text-gray-800 mb-2">
                   Signature (Draw below)
                 </label>
                 <div className="border-2 border-gray-300 rounded-lg overflow-hidden">
@@ -931,13 +914,13 @@ const handleStartDeliveryProcedure = () => {
                         initCanvas();
                       }
                     }}
-                    className="text-sm text-red-500 hover:text-red-600"
+                    className="text-sm font-medium text-red-600 hover:text-red-700"
                   >
                     Clear Signature
                   </button>
                   <button
                     onClick={() => initCanvas()}
-                    className="text-sm text-gray-500 hover:text-gray-600"
+                    className="text-sm font-medium text-gray-600 hover:text-gray-700"
                   >
                     Reset
                   </button>
@@ -945,29 +928,29 @@ const handleStartDeliveryProcedure = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-bold text-gray-800 mb-2">
                   Notes (Optional)
                 </label>
                 <textarea
                   value={signatureNotes}
                   onChange={(e) => setSignatureNotes(e.target.value)}
                   rows={2}
-                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                   placeholder="Add any delivery notes..."
                 />
               </div>
               
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-3 pt-2">
                 <button
                   onClick={saveSignature}
                   disabled={signing}
-                  className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+                  className="flex-1 bg-green-700 text-white py-2 rounded-lg font-bold hover:bg-green-800 transition disabled:opacity-50"
                 >
                   {signing ? 'Signing...' : 'Confirm Signature'}
                 </button>
                 <button
                   onClick={() => setShowSignatureModal(false)}
-                  className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-50 transition"
+                  className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-50 transition"
                 >
                   Cancel
                 </button>

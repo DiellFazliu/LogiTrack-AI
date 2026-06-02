@@ -11,7 +11,7 @@ import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { RolesModule } from '../modules/roles/roles.module';
 import { Driver } from '../modules/drivers/driver.entity';
-
+import { JobsModule } from '../jobs/jobs.module';  // ✅ Importo JobsModule për EmailService
 @Module({
   imports: [
     RolesModule,
@@ -30,6 +30,7 @@ import { Driver } from '../modules/drivers/driver.entity';
         };
       },
     }),
+    JobsModule,  
   ],
   providers: [AuthService, LocalStrategy, JwtStrategy],
   controllers: [AuthController],

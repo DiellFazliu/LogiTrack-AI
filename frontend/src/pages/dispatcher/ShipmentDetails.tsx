@@ -6,15 +6,16 @@ import {
   Clock, CheckCircle, AlertCircle, Edit, 
   Truck as TruckIcon, ArrowLeft, RefreshCw, Phone, Mail 
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 
-// Interface matching backend flattened DTO + optional nested objects
 interface Shipment {
   id: string;
-  trackingNumber: string;           // camelCase
-  tracking_number?: string;         // fallback
+  trackingNumber: string;           
+  tracking_number?: string;         
   status: string;
   pickupAddress: string;
   deliveryAddress: string;
@@ -29,7 +30,6 @@ interface Shipment {
   pickedUpAt: string | null;
   updatedAt: string;
   
-  // Flattened fields (from backend)
   customerName: string | null;
   customerEmail?: string | null;
   driverName: string | null;
@@ -40,7 +40,6 @@ interface Shipment {
   vehicleBrand?: string | null;
   vehicleModel?: string | null;
   
-  // Sometimes nested objects may still be present
   driver?: { id: string; name: string; phone: string; email: string; user?: { name: string } };
   vehicle?: { id: string; licensePlate: string; type: string; brand: string; model: string };
   customer?: { id: string; name: string; email: string; phone: string };
@@ -70,7 +69,6 @@ export const ShipmentDetails: React.FC = () => {
   const isDispatcher = role === 'dispatcher' || role === 'company_admin';
   const isDriver = role === 'driver';
 
-  // Determine the correct back path based on role and current path
   const getBackPath = () => {
     if (location.pathname.includes('/company-admin')) {
       return '/company-admin/shipments';
@@ -129,31 +127,30 @@ export const ShipmentDetails: React.FC = () => {
   };
 
   const assignDriver = () => {
-    // Use the same role‑based path for assignment
     const basePath = location.pathname.includes('/company-admin') ? '/company-admin' : '/dispatcher';
     navigate(`${basePath}/assign-driver?shipment=${id}`);
   };
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      picked_up: 'bg-blue-100 text-blue-800',
-      in_transit: 'bg-purple-100 text-purple-800',
-      delivered: 'bg-green-100 text-green-800',
-      failed: 'bg-red-100 text-red-800',
-      cancelled: 'bg-gray-100 text-gray-800',
+      pending: 'bg-yellow-200 text-yellow-800',
+      picked_up: 'bg-blue-200 text-blue-800',
+      in_transit: 'bg-purple-200 text-purple-800',
+      delivered: 'bg-green-200 text-green-800',
+      failed: 'bg-red-200 text-red-800',
+      cancelled: 'bg-gray-200 text-gray-800',
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return colors[status] || 'bg-gray-200 text-gray-800';
   };
 
   const getPriorityColor = (priority: string) => {
     const colors: Record<string, string> = {
-      low: 'bg-gray-100 text-gray-800',
-      normal: 'bg-blue-100 text-blue-800',
-      high: 'bg-orange-100 text-orange-800',
-      urgent: 'bg-red-100 text-red-800',
+      low: 'bg-gray-200 text-gray-800',
+      normal: 'bg-blue-200 text-blue-800',
+      high: 'bg-orange-200 text-orange-800',
+      urgent: 'bg-red-200 text-red-800',
     };
-    return colors[priority] || 'bg-gray-100 text-gray-800';
+    return colors[priority] || 'bg-gray-200 text-gray-800';
   };
 
   const isStatusCompleted = (statusToCheck: string): boolean => {
@@ -163,7 +160,6 @@ export const ShipmentDetails: React.FC = () => {
     return currentIndex >= checkIndex;
   };
 
-  // Helper to get driver display name
   const getDriverName = (): string => {
     if (shipment?.driverName) return shipment.driverName;
     if (shipment?.driver?.name) return shipment.driver.name;
@@ -171,27 +167,23 @@ export const ShipmentDetails: React.FC = () => {
     return 'Not assigned';
   };
 
-  // Helper to get driver phone
   const getDriverPhone = (): string => {
     if (shipment?.driverPhone) return shipment.driverPhone;
     if (shipment?.driver?.phone) return shipment.driver.phone;
     return '';
   };
 
-  // Helper to get driver email
   const getDriverEmail = (): string => {
     if (shipment?.driver?.email) return shipment.driver.email;
     return '';
   };
 
-  // Helper to get vehicle plate
   const getVehiclePlate = (): string => {
     if (shipment?.vehiclePlate) return shipment.vehiclePlate;
     if (shipment?.vehicle?.licensePlate) return shipment.vehicle.licensePlate;
     return 'Not assigned';
   };
 
-  // Helper to get vehicle description
   const getVehicleDesc = (): string => {
     if (shipment?.vehicleBrand && shipment?.vehicleModel) {
       return `${shipment.vehicleBrand} ${shipment.vehicleModel}`;
@@ -202,28 +194,21 @@ export const ShipmentDetails: React.FC = () => {
     return '';
   };
 
-  // Helper to get vehicle type
   const getVehicleType = (): string => {
     if (shipment?.vehicleType) return shipment.vehicleType;
     if (shipment?.vehicle?.type) return shipment.vehicle.type;
     return '';
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner fullScreen />;
 
   if (!shipment) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-700">Shipment not found</h2>
-          <button onClick={() => navigate(getBackPath())} className="mt-4 text-blue-500 hover:text-blue-600">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center max-w-md">
+          <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-800">Shipment not found</h2>
+          <button onClick={() => navigate(getBackPath())} className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">
             Back to Shipments
           </button>
         </div>
@@ -231,7 +216,6 @@ export const ShipmentDetails: React.FC = () => {
     );
   }
 
-  // Use camelCase fields with fallbacks to snake_case (just in case)
   const trackingNumber = shipment.trackingNumber || shipment.tracking_number || 'N/A';
   const pickupAddress = shipment.pickupAddress || (shipment as any).pickup_address;
   const deliveryAddress = shipment.deliveryAddress || (shipment as any).delivery_address;
@@ -244,115 +228,118 @@ export const ShipmentDetails: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="bg-white shadow">
-        <div className="container mx-auto px-4 py-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
+        {/* Header */}
+        <div className="mb-6">
           <div className="flex items-center gap-4">
-            <button onClick={() => navigate(getBackPath())} className="text-gray-600 hover:text-gray-800">
-              <ArrowLeft className="w-5 h-5" />
+            <button
+              onClick={() => navigate(getBackPath())}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-200 transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Back</span>
             </button>
-            <h1 className="text-2xl font-bold text-gray-800">Shipment Details</h1>
-            <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(shipment.status)}`}>
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-6 bg-blue-700 rounded-full" />
+              <h1 className="text-2xl font-extrabold text-gray-900">Shipment Details</h1>
+            </div>
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold ${getStatusColor(shipment.status)}`}>
               {shipment.status?.replace('_', ' ')}
             </span>
           </div>
         </div>
-      </div>
 
-      <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Info */}
           <div className="lg:col-span-2 space-y-6">
             {/* Tracking Header */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Package className="w-5 h-5 text-blue-500" />
-                    <span className="text-xl font-mono">{trackingNumber}</span>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-800 to-blue-700 px-5 py-3">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-5 h-5 text-white" />
+                    <span className="text-xl font-mono text-white font-bold">{trackingNumber}</span>
                   </div>
                   <div className="flex gap-2">
-                    <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(shipment.priority)}`}>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${getPriorityColor(shipment.priority)}`}>
                       {shipment.priority}
                     </span>
                     {shipment.isExpress && (
-                      <span className="px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-orange-200 text-orange-800">
                         Express
                       </span>
                     )}
                   </div>
                 </div>
-                <div className="text-right text-sm text-gray-500">
-                  Created: {createdAt ? new Date(createdAt).toLocaleString() : 'N/A'}
-                </div>
               </div>
-
-              <div className="space-y-4">
+              <div className="p-5 space-y-4">
                 <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-green-600 mt-1" />
+                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                    <MapPin className="w-4 h-4 text-green-700" />
+                  </div>
                   <div>
-                    <div className="font-medium text-sm text-gray-500">Pickup Address</div>
-                    <div>{pickupAddress || 'N/A'}</div>
+                    <p className="text-xs font-bold text-gray-500 uppercase">Pickup Address</p>
+                    <p className="text-sm text-gray-800">{pickupAddress || 'N/A'}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-red-600 mt-1" />
-                  <div>
-                    <div className="font-medium text-sm text-gray-500">Delivery Address</div>
-                    <div>{deliveryAddress || 'N/A'}</div>
+                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                    <MapPin className="w-4 h-4 text-red-700" />
                   </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase">Delivery Address</p>
+                    <p className="text-sm text-gray-800">{deliveryAddress || 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="text-right text-xs text-gray-500">
+                  Created: {createdAt ? new Date(createdAt).toLocaleString() : 'N/A'}
                 </div>
               </div>
             </div>
 
             {/* Assignment Info - Only for Dispatcher */}
             {isDispatcher && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="font-semibold mb-4">Assignment</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-blue-700" />
+                  Assignment
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <User className="w-4 h-4 text-gray-500" />
-                      <span className="font-medium">Driver</span>
-                    </div>
+                    <p className="text-xs font-bold text-gray-500 uppercase mb-1">Driver</p>
                     {getDriverName() !== 'Not assigned' ? (
                       <div>
-                        <p className="font-medium">{getDriverName()}</p>
+                        <p className="font-bold text-gray-900">{getDriverName()}</p>
                         {getDriverPhone() && (
-                          <p className="text-sm text-gray-500 flex items-center gap-1">
-                            <Phone className="w-3 h-3" /> {getDriverPhone()}
+                          <p className="text-sm text-gray-700 flex items-center gap-1 mt-1">
+                            <Phone className="w-3.5 h-3.5 text-gray-500" /> {getDriverPhone()}
                           </p>
                         )}
                         {getDriverEmail() && (
-                          <p className="text-sm text-gray-500 flex items-center gap-1">
-                            <Mail className="w-3 h-3" /> {getDriverEmail()}
+                          <p className="text-sm text-gray-700 flex items-center gap-1 mt-1">
+                            <Mail className="w-3.5 h-3.5 text-gray-500" /> {getDriverEmail()}
                           </p>
                         )}
                       </div>
                     ) : (
-                      <div className="text-yellow-600">
+                      <div className="text-yellow-700">
                         No driver assigned
-                        <button 
-                          onClick={assignDriver}
-                          className="ml-2 text-blue-500 text-sm hover:underline"
-                        >
+                        <button onClick={assignDriver} className="ml-2 text-blue-700 text-sm font-semibold hover:underline">
                           Assign Now
                         </button>
                       </div>
                     )}
                   </div>
                   <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <TruckIcon className="w-4 h-4 text-gray-500" />
-                      <span className="font-medium">Vehicle</span>
-                    </div>
+                    <p className="text-xs font-bold text-gray-500 uppercase mb-1">Vehicle</p>
                     {getVehiclePlate() !== 'Not assigned' ? (
                       <div>
-                        <p className="font-medium">{getVehiclePlate()}</p>
-                        {getVehicleDesc() && <p className="text-sm text-gray-500">{getVehicleDesc()}</p>}
-                        {getVehicleType() && <p className="text-xs text-gray-400">{getVehicleType()}</p>}
+                        <p className="font-bold text-gray-900">{getVehiclePlate()}</p>
+                        {getVehicleDesc() && <p className="text-sm text-gray-700">{getVehicleDesc()}</p>}
+                        {getVehicleType() && <p className="text-xs text-gray-500">{getVehicleType()}</p>}
                       </div>
                     ) : (
-                      <span className="text-gray-500">Not assigned</span>
+                      <span className="text-gray-600">Not assigned</span>
                     )}
                   </div>
                 </div>
@@ -361,18 +348,21 @@ export const ShipmentDetails: React.FC = () => {
 
             {/* Driver Info - For Driver View */}
             {isDriver && getDriverName() !== 'Not assigned' && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="font-semibold mb-4">Your Assignment</h3>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-blue-700" />
+                  Your Assignment
+                </h3>
                 <div className="flex items-center gap-4">
-                  <div className="bg-blue-100 p-3 rounded-full">
-                    <User className="w-6 h-6 text-blue-600" />
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <User className="w-5 h-5 text-blue-700" />
                   </div>
                   <div>
-                    <p className="font-medium">{getDriverName()}</p>
-                    <p className="text-sm text-gray-500">You are assigned to this delivery</p>
+                    <p className="font-bold text-gray-900">{getDriverName()}</p>
+                    <p className="text-sm text-gray-600">You are assigned to this delivery</p>
                     {getDriverPhone() && (
-                      <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
-                        <Phone className="w-3 h-3" /> {getDriverPhone()}
+                      <p className="text-sm text-gray-600 flex items-center gap-1 mt-1">
+                        <Phone className="w-3.5 h-3.5 text-gray-500" /> {getDriverPhone()}
                       </p>
                     )}
                   </div>
@@ -382,14 +372,14 @@ export const ShipmentDetails: React.FC = () => {
 
             {/* Status History */}
             {history.length > 0 && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="font-semibold mb-4">Status History</h3>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 className="text-sm font-bold text-gray-800 mb-4">Status History</h3>
                 <div className="space-y-3 max-h-80 overflow-y-auto">
                   {history.map((item) => (
-                    <div key={item.id} className="flex gap-3 text-sm">
-                      <div className="w-32 text-gray-500">{new Date(item.created_at).toLocaleString()}</div>
+                    <div key={item.id} className="flex gap-3 text-sm border-b border-gray-100 pb-3">
+                      <div className="w-28 text-gray-500 text-xs">{new Date(item.created_at).toLocaleString()}</div>
                       <div>
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${getStatusColor(item.status)}`}>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${getStatusColor(item.status)}`}>
                           {item.status?.replace('_', ' ')}
                         </span>
                         {item.location && <span className="ml-2 text-gray-500">- {item.location}</span>}
@@ -404,17 +394,17 @@ export const ShipmentDetails: React.FC = () => {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Update Status - For Dispatcher and Driver */}
+            {/* Update Status */}
             {(isDispatcher || isDriver) && shipment.status !== 'delivered' && shipment.status !== 'cancelled' && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="font-semibold mb-4 flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4" /> Update Status
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 text-blue-700" /> Update Status
                 </h3>
                 <div className="space-y-3">
                   <select
                     value={newStatus}
                     onChange={(e) => setNewStatus(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-blue-600"
                   >
                     <option value="pending">Pending</option>
                     <option value="picked_up">Picked Up</option>
@@ -432,12 +422,12 @@ export const ShipmentDetails: React.FC = () => {
                     value={statusNote}
                     onChange={(e) => setStatusNote(e.target.value)}
                     rows={2}
-                    className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-blue-600"
                   />
                   <button
                     onClick={updateStatus}
                     disabled={updating || newStatus === shipment.status}
-                    className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                    className="w-full bg-blue-700 text-white py-2 rounded-lg font-bold hover:bg-blue-800 transition disabled:opacity-50"
                   >
                     {updating ? 'Updating...' : 'Update Status'}
                   </button>
@@ -446,114 +436,103 @@ export const ShipmentDetails: React.FC = () => {
             )}
 
             {/* Shipment Details */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="font-semibold mb-4">Shipment Details</h3>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+              <h3 className="text-sm font-bold text-gray-800 mb-4">Shipment Details</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Weight:</span>
-                  <span>{weight} kg</span>
+                  <span className="text-gray-600">Weight:</span>
+                  <span className="font-semibold text-gray-800">{weight} kg</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Volume:</span>
-                  <span>{volume} m³</span>
+                  <span className="text-gray-600">Volume:</span>
+                  <span className="font-semibold text-gray-800">{volume} m³</span>
                 </div>
                 {estimatedDelivery && (
                   <div className="flex justify-between">
-                    <span className="text-gray-500 flex items-center gap-1">
-                      <Calendar className="w-3 h-3" /> Est. Delivery:
-                    </span>
-                    <span>{new Date(estimatedDelivery).toLocaleDateString()}</span>
+                    <span className="text-gray-600 flex items-center gap-1">Est. Delivery:</span>
+                    <span className="font-semibold text-gray-800">{new Date(estimatedDelivery).toLocaleDateString()}</span>
                   </div>
                 )}
                 {actualDelivery && (
                   <div className="flex justify-between">
-                    <span className="text-gray-500 flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3 text-green-500" /> Actual Delivery:
-                    </span>
-                    <span>{new Date(actualDelivery).toLocaleString()}</span>
+                    <span className="text-gray-600 flex items-center gap-1">Actual Delivery:</span>
+                    <span className="font-semibold text-green-700">{new Date(actualDelivery).toLocaleString()}</span>
                   </div>
                 )}
                 {shipment.notes && (
-                  <div className="mt-3 pt-3 border-t">
-                    <p className="text-gray-500 font-medium">Notes:</p>
-                    <p className="mt-1 text-gray-700">{shipment.notes}</p>
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <p className="text-gray-600 font-semibold">Notes:</p>
+                    <p className="mt-1 text-gray-800">{shipment.notes}</p>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Estimated Timeline */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="font-semibold mb-4 flex items-center gap-2">
-                <Clock className="w-4 h-4" /> Delivery Timeline
+            {/* Delivery Timeline */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+              <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-purple-700" /> Delivery Timeline
               </h3>
               <div className="relative">
-                <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+                <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-gray-300"></div>
                 <div className="space-y-4">
-                  {/* Order Created */}
                   <div className="flex gap-3">
-                    <div className="relative z-10 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                      <CheckCircle className="w-4 h-4 text-white" />
+                    <div className="relative z-10 w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
+                      <CheckCircle className="w-3 h-3 text-white" />
                     </div>
                     <div>
-                      <p className="font-medium">Order Created</p>
-                      <p className="text-sm text-gray-500">{createdAt ? new Date(createdAt).toLocaleString() : 'N/A'}</p>
+                      <p className="font-bold text-sm">Order Created</p>
+                      <p className="text-xs text-gray-600">{createdAt ? new Date(createdAt).toLocaleString() : 'N/A'}</p>
                     </div>
                   </div>
-                  
-                  {/* Picked Up */}
                   <div className="flex gap-3">
                     <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center ${
-                      isStatusCompleted('picked_up') ? 'bg-blue-500' : 'bg-gray-300'
+                      isStatusCompleted('picked_up') ? 'bg-blue-600' : 'bg-gray-300'
                     }`}>
-                      {isStatusCompleted('picked_up') && <Clock className="w-4 h-4 text-white" />}
+                      {isStatusCompleted('picked_up') && <Clock className="w-3 h-3 text-white" />}
                     </div>
                     <div>
-                      <p className="font-medium">Picked Up</p>
+                      <p className="font-bold text-sm">Picked Up</p>
                       {pickedUpAt ? (
-                        <p className="text-sm text-gray-500">{new Date(pickedUpAt).toLocaleString()}</p>
+                        <p className="text-xs text-gray-600">{new Date(pickedUpAt).toLocaleString()}</p>
                       ) : isStatusCompleted('picked_up') ? (
-                        <p className="text-sm text-green-600">Completed</p>
+                        <p className="text-xs text-green-700 font-semibold">Completed</p>
                       ) : (
-                        <p className="text-sm text-gray-400">Pending</p>
+                        <p className="text-xs text-gray-500">Pending</p>
                       )}
                     </div>
                   </div>
-                  
-                  {/* In Transit */}
                   <div className="flex gap-3">
                     <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center ${
-                      isStatusCompleted('in_transit') ? 'bg-purple-500' : 'bg-gray-300'
+                      isStatusCompleted('in_transit') ? 'bg-purple-600' : 'bg-gray-300'
                     }`}>
-                      {isStatusCompleted('in_transit') && <Truck className="w-4 h-4 text-white" />}
+                      {isStatusCompleted('in_transit') && <Truck className="w-3 h-3 text-white" />}
                     </div>
                     <div>
-                      <p className="font-medium">In Transit</p>
+                      <p className="font-bold text-sm">In Transit</p>
                       {isStatusCompleted('in_transit') && !actualDelivery ? (
-                        <p className="text-sm text-purple-600">In progress</p>
+                        <p className="text-xs text-purple-700 font-semibold">In progress</p>
                       ) : isStatusCompleted('in_transit') ? (
-                        <p className="text-sm text-green-600">Completed</p>
+                        <p className="text-xs text-green-700 font-semibold">Completed</p>
                       ) : (
-                        <p className="text-sm text-gray-400">Pending</p>
+                        <p className="text-xs text-gray-500">Pending</p>
                       )}
                     </div>
                   </div>
-                  
-                  {/* Delivered */}
                   <div className="flex gap-3">
                     <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center ${
-                      shipment.status === 'delivered' ? 'bg-green-500' : 'bg-gray-300'
+                      shipment.status === 'delivered' ? 'bg-green-600' : 'bg-gray-300'
                     }`}>
-                      {shipment.status === 'delivered' && <CheckCircle className="w-4 h-4 text-white" />}
+                      {shipment.status === 'delivered' && <CheckCircle className="w-3 h-3 text-white" />}
                     </div>
                     <div>
-                      <p className="font-medium">Delivered</p>
+                      <p className="font-bold text-sm">Delivered</p>
                       {actualDelivery ? (
-                        <p className="text-sm text-gray-500">{new Date(actualDelivery).toLocaleString()}</p>
+                        <p className="text-xs text-gray-600">{new Date(actualDelivery).toLocaleString()}</p>
                       ) : shipment.status === 'delivered' ? (
-                        <p className="text-sm text-green-600">Completed</p>
+                        <p className="text-xs text-green-700 font-semibold">Completed</p>
                       ) : (
-                        <p className="text-sm text-gray-400">Pending</p>
+                        <p className="text-xs text-gray-500">Pending</p>
                       )}
                     </div>
                   </div>
@@ -561,17 +540,17 @@ export const ShipmentDetails: React.FC = () => {
               </div>
             </div>
 
-            {/* Alert for cancelled/failed shipments */}
+            {/* Alert for cancelled/failed */}
             {(shipment.status === 'failed' || shipment.status === 'cancelled') && (
-              <div className="bg-red-50 rounded-lg shadow p-4 border border-red-200">
+              <div className="bg-red-50 rounded-xl p-4 border border-red-200">
                 <div className="flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-500" />
-                  <span className="font-medium text-red-700">
+                  <AlertCircle className="w-5 h-5 text-red-700" />
+                  <span className="font-bold text-red-800">
                     {shipment.status === 'failed' ? 'Delivery Failed' : 'Shipment Cancelled'}
                   </span>
                 </div>
                 {shipment.notes && (
-                  <p className="text-sm text-red-600 mt-2">{shipment.notes}</p>
+                  <p className="text-sm text-red-700 mt-2">{shipment.notes}</p>
                 )}
               </div>
             )}

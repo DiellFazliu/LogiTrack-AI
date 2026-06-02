@@ -1,6 +1,7 @@
 // src/pages/common/ProfilePage.tsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { User, Mail, Phone, Shield, Lock, Save } from 'lucide-react';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorAlert } from '../../components/common/ErrorAlert';
 import api from '../../services/api';
@@ -106,117 +107,168 @@ export const ProfilePage: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">My Profile</h1>
-
-      {error && <ErrorAlert message={error} onClose={() => setError('')} />}
-
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Profile Information Card */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Profile Information</h2>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={profile?.email || ''}
-              disabled
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
-            />
+    <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-6 bg-blue-700 rounded-full" />
+            <h1 className="text-2xl font-extrabold text-gray-900">My Profile</h1>
           </div>
-          <form onSubmit={handleUpdateProfile}>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="+383 44 123 456"
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-              <input
-                type="text"
-                value={profile?.role || ''}
-                disabled
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 capitalize"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={updating}
-              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex justify-center items-center"
-            >
-              {updating ? <LoadingSpinner size="sm" /> : 'Update Profile'}
-            </button>
-          </form>
+          <p className="text-sm text-gray-600 pl-3 mt-1">Manage your account information</p>
         </div>
 
-        {/* Change Password Card */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Change Password</h2>
-          <form onSubmit={handleChangePassword}>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={changingPassword}
-              className="w-full bg-gray-800 text-white py-2 rounded-lg hover:bg-gray-900 transition disabled:opacity-50 flex justify-center items-center"
-            >
-              {changingPassword ? <LoadingSpinner size="sm" /> : 'Change Password'}
-            </button>
-          </form>
-        </div>
-      </div>
+        {error && (
+          <div className="mb-6">
+            <ErrorAlert message={error} onClose={() => setError('')} />
+          </div>
+        )}
 
-      {/* Account Actions */}
-      <div className="mt-6 text-right">
-        <button
-          onClick={logout}
-          className="text-red-600 hover:text-red-700 text-sm"
-        >
-          Sign Out
-        </button>
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Profile Information Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-800 to-blue-700 px-5 py-3">
+              <div className="flex items-center gap-2">
+                <User className="w-5 h-5 text-white" />
+                <h2 className="text-base font-bold text-white">Profile Information</h2>
+              </div>
+            </div>
+            <div className="p-5">
+              <div className="mb-5">
+                <label className="block text-sm font-bold text-gray-800 mb-1">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <input
+                    type="email"
+                    value={profile?.email || ''}
+                    disabled
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
+                  />
+                </div>
+              </div>
+              <form onSubmit={handleUpdateProfile}>
+                <div className="mb-5">
+                  <label className="block text-sm font-bold text-gray-800 mb-1">Full Name</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent text-gray-900"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="mb-5">
+                  <label className="block text-sm font-bold text-gray-800 mb-1">Phone</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent text-gray-900"
+                      placeholder="+383 44 123 456"
+                    />
+                  </div>
+                </div>
+                <div className="mb-6">
+                  <label className="block text-sm font-bold text-gray-800 mb-1">Role</label>
+                  <div className="relative">
+                    <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="text"
+                      value={profile?.role || ''}
+                      disabled
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 capitalize"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={updating}
+                  className="w-full flex justify-center items-center gap-2 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-lg transition shadow-md disabled:opacity-50"
+                >
+                  {updating ? <LoadingSpinner size="sm" /> : <Save className="w-4 h-4" />}
+                  {updating ? 'Saving...' : 'Update Profile'}
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* Change Password Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-gray-800 to-gray-700 px-5 py-3">
+              <div className="flex items-center gap-2">
+                <Lock className="w-5 h-5 text-white" />
+                <h2 className="text-base font-bold text-white">Change Password</h2>
+              </div>
+            </div>
+            <div className="p-5">
+              <form onSubmit={handleChangePassword}>
+                <div className="mb-5">
+                  <label className="block text-sm font-bold text-gray-800 mb-1">Current Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent text-gray-900"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="mb-5">
+                  <label className="block text-sm font-bold text-gray-800 mb-1">New Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent text-gray-900"
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+                </div>
+                <div className="mb-6">
+                  <label className="block text-sm font-bold text-gray-800 mb-1">Confirm New Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent text-gray-900"
+                      required
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={changingPassword}
+                  className="w-full flex justify-center items-center gap-2 py-2.5 bg-gray-800 hover:bg-gray-900 text-white font-bold rounded-lg transition shadow-md disabled:opacity-50"
+                >
+                  {changingPassword ? <LoadingSpinner size="sm" /> : <Lock className="w-4 h-4" />}
+                  {changingPassword ? 'Changing...' : 'Change Password'}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        {/* Account Actions */}
+        <div className="mt-8 flex justify-end">
+          <button
+            onClick={logout}
+            className="text-sm font-semibold text-red-700 hover:text-red-800"
+          >
+            Sign Out
+          </button>
+        </div>
       </div>
     </div>
   );

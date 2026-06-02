@@ -1,9 +1,12 @@
 // frontend/src/pages/super-admin/OrganizationsList.tsx
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Eye, Edit, Trash2, Building2, Users, CreditCard, AlertCircle, RefreshCw } from 'lucide-react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { useNavigate } from 'react-router-dom';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 
 interface Organization {
   id: string;
@@ -21,6 +24,25 @@ interface Organization {
   created_at: string;
   updated_at: string;
 }
+
+// StatCard component
+const StatCard = ({ title, value, icon: Icon, bgColor, description }: any) => (
+  <motion.div
+    whileHover={{ y: -2 }}
+    className={`${bgColor} rounded-xl shadow-md p-4 border border-black/10`}
+  >
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-white/80">{title}</p>
+        <p className="text-2xl font-extrabold text-white mt-1">{value}</p>
+        <p className="text-[10px] text-white/70 mt-1">{description}</p>
+      </div>
+      <div className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center">
+        <Icon className="w-5 h-5 text-white" />
+      </div>
+    </div>
+  </motion.div>
+);
 
 export const OrganizationsList: React.FC = () => {
   const navigate = useNavigate();
@@ -40,13 +62,11 @@ export const OrganizationsList: React.FC = () => {
     fetchOrganizations();
   }, []);
 
-  // ✅ Funksioni i përmirësuar për marrjen e të dhënave me mapping
   const fetchOrganizations = async () => {
     try {
       const response = await api.get('/organizations');
       let orgsData = response.data;
       
-      // Funksioni për të mapuar të dhënat nga backend në frontend
       const mapOrganization = (org: any): Organization => ({
         id: org.id,
         name: org.name,
@@ -115,7 +135,6 @@ export const OrganizationsList: React.FC = () => {
     }
   };
 
-  // ✅ PËRDOR PUT me isActive (camelCase)
   const toggleOrganizationStatus = async (id: string, currentStatus: boolean) => {
     setUpdatingStatusId(id);
     try {
@@ -146,28 +165,26 @@ export const OrganizationsList: React.FC = () => {
 
   const getPlanBadgeColor = (plan: string) => {
     const colors: Record<string, string> = {
-      free: 'bg-gray-100 text-gray-800',
-      basic: 'bg-blue-100 text-blue-800',
-      pro: 'bg-purple-100 text-purple-800',
-      enterprise: 'bg-yellow-100 text-yellow-800',
+      free: 'bg-gray-200 text-gray-800',
+      basic: 'bg-blue-200 text-blue-800',
+      pro: 'bg-purple-200 text-purple-800',
+      enterprise: 'bg-yellow-200 text-yellow-800',
     };
-    return colors[plan] || 'bg-gray-100 text-gray-800';
+    return colors[plan] || 'bg-gray-200 text-gray-800';
   };
 
   const getStatusBadgeColor = (status: string) => {
     const colors: Record<string, string> = {
-      active: 'bg-green-100 text-green-800',
-      inactive: 'bg-red-100 text-red-800',
-      trial: 'bg-yellow-100 text-yellow-800',
-      expired: 'bg-gray-100 text-gray-800',
+      active: 'bg-green-200 text-green-800',
+      inactive: 'bg-red-200 text-red-800',
+      trial: 'bg-yellow-200 text-yellow-800',
+      expired: 'bg-gray-200 text-gray-800',
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return colors[status] || 'bg-gray-200 text-gray-800';
   };
 
   const getActiveStatusBadge = (isActive: boolean) => {
-    return isActive 
-      ? 'bg-green-100 text-green-800'
-      : 'bg-red-100 text-red-800';
+    return isActive ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800';
   };
 
   const filteredOrgs = organizations.filter(org => {
@@ -178,112 +195,73 @@ export const OrganizationsList: React.FC = () => {
     return matchesSearch && matchesPlan && matchesStatus;
   });
 
-  const handleCreateOrg = () => {
-    navigate('/super-admin/organizations/create');
+  const stats = {
+    total: organizations.length,
+    totalUserSlots: organizations.reduce((sum, org) => sum + (org.max_users || 0), 0),
+    activeSubscriptions: organizations.filter(org => org.subscription_status === 'active').length,
+    enterprisePlans: organizations.filter(org => org.plan_type === 'enterprise').length,
   };
 
-  const handleViewOrg = (orgId: string) => {
-    navigate(`/super-admin/organizations/${orgId}`);
-  };
-
-  const handleEditOrg = (orgId: string) => {
-    navigate(`/super-admin/organizations/${orgId}/edit`);
-  };
-
-  const confirmDelete = (org: Organization) => {
-    setSelectedOrg(org);
-    setShowDeleteModal(true);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading organizations...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner fullScreen />;
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex justify-between items-center flex-wrap gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">Organizations</h1>
-              <p className="text-gray-500 mt-1">Manage all companies on the platform</p>
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-6 bg-blue-700 rounded-full" />
+                <h1 className="text-2xl font-extrabold text-gray-900">Organizations</h1>
+              </div>
+              <p className="text-sm text-gray-600 pl-3 mt-0.5">Manage all companies on the platform</p>
             </div>
             <div className="flex gap-2">
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="px-4 py-2 border rounded-lg flex items-center gap-2 hover:bg-gray-50 transition disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-semibold rounded-lg transition disabled:opacity-50"
               >
                 <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                Refresh
+                {refreshing ? 'Refreshing...' : 'Refresh'}
               </button>
-              <button 
-                onClick={handleCreateOrg}
-                className="bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-600 transition"
+              <button
+                onClick={() => navigate('/super-admin/organizations/create')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white text-sm font-bold rounded-lg shadow transition"
               >
-                <Plus className="w-4 h-4" /> Add Organization
+                <Plus className="w-4 h-4" />
+                Add Organization
               </button>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="container mx-auto px-4 py-8">
-        {/* Stats Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-4 text-center">
-            <Building2 className="w-6 h-6 text-blue-500 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-gray-800">{organizations.length}</p>
-            <p className="text-xs text-gray-500">Total Organizations</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4 text-center">
-            <Users className="w-6 h-6 text-green-500 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-gray-800">
-              {organizations.reduce((sum, org) => sum + (org.max_users || 0), 0)}
-            </p>
-            <p className="text-xs text-gray-500">Total User Slots</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4 text-center">
-            <CreditCard className="w-6 h-6 text-purple-500 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-gray-800">
-              {organizations.filter(org => org.subscription_status === 'active').length}
-            </p>
-            <p className="text-xs text-gray-500">Active Subscriptions</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4 text-center">
-            <Building2 className="w-6 h-6 text-yellow-500 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-gray-800">
-              {organizations.filter(org => org.plan_type === 'enterprise').length}
-            </p>
-            <p className="text-xs text-gray-500">Enterprise Plans</p>
-          </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+          <StatCard title="TOTAL ORGANIZATIONS" value={stats.total} icon={Building2} bgColor="bg-blue-800" description="Companies" />
+          <StatCard title="TOTAL USER SLOTS" value={stats.totalUserSlots} icon={Users} bgColor="bg-green-800" description="Across all orgs" />
+          <StatCard title="ACTIVE SUBS" value={stats.activeSubscriptions} icon={CreditCard} bgColor="bg-purple-800" description="Subscriptions" />
+          <StatCard title="ENTERPRISE" value={stats.enterprisePlans} icon={Building2} bgColor="bg-yellow-800" description="Enterprise plans" />
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
               <input
                 type="text"
                 placeholder="Search by name or email..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500"
               />
             </div>
             <select
               value={planFilter}
               onChange={(e) => setPlanFilter(e.target.value)}
-              className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-1 focus:ring-blue-500"
             >
               <option value="all">All Plans</option>
               <option value="free">Free</option>
@@ -294,7 +272,7 @@ export const OrganizationsList: React.FC = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-1 focus:ring-blue-500"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -309,7 +287,7 @@ export const OrganizationsList: React.FC = () => {
                 else if (e.target.value === 'inactive') setStatusFilter('inactive');
                 else setStatusFilter('all');
               }}
-              className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-1 focus:ring-blue-500"
             >
               <option value="all">All (Active/Inactive)</option>
               <option value="active">Active Only</option>
@@ -319,11 +297,11 @@ export const OrganizationsList: React.FC = () => {
         </div>
 
         {/* Organizations Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {filteredOrgs.length === 0 ? (
             <div className="text-center py-12">
               <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No organizations found</p>
+              <p className="text-gray-500 font-medium">No organizations found</p>
               <p className="text-sm text-gray-400 mt-1">Try adjusting your filters or create a new organization</p>
             </div>
           ) : (
@@ -331,37 +309,37 @@ export const OrganizationsList: React.FC = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Organization</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Active</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Users</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th className="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase">Organization</th>
+                    <th className="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase">Contact</th>
+                    <th className="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase">Plan</th>
+                    <th className="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase">Subscription</th>
+                    <th className="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase">Active</th>
+                    <th className="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase">Max Users</th>
+                    <th className="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase">Created</th>
+                    <th className="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredOrgs.map((org) => (
                     <tr key={org.id} className="hover:bg-gray-50 transition">
-                      <td className="px-6 py-4">
+                      <td className="px-5 py-4">
                         <div>
-                          <div className="font-medium text-gray-900">{org.name}</div>
-                          <div className="text-xs text-gray-500">ID: {org.id.slice(0, 8)}</div>
+                          <div className="font-bold text-gray-900">{org.name}</div>
+                          <div className="text-xs text-gray-500 font-mono">ID: {org.id.slice(0, 8)}</div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-5 py-4">
                         <div>
                           <p className="text-sm text-gray-900">{org.email}</p>
                           {org.phone && <p className="text-xs text-gray-500">{org.phone}</p>}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-5 py-4">
                         <select
                           value={org.plan_type}
                           onChange={(e) => updatePlan(org.id, e.target.value)}
                           disabled={updatingPlanId === org.id}
-                          className={`px-2 py-1 rounded-full text-xs ${getPlanBadgeColor(org.plan_type)} border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:opacity-50`}
+                          className={`px-2 py-1 rounded-full text-xs font-semibold ${getPlanBadgeColor(org.plan_type)} border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:opacity-50`}
                         >
                           <option value="free">Free</option>
                           <option value="basic">Basic</option>
@@ -372,56 +350,59 @@ export const OrganizationsList: React.FC = () => {
                           <span className="ml-2 text-xs text-gray-400">Updating...</span>
                         )}
                       </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 rounded-full text-xs ${getStatusBadgeColor(org.subscription_status)}`}>
+                      <td className="px-5 py-4">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadgeColor(org.subscription_status)}`}>
                           {org.subscription_status}
                         </span>
                         {org.subscription_ends_at && (
-                          <p className="text-xs text-gray-400 mt-1">
+                          <p className="text-xs text-gray-500 mt-1">
                             Expires: {new Date(org.subscription_ends_at).toLocaleDateString()}
                           </p>
                         )}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-5 py-4">
                         <button
                           onClick={() => toggleOrganizationStatus(org.id, org.is_active)}
                           disabled={updatingStatusId === org.id}
-                          className={`px-2 py-1 rounded-full text-xs ${getActiveStatusBadge(org.is_active)} transition hover:opacity-70 disabled:opacity-50`}
+                          className={`px-2 py-1 rounded-full text-xs font-semibold ${getActiveStatusBadge(org.is_active)} transition hover:opacity-70 disabled:opacity-50`}
                         >
                           {updatingStatusId === org.id ? 'Updating...' : (org.is_active ? 'Active' : 'Inactive')}
                         </button>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-5 py-4">
                         <div>
-                          <p className="text-sm font-medium">{org.max_users || 0}</p>
+                          <p className="text-sm font-bold text-gray-900">{org.max_users || 0}</p>
                           <p className="text-xs text-gray-500">max users</p>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-gray-500">
+                      <td className="px-5 py-4">
+                        <p className="text-sm text-gray-600">
                           {new Date(org.created_at).toLocaleDateString()}
                         </p>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-5 py-4">
                         <div className="flex gap-2">
-                          <button 
-                            onClick={() => handleViewOrg(org.id)}
-                            className="text-blue-600 hover:text-blue-800"
+                          <button
+                            onClick={() => navigate(`/super-admin/organizations/${org.id}`)}
+                            className="text-blue-700 hover:text-blue-900 p-1"
                             title="View Details"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button 
-                            onClick={() => handleEditOrg(org.id)}
-                            className="text-green-600 hover:text-green-800"
+                          <button
+                            onClick={() => navigate(`/super-admin/organizations/${org.id}/edit`)}
+                            className="text-green-700 hover:text-green-900 p-1"
                             title="Edit Organization"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
-                          <button 
-                            onClick={() => confirmDelete(org)}
+                          <button
+                            onClick={() => {
+                              setSelectedOrg(org);
+                              setShowDeleteModal(true);
+                            }}
                             disabled={deletingId === org.id}
-                            className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                            className="text-red-700 hover:text-red-900 p-1 disabled:opacity-50"
                             title="Delete Organization"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -434,10 +415,10 @@ export const OrganizationsList: React.FC = () => {
               </table>
             </div>
           )}
-          
+
           {/* Footer */}
-          <div className="px-6 py-3 border-t bg-gray-50 flex justify-between items-center flex-wrap gap-2">
-            <p className="text-sm text-gray-500">
+          <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-between items-center flex-wrap gap-2">
+            <p className="text-sm text-gray-600">
               Showing {filteredOrgs.length} of {organizations.length} organizations
             </p>
             <div className="flex gap-1">
@@ -445,7 +426,7 @@ export const OrganizationsList: React.FC = () => {
                 const count = organizations.filter(o => o.plan_type === plan).length;
                 if (count === 0) return null;
                 return (
-                  <span key={plan} className="px-2 py-1 bg-gray-100 rounded text-xs">
+                  <span key={plan} className="px-2 py-1 bg-gray-200 rounded-md text-xs font-medium text-gray-700">
                     {plan}: {count}
                   </span>
                 );
@@ -455,13 +436,13 @@ export const OrganizationsList: React.FC = () => {
         </div>
 
         {/* Info Note */}
-        <div className="mt-6 bg-blue-50 rounded-lg p-4 border border-blue-200">
+        <div className="mt-6 bg-blue-50 rounded-xl p-4 border border-blue-200">
           <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-blue-700 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-blue-800">About Organizations:</p>
+              <p className="text-sm font-semibold text-blue-800">About Organizations:</p>
               <p className="text-sm text-blue-700">
-                Each organization represents a company tenant. You can manage their subscriptions, 
+                Each organization represents a company tenant. You can manage their subscriptions,
                 user limits, and system access from this page.
               </p>
             </div>
@@ -470,42 +451,19 @@ export const OrganizationsList: React.FC = () => {
       </div>
 
       {/* Delete Confirmation Modal */}
-      {showDeleteModal && selectedOrg && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                <Trash2 className="w-5 h-5 text-red-600" />
-              </div>
-              <h2 className="text-xl font-bold text-gray-800">Confirm Delete</h2>
-            </div>
-            <p className="text-gray-600 mb-2">
-              Are you sure you want to delete <span className="font-semibold">{selectedOrg.name}</span>?
-            </p>
-            <p className="text-sm text-red-600 mb-6">
-              This will permanently delete all users, drivers, vehicles, shipments, and all associated data.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setSelectedOrg(null);
-                }}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => deleteOrganization(selectedOrg.id)}
-                disabled={deletingId === selectedOrg.id}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition disabled:opacity-50"
-              >
-                {deletingId === selectedOrg.id ? 'Deleting...' : 'Delete Organization'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setSelectedOrg(null);
+        }}
+        onConfirm={() => selectedOrg && deleteOrganization(selectedOrg.id)}
+        title="Confirm Delete"
+        message={`Are you sure you want to delete "${selectedOrg?.name}"? This will permanently delete all users, drivers, vehicles, shipments, and associated data.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+      />
     </div>
   );
 };

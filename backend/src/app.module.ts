@@ -34,6 +34,9 @@ import { DocumentsModule } from './modules/documents/documents.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
 import { WaybillsModule } from './modules/waybills/waybills.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
+import { SettingsModule } from './modules/settings/settings.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -82,6 +85,15 @@ import { WaybillsModule } from './modules/waybills/waybills.module';
           host: configService.get('REDIS_HOST'),
           port: configService.get('REDIS_PORT'),
         },
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 5000,
+          },
+          removeOnComplete: true,
+          removeOnFail: false,
+        },
       }),
       inject: [ConfigService],
     }),
@@ -94,7 +106,7 @@ import { WaybillsModule } from './modules/waybills/waybills.module';
     WarehousesModule,
     ProductsModule,
     RolesModule,
-    JobsModule,
+    JobsModule,     
     AiModule,
     NotificationsModule,
     RoutesModule,
@@ -106,6 +118,9 @@ import { WaybillsModule } from './modules/waybills/waybills.module';
     InvoicesModule,
     TrackingModule,
     WaybillsModule,
+    InventoryModule,
+    SettingsModule,
+    PaymentsModule,
   ],
   providers: [
     {
