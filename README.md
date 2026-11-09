@@ -1,260 +1,149 @@
-# 🚚 LogiTrack AI
+# LogiTrack AI
+
+> A multi-tenant logistics and delivery management platform for coordinating shipments, fleets, drivers, warehouses, and operational intelligence.
 
 <div align="center">
 
-### Platformë për menaxhimin e logjistikës dhe dërgesave me Inteligjencë Artificiale
-
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
-![Node](https://img.shields.io/badge/node-20.x-green)
-![NestJS](https://img.shields.io/badge/NestJS-10.x-red)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)
-![React](https://img.shields.io/badge/React-18.x-61DAFB)
-![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.x-06B6D4)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14.x-4169E1)
-![Redis](https://img.shields.io/badge/Redis-7.x-DC382D)
-![License](https://img.shields.io/badge/license-MIT-green)
+![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?logo=node.js&logoColor=white)
+![NestJS](https://img.shields.io/badge/NestJS-10.x-E0234E?logo=nestjs&logoColor=white)
+![React](https://img.shields.io/badge/React-19.x-61DAFB?logo=react&logoColor=111827)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14%2B-4169E1?logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-7%2B-DC382D?logo=redis&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-22C55E)
 
 </div>
 
----
+## Overview
 
-# 📋 Përmbajtja
+LogiTrack AI brings the core workflows of a delivery operation into one application. Organizations can manage their people and resources, plan and track shipments, coordinate drivers, monitor locations, manage warehouse inventory, and generate operational reports.
 
-* [Përshkrimi](#-përshkrimi)
-* [Teknologjitë](#-teknologjitë)
-* [Karakteristikat Kryesore](#-karakteristikat-kryesore)
-* [Arkitektura e Sistemit](#-arkitektura-e-sistemit)
-* [Rolet e Përdoruesve](#-rolet-e-përdoruesve)
-* [Kërkesat e Projektit](#-kërkesat-e-projektit)
-* [Udhëzimi i Instalimit](#-udhëzimi-i-instalimit)
-* [Konfigurimi i Ambientit](#-konfigurimi-i-ambientit)
-* [Migrimet e Databazës](#-migrimet-e-databazës)
-* [API Endpoint-et](#-api-endpoint-et)
-* [Testimi](#-testimi)
-* [CI/CD](#-cicd)
-* [Struktura e Projektit](#-struktura-e-projektit)
-* [Kontributet](#-kontributet)
-* [Licenca](#-licenca)
+The platform is built as a TypeScript monorepo-style project with separate applications:
 
----
+- **Backend:** NestJS REST API with PostgreSQL persistence, TypeORM migrations, Redis caching and queues, JWT authentication, role-based access control, and Swagger documentation.
+- **Frontend:** React single-page application with role-specific dashboards, protected routes, shipment and fleet workflows, maps, reports, and AI-assisted features.
 
-# 🎯 Përshkrimi
+## Key capabilities
 
-**LogiTrack AI** është një platformë moderne web për menaxhimin e logjistikës dhe dërgesave, e cila përdor **Inteligjencën Artificiale (AI)** për të optimizuar operacionet e transportit.
+### Operations
 
-Platforma ofron një zgjidhje të plotë për kompanitë e shpërndarjes, duke mundësuar:
+- Shipment creation, assignment, tracking, status updates, and delivery history
+- Driver, vehicle, warehouse, product, and inventory management
+- Driver location updates and map-based shipment coordination
+- Waybill and shipment document workflows
+- Customer shipment tracking and reviews
 
-* Menaxhimin e dërgesave
-* Menaxhimin e shoferëve
-* Menaxhimin e automjeteve
-* Menaxhimin e magazinave
-* Menaxhimin e inventarit
-* Optimizimin inteligjent të rrugëve
-* Raportimin dhe analizën e performancës
+### Administration
 
----
+- Multi-organization tenant model
+- Super-admin and company-admin management areas
+- Role-based access control (RBAC)
+- User lifecycle, organization, subscription, plan, and billing workflows
+- Audit and operational reporting
 
-# 🛠️ Teknologjitë
+### Intelligence and automation
 
-## Backend
+- AI-assisted route optimization
+- Delay prediction
+- In-app AI chatbot
+- Redis-backed caching and Bull background jobs
+- Email notifications and scheduled reporting workflows
 
-| Teknologjia | Versioni | Përshkrimi                   |
-| ----------- | -------- | ---------------------------- |
-| NestJS      | 10.x     | Framework për API skalabile  |
-| TypeScript  | 5.x      | Gjuhë programuese e tipizuar |
-| PostgreSQL  | 14.x     | Database relacional          |
-| TypeORM     | 0.3.x    | ORM                          |
-| Redis       | 7.x      | Cache & Queue                |
-| Bull        | 4.x      | Background Jobs              |
-| JWT         | -        | Authentication               |
-| OpenAI API  | -        | AI Features                  |
-| Swagger     | -        | API Documentation            |
+## User roles
 
-## Frontend
+| Role | Primary responsibilities |
+| --- | --- |
+| **Super admin** | Manages organizations, plans, subscriptions, users, and platform-wide operations |
+| **Company admin** | Manages an organization’s users, drivers, vehicles, warehouses, shipments, and reports |
+| **Dispatcher** | Creates and assigns shipments, coordinates drivers, and monitors delivery progress |
+| **Driver** | Views assigned shipments, follows routes, updates location, and submits delivery reports |
+| **Customer** | Creates or tracks shipments and reviews delivery experiences |
 
-| Teknologjia  | Versioni | Përshkrimi        |
-| ------------ | -------- | ----------------- |
-| React        | 18.x     | UI Library        |
-| TypeScript   | 5.x      | Gjuhë programuese |
-| TailwindCSS  | 3.x      | Styling           |
-| Vite         | 5.x      | Build Tool        |
-| Axios        | -        | HTTP Client       |
-| React Router | 6.x      | Routing           |
-| Recharts     | -        | Charts            |
-
-## Mjete
-
-| Mjeti           | Përshkrimi          |
-| --------------- | ------------------- |
-| Git & GitHub    | Version Control     |
-| GitHub Actions  | CI/CD               |
-| Postman         | API Testing         |
-| TablePlus       | Database Management |
-| GitHub Projects | Project Management  |
-
----
-
-# ✨ Karakteristikat Kryesore
-
-## 🏗️ Arkitektura & Siguria
-
-| Karakteristika     | Përshkrimi                |
-| ------------------ | ------------------------- |
-| Multi-tenancy      | Ndarje sipas organizatave |
-| RBAC               | Role Based Access Control |
-| JWT Authentication | Login i sigurt            |
-| Audit Logging      | Regjistrim aktivitetesh   |
-
-## 📦 Menaxhimi i Logjistikës
-
-| Karakteristika | Përshkrimi             |
-| -------------- | ---------------------- |
-| Dërgesat       | CRUD + Tracking        |
-| Shoferët       | Menaxhim dhe vlerësime |
-| Automjetet     | Menaxhim flotash       |
-| Magazinat      | Menaxhim inventari     |
-| Produktet      | Katalog produktesh     |
-
-## 🤖 Inteligjenca Artificiale
-
-| Karakteristika     | Përshkrimi           |
-| ------------------ | -------------------- |
-| Route Optimization | AI optimizon rrugët  |
-| Delay Prediction   | Parashikon vonesat   |
-| AI Chatbot         | Asistent inteligjent |
-
-## 📊 Raportimi
-
-| Karakteristika     | Përshkrimi              |
-| ------------------ | ----------------------- |
-| Raporte Ditore     | Analizë ditore          |
-| Raporte Mujore     | Analizë mujore          |
-| Driver Performance | Performanca e shoferëve |
-
-## 🔔 Njoftimet
-
-| Karakteristika      | Përshkrimi         |
-| ------------------- | ------------------ |
-| Email Notifications | Email automatik    |
-| ETA Updates         | Përditësim ETA     |
-| Auto Reports        | Raporte automatike |
-
----
-
-# 🏗️ Arkitektura e Sistemit
+## Architecture
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│                       LOGITRACK AI                          │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│   ┌─────────────┐        HTTP/REST     ┌──────────────┐     │
-│   │  FRONTEND   │ ◄──────────────────► │  BACKEND     │     │
-│   │   React     │                      │   NestJS     │     │
-│   │ Port: 5173  │                      │ Port: 5000   │     │
-│   └─────────────┘                      └──────┬───────┘     │
-│                                               │             │
-│              ┌────────────────────────────────│             │
-│              │                                │             │
-│              ▼                                ▼             │
-│      ┌───────────────┐             ┌───────────────┐        │
-│      │ PostgreSQL    │             │ Redis         │        │
-│      │ Database      │             │ Cache/Queue   │        │
-│      └───────────────┘             └───────────────┘        │
-│                                              │              │
-│                                              ▼              │
-│                                      ┌───────────────┐      │
-│                                      │ OpenAI API    │      │
-│                                      │ AI Engine     │      │
-│                                      └───────────────┘      │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────┐       HTTP/REST       ┌──────────────────────┐
+│ React + Vite         │ ◄───────────────────► │ NestJS API           │
+│ Frontend             │                       │ Authentication + RBAC│
+│ http://localhost:5173│                       │ http://localhost:5000 │
+└──────────────────────┘                       └──────────┬───────────┘
+                                                           │
+                                      ┌────────────────────┼────────────────────┐
+                                      ▼                    ▼                    ▼
+                              ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+                              │ PostgreSQL   │     │ Redis        │     │ OpenAI API   │
+                              │ Persistence  │     │ Cache + jobs │     │ AI features  │
+                              └──────────────┘     └──────────────┘     └──────────────┘
 ```
 
-## Flow i të Dhënave
+## Technology stack
 
-```yaml
-1. React Client dërgon HTTP Request
-2. Middleware autentikon JWT
-3. Guards verifikojnë rolet
-4. Controller pranon kërkesën
-5. Service përpunon logjikën
-6. TypeORM komunikon me PostgreSQL
-7. Response kthehet në JSON
-```
+| Area | Technologies |
+| --- | --- |
+| Frontend | React, TypeScript, Vite, React Router, TanStack Query, Tailwind CSS, Leaflet, Recharts |
+| Backend | NestJS, TypeScript, Express, TypeORM, PostgreSQL, Swagger |
+| Authentication | JWT, Passport, bcrypt, role-based guards |
+| Infrastructure | Redis, Bull, Nodemailer |
+| AI and data | OpenAI API, Xenova Transformers, Zod |
+| Testing | Jest, Supertest, Vitest, Testing Library |
 
----
+## Prerequisites
 
-# 👥 Rolet e Përdoruesve
+Install the following before starting local development:
 
-| Roli          | Përshkrimi           | Aksesi            |
-| ------------- | -------------------- | ----------------- |
-| Super Admin   | Menaxhon sistemin    | Full Access       |
-| Company Admin | Menaxhon organizatën | Organizata        |
-| Dispatcher    | Planifikon dërgesa   | Logistics         |
-| Driver        | Kryen dërgesat       | Driver Portal     |
-| Customer      | Klienti              | Shipment Tracking |
+- Node.js 20.x or a compatible current LTS release
+- npm
+- PostgreSQL 14 or newer
+- Redis 7 or newer
+- Git
 
----
-
-# ✅ Kërkesat e Projektit
-
-| #  | Kërkesa                        | Statusi |
-| -- | ------------------------------ | ------- |
-| 1  | Arkitektura Client-Server      | ✅       |
-| 2  | HTTP/HTTPS REST                | ✅       |
-| 3  | Minimum 20 Endpoint-e          | ✅       |
-| 4  | RESTful API                    | ✅       |
-| 5  | OOP Programming                | ✅       |
-| 6  | Swagger Documentation          | ✅       |
-| 7  | ORM + Database                 | ✅       |
-| 8  | Authentication & Authorization | ✅       |
-| 9  | Middleware                     | ✅       |
-| 10 | React Frontend                 | ✅       |
-| 11 | Testing + CI/CD                | ✅       |
-| 12 | Migrations                     | ✅       |
-| 13 | Documentation                  | ✅       |
-| 14 | Project Management             | ✅       |
-| 15 | Git Collaboration              | ✅       |
-| 16 | OpenAI Integration             | ✅       |
-| 17 | Redis Caching                  | ✅       |
-| 18 | Async Tasks                    | ✅       |
-| 19 | Multi-Tenancy                  | ✅       |
-| 20 | Search & Filtering             | ✅       |
-
----
-
-# 🚀 Udhëzimi i Instalimit
-
-## Parakushtet
+Verify the required tools:
 
 ```bash
 node --version
+npm --version
 psql --version
 redis-server --version
 git --version
 ```
 
-## Instalimi
+## Getting started
+
+### 1. Clone the repository
 
 ```bash
-git clone https://github.com/username/LogiTrack-AI.git
+git clone https://github.com/DiellFazliu/LogiTrack-AI.git
+cd LogiTrack-AI
+```
 
-cd LogiTrack-AI/backend
+### 2. Install dependencies
+
+Install dependencies independently for each application:
+
+```bash
+cd backend
 npm install
 
 cd ../frontend
 npm install
 ```
 
----
+### 3. Create the databases
 
-# ⚙️ Konfigurimi i Ambientit
+Create a development database and, if you plan to run the test configuration, a test database:
 
-## Backend (.env)
+```sql
+CREATE DATABASE logitrack_db;
+CREATE DATABASE logitrack_db_test;
+```
+
+### 4. Configure the backend
+
+Create `backend/.env` with values appropriate for your local environment:
 
 ```env
-PORT=5000
 NODE_ENV=development
+PORT=5000
 
 DB_HOST=localhost
 DB_PORT=5432
@@ -265,202 +154,194 @@ DB_PASSWORD=postgres
 REDIS_HOST=localhost
 REDIS_PORT=6379
 
-JWT_SECRET=your-secret-key
+JWT_SECRET=replace-with-a-long-random-secret
 JWT_EXPIRES_IN=7d
 
-OPENAI_API_KEY=your-openai-key
+OPENAI_API_KEY=replace-with-your-openai-key
 
-CLIENT_URL=http://localhost:5173
+SMTP_HOST=localhost
+SMTP_PORT=1025
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_FROM=no-reply@logitrack.local
 ```
 
-## Krijimi i Database
+Never commit `.env` files or real credentials. Use separate credentials and secrets for development, testing, and production.
 
-```sql
-CREATE DATABASE logitrack_db;
-CREATE DATABASE logitrack_db_test;
+### 5. Configure the frontend
+
+The frontend defaults to `http://localhost:5000` for the API. To use another API URL, create `frontend/.env`:
+
+```env
+VITE_API_URL=http://localhost:5000
 ```
 
----
+### 6. Run database migrations
 
-# 🗄️ Migrimet e Databazës
+From `backend`:
 
 ```bash
-npm run migration:create
-npm run migration:generate
 npm run migration:run
-npm run migration:revert
-npm run migration:show
-```
-# 🔗 API Endpoint-et
-
-## Auth
-
-| Method | Endpoint              |
-| ------ | --------------------- |
-| POST   | /auth/register        |
-| POST   | /auth/login           |
-| POST   | /auth/logout          |
-| POST   | /auth/refresh         |
-| POST   | /auth/change-password |
-
-## Users
-
-| Method | Endpoint   |
-| ------ | ---------- |
-| GET    | /users     |
-| GET    | /users/me  |
-| GET    | /users/:id |
-| PUT    | /users/:id |
-| DELETE | /users/:id |
-
-## Shipments
-
-| Method | Endpoint              |
-| ------ | --------------------- |
-| POST   | /shipments            |
-| GET    | /shipments            |
-| GET    | /shipments/:id        |
-| PUT    | /shipments/:id        |
-| PATCH  | /shipments/:id/status |
-| DELETE | /shipments/:id        |
-
-## AI
-
-| Method | Endpoint                      |
-| ------ | ----------------------------- |
-| POST   | /ai/optimize-route            |
-| POST   | /ai/predict-delay/:shipmentId |
-| POST   | /ai/chatbot                   |
-
----
-
-# 📚 Swagger Documentation
-
-```text
-http://localhost:5000/api-docs
 ```
 
----
+### 7. Start the applications
 
-# 🧪 Testimi
+Run each application in a separate terminal.
 
-## Backend
+**Backend**
 
 ```bash
-npm run test
-npm run test:watch
+cd backend
+npm run start:dev
+```
+
+**Frontend**
+
+```bash
+cd frontend
+npm run dev
+```
+
+The applications are then available at:
+
+- Frontend: <http://localhost:5173>
+- API: <http://localhost:5000>
+- Swagger UI: <http://localhost:5000/api-docs>
+
+## Database migrations
+
+Run migration commands from the `backend` directory:
+
+```bash
+# Apply pending migrations
+npm run migration:run
+
+# Generate a migration from entity changes
+npm run migration:generate -- src/migrations/DescriptiveMigrationName
+
+# Create an empty migration
+npm run migration:create -- src/migrations/DescriptiveMigrationName
+
+# Revert the latest migration
+npm run migration:revert
+```
+
+Keep migrations under version control. Do not enable TypeORM synchronization in shared or production environments.
+
+## API documentation
+
+The backend exposes an interactive Swagger UI when it is running:
+
+<http://localhost:5000/api-docs>
+
+The generated OpenAPI document is also available at:
+
+<http://localhost:5000/api-docs-json>
+
+The API uses bearer-token authentication for protected endpoints. Authenticate through the auth endpoints, then use the returned token in Swagger’s **Authorize** dialog.
+
+## Common API areas
+
+The API is organized around the following resource areas:
+
+| Area | Examples |
+| --- | --- |
+| Authentication | Registration, login, refresh, logout, password changes |
+| Users and organizations | Profiles, user administration, tenant management |
+| Shipments | Creation, assignment, tracking, status, delivery operations |
+| Drivers and vehicles | Driver profiles, fleet management, location updates |
+| Warehouses and inventory | Warehouse, product, and stock management |
+| Reports | Operational, daily, custom, and exportable reports |
+| AI | Route optimization, delay prediction, and chatbot interactions |
+
+Swagger is the source of truth for the complete request and response contract.
+
+## Testing and quality checks
+
+### Backend
+
+```bash
+cd backend
+npm test
 npm run test:cov
 npm run test:e2e
+npm run lint
+npm run build
 ```
 
-## Frontend
+AI-specific end-to-end tests can be run with:
 
 ```bash
-npm run test
+npm run test:e2e:ai
 ```
 
-## Coverage
+### Frontend
 
-| Moduli    | Coverage |
-| --------- | -------- |
-| Users     | 86.55%   |
-| Auth      | 42.01%   |
-| Reviews   | 52.06%   |
-| Shipments | 25.07%   |
-| Total     | 38%      |
-
-🎯 Target Coverage: **70%**
-
----
-
-# 🔄 CI/CD
-
-```yaml
-name: CI/CD Pipeline
-
-on:
-  push:
-    branches: [main, develop]
-
-jobs:
-  backend:
-    runs-on: ubuntu-latest
-
-  frontend:
-    runs-on: ubuntu-latest
+```bash
+cd frontend
+npm run test:run
+npm run test:coverage
+npm run lint
+npm run build
 ```
 
----
+Use `npm run test:watch` in either application when developing interactively.
 
-# 📁 Struktura e Projektit
+## Project structure
 
 ```text
-LogiTrack-AI
-│
-├── backend
-│   ├── src
-│   │   ├── modules
-│   │   ├── common
-│   │   ├── config
-│   │   └── migrations
-│
-├── frontend
-│   ├── src
-│   │   ├── components
-│   │   ├── pages
-│   │   ├── hooks
-│   │   ├── services
-│   │   └── context
-│
-├── .github
-│   └── workflows
-│
-├── README.md
-└── LICENSE
+LogiTrack-AI/
+├── backend/
+│   ├── src/
+│   │   ├── common/          # Guards, middleware, shared infrastructure
+│   │   ├── config/          # Data-source and application configuration
+│   │   ├── jobs/            # Queued and scheduled background work
+│   │   ├── migrations/      # TypeORM database migrations
+│   │   └── modules/         # Auth, shipments, users, reports, AI, and more
+│   └── test/                # End-to-end test configuration
+├── frontend/
+│   └── src/
+│       ├── components/      # Reusable UI and feature components
+│       ├── context/         # Application providers and auth state
+│       ├── hooks/           # Data and access hooks
+│       ├── pages/           # Role-specific screens
+│       ├── services/        # API clients and resource services
+│       ├── types/           # Shared frontend types
+│       └── utils/           # UI and data helpers
+├── .github/
+│   └── workflows/           # CI/CD workflows
+├── LICENSE
+└── README.md
 ```
 
----
+## Contributing
 
-# 👥 Kontributet
+1. Create a focused branch from the current development branch.
+2. Keep changes scoped to one feature or fix.
+3. Update migrations, tests, and documentation when behavior changes.
+4. Run the relevant backend and frontend checks locally.
+5. Open a pull request with a clear summary, testing notes, and screenshots for UI changes.
 
-## Studentët
+Please use GitHub Issues to report bugs or propose improvements:
 
-| Emri            | 
-| --------------- |
-| Arijana Braha   | 
-| Albin Maqastena |
-| Diona Sadiku    | 
-| Diell Fazliu    | 
-| Flon Kastrati   | 
-| Fion Islami     |
+<https://github.com/DiellFazliu/LogiTrack-AI/issues>
 
-## Mentorët
+## License
 
-| Pozita   | Emri                   |
-| -------- | ---------------------- |
-| Profesor | Prof. Dr. Isak Shabani |
-| Asistent | Ass. Msc. Blend Arifaj |
+LogiTrack AI is released under the MIT License. See [LICENSE](./LICENSE) for details.
 
----
+## Team
 
-# 📄 Licenca
+LogiTrack AI is developed by:
 
-Ky projekt është licencuar nën **MIT License**.
+- Arijana Braha
+- Albin Maqastena
+- Diona Sadiku
+- Diell Fazliu
+- Flon Kastrati
+- Fion Islami
 
----
+Project mentorship:
 
-# 📞 Kontakt
-
-Për pyetje ose sugjerime:
-
-**GitHub Issues**
-
-https://github.com/username/LogiTrack-AI/issues
-
----
-
-<div align="center">
-
-© 2026 LogiTrack AI. Të gjitha të drejtat e rezervuara.
-
-</div>
+- Prof. Dr. Isak Shabani
+- Ass. Msc. Blend Arifaj
